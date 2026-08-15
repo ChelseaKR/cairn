@@ -78,10 +78,44 @@ class TestCli(CliHarness):
             self.assertEqual(code, 1)
             self.assertIn("cairn index", err.getvalue())
 
+    def test_04_ask_explain_reports_the_trace_alongside_the_answer(self):
+        self.run_cli("index")
+        code, out, _ = self.run_cli(
+            "ask", "--explain", "How much is the monthly grocery allowance for one person?"
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("Candidates (", out)
+        self.assertIn("Stage 1 - retrieval:", out)
+        self.assertIn("Stage 2 - answer:", out)
+        self.assertIn("Verdict: GROUNDED", out)
+        self.assertIn("Sources:", out, "the answer itself is still printed")
+        self.assertIn(str(self.index_path), out, "the trace names the index it read")
+
+    def test_05_ask_explain_json_carries_candidates_and_diagnosis(self):
+        self.run_cli("index")
+        code, out, _ = self.run_cli(
+            "ask", "--json", "--explain", "Can you help me renew my drivers license?"
+        )
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload["kind"], "refusal")
+        explain = payload["explain"]
+        self.assertEqual(explain["threshold"], 0.20)
+        self.assertTrue(all(not c["accepted"] for c in explain["candidates"]))
+        self.assertEqual(explain["diagnosis"]["blame"], "retrieval")
+        self.assertFalse(explain["diagnosis"]["grounded"])
+        self.assertEqual(
+            [s["stage"] for s in explain["diagnosis"]["stages"]], ["retrieval", "answer"]
+        )
+
+    def test_06_explain_is_opt_in(self):
+        self.run_cli("index")
+        _, plain, _ = self.run_cli("ask", "--json", "How much does the GoPass cost per year?")
+        self.assertNotIn("explain", json.loads(plain))
+
     def test_milestone_stubs_name_their_milestone_and_exit_2(self):
         self.run_cli("index")
         for argv, milestone in (
-            (("ask", "--explain", "q"), "M2"),
             (("ask", "--lang", "es", "q"), "M3"),
             (("serve",), "M4"),
         ):

@@ -4,6 +4,7 @@ Subcommands:
 
     cairn index            build the local index; report what was indexed
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
+    cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            (milestone M4) accessible chat UI
 
 Exit codes: 0 for success — including refusals, which are a first-class
@@ -21,6 +22,7 @@ from cairn import __version__
 from cairn.answer import Answer, compose
 from cairn.config import Config, ConfigError, load_config
 from cairn.corpus import CorpusError
+from cairn.explain import diagnose, render, trace_payload
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.retrieve import retrieve
 
@@ -49,13 +51,6 @@ def _render_answer(answer: Answer) -> str:
 
 
 def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
-    if args.explain:
-        print(
-            "cairn: --explain (operator explain mode) arrives in milestone M2; "
-            "see the roadmap in DESIGN.md.",
-            file=sys.stderr,
-        )
-        return STUB_EXIT_CODE
     if args.lang:
         print(
             "cairn: --lang (language selection) arrives in milestone M3; "
@@ -68,10 +63,26 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
         args.question, index, threshold=cfg.threshold, candidates=cfg.candidates
     )
     answer = compose(trace, max_passages=cfg.max_passages, contact=cfg.contact)
+    diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
+
     if args.json:
-        print(json.dumps(answer.to_payload(), ensure_ascii=False, sort_keys=True))
-    else:
-        print(_render_answer(answer))
+        payload = answer.to_payload()
+        if diagnosis is not None:
+            payload["explain"] = {
+                **trace_payload(trace),
+                "diagnosis": diagnosis.to_payload(),
+            }
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if diagnosis is not None:
+        summary = (
+            f"{index.passage_count} passages from {index.doc_count} documents "
+            f"({cfg.index_path})"
+        )
+        print(render(answer, diagnosis, index_summary=summary))
+        print()
+    print(_render_answer(answer))
     return 0
 
 
@@ -110,7 +121,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_ask.add_argument(
         "--explain",
         action="store_true",
-        help="operator explain mode: candidate scores and threshold verdicts (milestone M2)",
+        help=(
+            "operator explain mode: every scored candidate, its accept/reject verdict "
+            "at the threshold, and a per-stage diagnosis of the outcome"
+        ),
     )
     p_ask.add_argument(
         "--lang",
