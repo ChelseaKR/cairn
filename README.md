@@ -7,10 +7,13 @@ it refuses plainly and points to a human — no guessing, ever. A cairn marks a
 verified trail; where there are no stones, there is no trail.
 
 **Status: pre-release.** Ingest, grounded answers with citations, refusal, the
-operator explain mode, and multilingual operation including right-to-left are
-complete; the accessible chat UI and the CI audit interlock are on the
+operator explain mode, multilingual operation including right-to-left, and the
+accessible chat interface are complete; the CI audit interlock is on the
 [roadmap](DESIGN.md#roadmap). This is a demonstration of correct behavior, not
 a production service.
+
+Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
+executed by the test suite, so its output is what you will get.
 
 ## Provenance
 
@@ -126,6 +129,34 @@ deadlines, in English, Spanish, and Arabic, each file marked `synthetic: true`. 
 documents to use real content — swapping the corpus is a config change, never
 a code change.
 
+## The chat interface
+
+```console
+$ python3 -m cairn serve
+cairn: serving the chat interface on http://127.0.0.1:8765/  (ctrl-c to stop)
+```
+
+Localhost only, no external resource of any kind, and a content security
+policy of `default-src 'none'` so the browser enforces that rather than this
+README claiming it. It targets WCAG 2.2 AA as behavior, not as attributes: a
+skip link that lands in the question box, a transcript announced politely that
+never steals focus, a separate assertive channel that carries errors and
+nothing else, a labelled input with the Enter/Shift-Enter behavior written
+under it, a permanent disclosure with no dismiss control, a language selector
+that mirrors the whole layout for Arabic, a visible focus ring at every stop,
+and light and dark presentations whose every colour pair passes AA. It answers
+without JavaScript, too — the form posts and the server renders.
+
+Checked in two layers: `tests/test_ui.py` for markup, semantics, and computed
+contrast, offline with no dependencies; and `tests/browser/` for the behaviors
+only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in
+light, dark, and right-to-left.
+
+```console
+$ cd tests/browser && npm install && npm run check
+46/46 behaviour checks passed
+```
+
 ## Configuration
 
 Everything tunable lives in [`cairn.toml`](cairn.toml), which ships with every
@@ -147,7 +178,12 @@ behavior (no sources, no corpus leakage, countable in JSON output), stage
 diagnosis in explain mode, multilingual behavior including script-aware
 tokenizing and bidi isolation, output determinism, and the CLI contract — and
 it re-measures the retrieval threshold calibration on every run rather than
-trusting a comment.
+trusting a comment. It also runs every command in
+[the walkthrough](docs/demo.md) and fails if the recorded output has drifted.
+
+The browser checks under `tests/browser/` need Node and Chromium and are
+deliberately not part of this path: install, lint and test work with no Node,
+no browser, and no network.
 
 ## License
 

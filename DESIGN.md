@@ -48,10 +48,15 @@ cairn/                  the package
   engine.py             the ask pipeline: language, retrieval, fallback, composition
   explain.py            operator explain mode: candidate trace and per-stage diagnosis
   config.py             TOML config loading with defaults
+  server.py             the localhost demo server behind `cairn serve`
+  ui/page.py            the served page, built as a string
+  ui/static/            app.css, app.js — the only two assets, both same-origin
   cli.py                subcommands: index, ask, serve
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
+docs/demo.md            the walkthrough, with executed (not asserted) output
 tests/                  stdlib unittest suite (runs with zero third-party deps)
+tests/browser/          Chromium behaviour checks — outside the core dev path
 ```
 
 `engine.ask` is the only entry point that answers a question. The CLI and the
@@ -314,7 +319,7 @@ in the index) but no rushed half-implementations.
 | **M1 (now)** | (groundwork) | synthetic demo corpus in English and Spanish; config; unittest suite; docs for the offline demo path |
 | **M2 (done)** | R5 explain mode | `ask --explain`: every candidate with score, accepted/rejected at threshold, and a per-stage verdict that separates a retrieval miss from a composition problem. `--explain --json` carries the same data machine-readably |
 | **M3 (done)** | R4 multilingual | Arabic (RTL) in the demo corpus; explicit `--lang` selection and corpus-driven detection; same-language sources preferred; direction derived from the language code and Latin runs bidi-isolated; honest cross-language fallback with an untranslated quote |
-| **M4** | R6 + R7 UI/docs | accessible chat UI (WCAG 2.2 AA behaviors: skip link, polite live-region transcript, interrupting error channel, labeled input, standing AI disclosure, light/dark), served by stdlib `http.server`; demo walkthrough doc with a CI check that docs and actual output do not drift |
+| **M4 (done)** | R6 + R7 UI/docs | accessible chat interface served by stdlib `http.server`: skip link, polite live-region transcript, errors-only assertive channel, labelled input with a key hint, standing disclosure, language selector that mirrors the layout, light and dark. Verified twice — markup and contrast in `tests/test_ui.py`, behavior and axe-core WCAG 2.2 AA in `tests/browser/`. `docs/demo.md` walks the demo and its output is executed by `tests/test_docs.py` |
 | **M5** | auditor interlock | auditor pinned by exact commit in `auditor.pin` (single file read by local tooling and CI), resolved at run time — never a package dependency; gate job fails (never skips) when the auditor is unreachable, with the reason written into the workflow as a comment. Core install/lint/test stays fully independent of the auditor |
 
 Ordering rationale: explain mode (M2) before multilingual (M3) because it is the
@@ -322,6 +327,53 @@ operator's debugging instrument — it makes every later milestone cheaper to ve
 UI last among the feature milestones because it renders behaviors the engine must
 already have. The interlock closes the loop once there are recorded answers worth
 auditing.
+
+## The chat interface
+
+Served by stdlib `http.server` on localhost. It is a demonstration server: no
+state, no storage, nothing logged about the questions people ask.
+
+- **Progressive enhancement, not decoration.** The form posts to the same
+  `/ask` endpoint the script uses, and a POST without JavaScript returns a
+  fully rendered page with the answer in it. The script adds the one thing a
+  reload cannot: a transcript that accumulates and is announced while focus
+  stays put. Without it, each answer replaces the transcript — the one
+  behavior that genuinely needs client state, and stated on the page's own
+  documentation rather than hidden.
+- **Two live regions with a strict division of labour.** A polite `log` for
+  content and progress, and a single `role="alert"` region that carries errors
+  and nothing else. Exactly one function in the codebase writes to the
+  assertive one. An assertive region that also carries routine progress is an
+  assertive region nobody can leave switched on.
+- **Nothing ever calls `focus()` on new content.** Answers arrive in the
+  polite region; the caret stays in the textarea. Verified in a real browser,
+  because markup cannot promise it.
+- **Direction is layout, not text.** Every box uses logical properties, so
+  `dir="rtl"` mirrors the page — the send control physically moves to the
+  other side, asserted from its bounding box. A test fails on any physical
+  `left`/`right` that creeps back into the stylesheet.
+- **Per-element language.** An English passage quoted in an Arabic session is
+  marked `lang="en" dir="ltr"` on its own block, with the Latin passage id in
+  a `<bdi>`. Getting this wrong was a real bug, found by writing the test:
+  the answer had been taking the language of the conversation.
+- **`default-src 'none'`.** The offline claim is enforced by the browser. A
+  CDN font added later breaks the page loudly instead of quietly requiring a
+  network.
+- **Contrast is computed, not eyeballed.** `tests/test_ui.py` parses the
+  stylesheet's own custom properties and checks every pair in both
+  presentations against AA.
+
+### Two layers of accessibility checking
+
+`tests/test_ui.py` runs offline with no dependencies and covers what markup
+and CSS can promise: structure, roles, language and direction, contrast, and
+the absence of a dismiss control on the disclosure. `tests/browser/a11y.mjs`
+drives the real server in real Chromium and covers what they cannot: tab order
+forwards and backwards, a visible non-transparent focus ring at every stop,
+announcements actually firing, the assertive channel's silence on success,
+layout mirroring, target sizes, and axe-core's WCAG 2.2 AA rule set in light,
+dark, and right-to-left. The second layer needs Node and a browser and is
+deliberately outside the core dev path, which stays standard-library-only.
 
 ## Decisions where the specification was silent
 
@@ -350,3 +402,10 @@ auditing.
 - **Refusal contacts are per language:** `[refusal.contact_by_language]`. A
   refusal that points a Spanish speaker at an English sentence has not really
   pointed them anywhere.
+- **Markdown markers are dropped when rendering a quote,** and the heading line
+  is emphasized instead. Markup is removed, never words: a test asserts every
+  non-marker character of the answer survives into the page.
+- **The demo server binds to 127.0.0.1 by default.** A demo that listens on
+  every interface out of the box is a demo somebody accidentally exposes.
+- **The walkthrough's expected output is generated from real runs and then
+  executed by a test,** rather than written by hand and hoped for.
