@@ -83,5 +83,5 @@ OFF_TOPIC = [
 # The configured threshold must sit strictly between these, with room on both
 # sides — a threshold pressed against either edge is a threshold that will
 # start refusing real questions the first time a document is edited.
-MEASURED_WORST_IN_CORPUS = 0.187
-MEASURED_BEST_OFF_TOPIC = 0.148
+MEASURED_WORST_IN_CORPUS = 0.196
+MEASURED_BEST_OFF_TOPIC = 0.122

@@ -16,13 +16,13 @@ GROUNDED_Q = "How much is the monthly grocery allowance for one person?"
 MISS_Q = "What vaccinations does my dog need?"
 NO_OVERLAP_Q = "zzzzqqqq wwwwxxxx"
 
-# Retrieval ranks the passage holding the fare second (the grocery document's
-# "how much" passage outranks it), so max_passages=1 composes an answer that is
-# missing the fact the operator asked for. This is the case explain mode exists
-# to disambiguate: retrieval did its job and the answer is still wrong.
-TRUNCATION_Q = "How much does the GoPass cost per year?"
-TRUNCATION_FACT = "$20"
-TRUNCATION_PASSAGE = "transit-pass-en#2"
+# A two-part question. Retrieval finds both halves and accepts both passages;
+# composition quotes only the best one, so the answer is missing the half the
+# operator asked about second. This is the case explain mode exists to
+# disambiguate: retrieval did its job and the answer is still incomplete.
+TRUNCATION_Q = "What does the housing grant cover and when do I apply?"
+TRUNCATION_FACT = "September 30"
+TRUNCATION_PASSAGE = "housing-relief-en#4"
 
 
 class ExplainHarness(unittest.TestCase):

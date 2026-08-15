@@ -48,7 +48,7 @@ class Config:
     corpus_path: str = "corpus/demo"
     index_path: str = ".cairn/index.json"
     threshold: float = 0.165
-    max_passages: int = 2
+    max_passages: int = 1
     candidates: int = 8
     default_lang: str = "en"
     cross_language_fallback: bool = True

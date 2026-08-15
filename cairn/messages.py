@@ -10,6 +10,10 @@ Two rules this module enforces, both tested:
 
 1. Every language carries every key. A missing key would silently serve
    English to a Spanish or Arabic speaker, which is worse than a visible gap.
+   Each refusal says both halves of what a refusal has to say: there is no
+   source, and I cannot help with this. The Spanish one used to say only the
+   first half, which an audit of recorded answers caught — a standard refusal
+   detector read it as an answer, and so would a person skimming.
 2. A key's placeholders are the same in every language. ``{contact}``,
    ``{language}``, and ``{count}`` are the whole vocabulary; anything else is
    a typo waiting to raise at the worst possible moment.
@@ -25,9 +29,10 @@ CATALOGUE: dict[str, dict[str, str]] = {
     "en": {
         # --- engine voice ---
         "refusal": (
-            "I don't have a source for that. None of the official documents this "
-            "assistant is allowed to answer from cover your question, and I won't "
-            "guess.\nFor help from a person, contact {contact}."
+            "I don't have a source for that, so I can't help with this question. "
+            "None of the official documents this assistant is allowed to answer "
+            "from cover it, and I won't guess.\n"
+            "For help from a person, contact {contact}."
         ),
         "cross_language_notice": (
             "The only source I have for this is written in another language "
@@ -77,9 +82,10 @@ CATALOGUE: dict[str, dict[str, str]] = {
     },
     "es": {
         "refusal": (
-            "No tengo ninguna fuente para eso. Ninguno de los documentos oficiales "
-            "de los que este asistente puede responder cubre su pregunta, y no voy "
-            "a adivinar.\nPara recibir ayuda de una persona, comuníquese con {contact}."
+            "No tengo ninguna fuente para eso, así que no puedo ayudarle con esta "
+            "pregunta. Ninguno de los documentos oficiales de los que este "
+            "asistente puede responder la cubre, y no voy a adivinar.\n"
+            "Para recibir ayuda de una persona, comuníquese con {contact}."
         ),
         "cross_language_notice": (
             "La única fuente que tengo para esto está escrita en otro idioma "
@@ -130,8 +136,8 @@ CATALOGUE: dict[str, dict[str, str]] = {
     },
     "ar": {
         "refusal": (
-            "ليس لدي مصدر لهذا. لا تغطي سؤالك أي من الوثائق الرسمية المسموح لهذا "
-            "المساعد بالإجابة منها، ولن أخمّن.\n"
+            "ليس لدي مصدر لهذا، ولا يمكنني مساعدتك في هذا السؤال. لا تغطيه أي من "
+            "الوثائق الرسمية المسموح لهذا المساعد بالإجابة منها، ولن أخمّن.\n"
             "للحصول على مساعدة من شخص، تواصل مع {contact}."
         ),
         "cross_language_notice": (

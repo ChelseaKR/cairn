@@ -38,26 +38,23 @@ A one-person household receives $212 per month. Each additional household
 member adds $118 per month. For example, a household of three receives $448
 per month.
 
-## Income limits: who can apply
-Your household's gross monthly income must be at or below $2,430 for one
-person, plus $860 for each additional member. You must live in Harbor County.
-You do not need a permanent address to apply.
-
 Sources:
   [1] Fresh Start Grocery Allowance (grocery-allowance-en#2)
-  [2] Fresh Start Grocery Allowance (grocery-allowance-en#3)
 ```
 
-The answer is the cited passages, verbatim and in rank order. Nothing is
-paraphrased or summarized, so `$212` appears in the answer for exactly one
-reason: it appears in `grocery-allowance-en#2`. Every source is a document
-title plus a stable identifier an operator can open the document and count to.
+The answer is the cited passage, verbatim. Nothing is paraphrased or
+summarized, so `$212` appears in the answer for exactly one reason: it appears
+in `grocery-allowance-en#2`. Every source is a document title plus a stable
+identifier an operator can open the document and count to.
+
+One passage by default. `retrieval.max_passages` raises that, and section 7
+shows how to see what a lower value is dropping.
 
 ## 3. Ask something it does not cover
 
 ```console
 $ python3 -m cairn ask "Can you help me renew my drivers license?"
-I don't have a source for that. None of the official documents this assistant is allowed to answer from cover your question, and I won't guess.
+I don't have a source for that, so I can't help with this question. None of the official documents this assistant is allowed to answer from cover it, and I won't guess.
 For help from a person, contact the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own).
 ```
 
@@ -76,13 +73,8 @@ La subvención cubre hasta $3,500 de alquiler no pagado. Se paga una vez por
 hogar; un hogar que ya recibió la subvención no puede recibirla de nuevo
 durante 36 meses.
 
-La Subvención de Alivio de Vivienda de Harbor es un pago único que ayuda a los
-inquilinos atrasados en el alquiler a permanecer en sus hogares. La subvención
-se paga directamente a su arrendador.
-
 Fuentes:
   [1] Subvención de Alivio de Vivienda de Harbor (housing-relief-es#2)
-  [2] Subvención de Alivio de Vivienda de Harbor (housing-relief-es#1)
 ```
 
 The question's language was determined from the corpus's own vocabulary — no
@@ -98,13 +90,8 @@ $ python3 -m cairn ask "كم قيمة رصيد المرافق الشتوي شه�
 $475 في الشتاء الواحد. أما الأسر التي تعتمد على الكهرباء في التدفئة فتحصل على
 $40 إضافية شهريًا.
 
-يخفض رصيد هاربر الشتوي لفواتير المرافق تكلفة تدفئة المنزل خلال أشهر البرد
-الشديد. وتضيف شركة الكهرباء الرصيد مباشرة إلى حسابك، فلا يوجد شيك تصرفه ولا
-تمر الأموال بين يديك.
-
 المصادر:
   [1] ⁨رصيد هاربر الشتوي لفواتير المرافق (utility-credit-ar#2)⁩
-  [2] ⁨رصيد هاربر الشتوي لفواتير المرافق (utility-credit-ar#1)⁩
 ```
 
 The source identifiers in that list are wrapped in Unicode bidi isolates
@@ -120,19 +107,13 @@ leave them alone.)
 $ python3 -m cairn ask --lang es "How much does the GoPass cost per year?"
 La única fuente que tengo para esto está escrita en otro idioma (⁨English⁩). Se cita a continuación tal como fue publicada.
 
-## How much you get
-A one-person household receives $212 per month. Each additional household
-member adds $118 per month. For example, a household of three receives $448
-per month.
-
 ## The discount and the fee
 GoPass holders pay 50 percent of the standard fare on every ride. The pass
 costs $20 per year, and the fee is waived for riders enrolled in the Fresh
 Start Grocery Allowance.
 
 Fuentes:
-  [1] Fresh Start Grocery Allowance (grocery-allowance-en#2)
-  [2] Harbor GoPass Reduced Fare Program (transit-pass-en#2)
+  [1] Harbor GoPass Reduced Fare Program (transit-pass-en#2)
 ```
 
 The transit document exists only in English, which is what agency translation
@@ -153,28 +134,28 @@ Language:  en (vocabulary)
            corpus vocabulary coverage: en 0.40, es 0.00
 
 Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
-   1  0.082  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+   1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
           ## Income limits: who can apply Your household's gross monthly income must be at or bel…
-   2  0.051  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
+   2  0.044  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
           ## What the credit is worth An eligible household receives a credit of $95 per month fr…
-   3  0.048  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
-          ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
-   4  0.047  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
+   3  0.041  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
           ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
+   4  0.041  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
+          ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
 
 Attempt 2 (widened to every language): 40 passages scored, 0 excluded, 4 candidates
-   1  0.082  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+   1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
           ## Income limits: who can apply Your household's gross monthly income must be at or bel…
-   2  0.051  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
+   2  0.044  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
           ## What the credit is worth An eligible household receives a credit of $95 per month fr…
-   3  0.048  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
-          ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
-   4  0.047  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
+   3  0.041  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
           ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
+   4  0.041  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
+          ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
 
 Stage 1 - retrieval: FAILED (below-threshold)
   4 candidates were scored and none cleared the 0.165 threshold. The best,
-  grocery-allowance-en#3, scored 0.082 and was short by 0.083.
+  grocery-allowance-en#3, scored 0.069 and was short by 0.096.
 Stage 2 - answer: NOT REACHED (no-evidence)
   The answer stage was handed no passages, so it refused. It could not have
   produced text here; look upstream at retrieval.
@@ -183,7 +164,7 @@ Verdict: NOT GROUNDED - refusal, no sources.
 Diagnose at: retrieval.
 ==============================================================================
 
-I don't have a source for that. None of the official documents this assistant is allowed to answer from cover your question, and I won't guess.
+I don't have a source for that, so I can't help with this question. None of the official documents this assistant is allowed to answer from cover it, and I won't guess.
 For help from a person, contact the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own).
 ```
 

@@ -16,8 +16,13 @@ path = ".cairn/index.json"
 # measured score bands); operators swapping in their own corpus should
 # re-check it with their own probe questions.
 threshold = 0.165
-# Passages composed into a grounded answer (rank order, accepted only).
-max_passages = 2
+# Passages composed into a grounded answer, best first. One by default: an
+# audit of recorded answers found that composing a second passage pasted
+# another program's paragraph onto the end of an answer, and made the same
+# fact disagree between languages because each language picked its own second
+# passage. Raise it when your corpus genuinely needs multi-passage answers,
+# and read `ask --explain` to see what a lower value is dropping.
+max_passages = 1
 # Candidates scored and reported. Visible in `ask --explain`.
 candidates = 8
 

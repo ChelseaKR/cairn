@@ -30,6 +30,18 @@ from cairn.text import tokenize
 # Bumped to 2 when per-language statistics replaced the corpus-wide ones.
 INDEX_FORMAT_VERSION = 2
 
+# How heavily a document's title counts toward its passages, as a repetition
+# factor. A title is the most topical sentence a policy document has, and
+# folded in once it is diluted among sixty body words. Measured on the demo
+# corpus: at weight 1 a Spanish question naming one program ("cuanto tarda la
+# decision del subsidio de alimentos") was answered from another program's
+# document, because that document's heading happened to contain the question's
+# process words. Raising the weight to 5 puts every probe's fact passage at
+# rank 1, widens the calibration gap from 0.187/0.148 to 0.196/0.122, and
+# fixes the cross-language disagreements the audit found. Weights above 5
+# changed nothing measurable, so 5 is where it stops.
+TITLE_WEIGHT = 5
+
 
 class IndexError_(ValueError):
     """The index file is missing, unreadable, or from another format version."""
@@ -88,17 +100,16 @@ def build_index(corpus_dir: str | Path) -> Index:
     passage_counts: Counter[str] = Counter()
     for doc in docs:
         for p in doc.passages:
-            # The document title is scored into every one of its passages. A
-            # passage lifted out of the middle of a policy document loses the
-            # one sentence that says what the document is about, and questions
-            # name the program ("the grocery allowance", "el crédito de
-            # invierno") far more reliably than they quote its body. Measured
-            # on the demo corpus this was the single largest retrieval
-            # improvement of the multilingual milestone: the weakest in-corpus
-            # question rose from 0.147 to 0.187 while the strongest off-topic
-            # one fell from 0.155 to 0.148, turning an overlap into a gap.
-            # Only the body text is ever quoted back in an answer.
-            counts = Counter(tokenize(f"{p.title}\n{p.text}"))
+            # The document title is scored into every one of its passages,
+            # weighted (see TITLE_WEIGHT). A passage lifted out of the middle
+            # of a policy document loses the one sentence that says what the
+            # document is about, and questions name the program ("the grocery
+            # allowance", "el crédito de invierno") far more reliably than
+            # they quote its body. Measured on the demo corpus, indexing
+            # titles at all was the single largest retrieval improvement of
+            # the multilingual milestone. Only the body text is ever quoted
+            # back in an answer.
+            counts = Counter(tokenize(f"{p.title}\n" * TITLE_WEIGHT + p.text))
             doc_freq.setdefault(p.lang, Counter()).update(counts.keys())
             passage_counts[p.lang] += 1
             passages.append(
