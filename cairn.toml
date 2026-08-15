@@ -1,0 +1,27 @@
+# Cairn configuration. Every key is optional; the values below are the
+# built-in defaults, written out so operators can see the full surface.
+# Swapping the corpus or tuning behavior happens here, never in code.
+
+[corpus]
+# Directory of front-matter markdown documents. The bundled default is
+# SYNTHETIC demonstration content (see corpus/demo/README.md).
+path = "corpus/demo"
+
+[index]
+path = ".cairn/index.json"
+
+[retrieval]
+# Relevance gate on bounded [0, 1] cosine scores. Calibrated against the
+# bundled demo corpus (see DESIGN.md for the measured score bands); operators
+# swapping in their own corpus should re-check it with their own probe
+# questions.
+threshold = 0.20
+# Passages composed into a grounded answer (rank order, accepted only).
+max_passages = 2
+# Candidates scored and reported (visible once explain mode lands in M2).
+candidates = 8
+
+[refusal]
+# The human channel a refusal points to. This default is FICTIONAL demo
+# content; a real deployment must replace it.
+contact = "the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own)"
