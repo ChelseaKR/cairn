@@ -135,7 +135,8 @@ def load_corpus(corpus_dir: str | Path) -> list[Document]:
     for doc in docs:
         if doc.doc_id in seen:
             raise CorpusError(
-                f"duplicate doc id {doc.doc_id!r} in {doc.path} (already used by {seen[doc.doc_id]})"
+                f"duplicate doc id {doc.doc_id!r} in {doc.path} "
+                f"(already used by {seen[doc.doc_id]})"
             )
         seen[doc.doc_id] = doc.path
     return sorted(docs, key=lambda d: d.doc_id)

@@ -29,9 +29,9 @@ STUB_EXIT_CODE = 2
 
 def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     report = build_and_write(cfg.corpus_path, cfg.index_path)
-    synthetic_note = (
-        f" ({report.synthetic_doc_count} marked synthetic)" if report.synthetic_doc_count else ""
-    )
+    synthetic_note = ""
+    if report.synthetic_doc_count:
+        synthetic_note = f" ({report.synthetic_doc_count} marked synthetic)"
     print(
         f"Indexed {report.passage_count} passages from {report.doc_count} "
         f"documents{synthetic_note} -> {report.index_path}"
