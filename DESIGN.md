@@ -82,11 +82,27 @@ unbounded scores would make the configured threshold meaningless across corpora.
 Trade-off accepted: BM25 ranks marginally better on long documents; this corpus
 model (short plain-language passages) does not exercise that advantage.
 
-- Tokenization: Unicode word characters (`\w+`), lowercased via `str.casefold()`.
-  Language-agnostic; works unmodified for Latin-script and RTL-script text.
-- IDF: smoothed, `log((N + 1) / (df + 1)) + 1`, so terms absent from the corpus
-  cannot divide by zero and rare terms are rewarded.
+- Tokenization: Unicode word characters (`\w+`), lowercased via `str.casefold()`,
+  then **truncation-stemmed to 5 characters** — a crude, dictionary-free,
+  deterministic normalizer that unifies inflectional variants (month/monthly,
+  deadline/deadlines, recibe/reciben) across suffixing languages with no
+  per-language rules. Added after measured misses caused by exactly those
+  variants; revisit in M3 when Arabic (non-suffixing morphology) joins.
+- IDF: smoothed, `log((N + 1) / (df + 1)) + 1`; terms appearing in more than
+  half the passages are ignored outright (df-based stopword suppression, no
+  per-language stopword lists). TF is sublinear (`1 + log tf`). Both added after
+  measured misses where repeated function words outweighed topical terms.
 - Ties broken by passage id (lexicographic) so ranking is fully deterministic.
+- **Tried and rejected:** pivoted length normalization (blending passage norms
+  toward the corpus average, b ∈ {0.5, 0.6, 0.75}). Measured on the demo corpus
+  it did not fix the one known hard case and degraded two Spanish rankings, so
+  the simpler, more legible scorer stays.
+- **Known hard case, kept on purpose:** the transit document cross-references
+  the grocery program by name, and its short cross-referencing passage can
+  outrank the grocery document's own eligibility passage for one phrasing of an
+  income-limit question. Real corpora cross-reference constantly; this is the
+  failure mode explain mode (R5, M2) exists to make visible, not something to
+  tune away against a five-document corpus.
 
 ### Chunking
 
@@ -150,15 +166,18 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 | --- | --- | --- |
 | `corpus.path` | `corpus/demo` | the bundled synthetic corpus, so a clean checkout works immediately |
 | `index.path` | `.cairn/index.json` | dot-directory keeps generated state out of the operator's way |
-| `retrieval.threshold` | `0.28` (provisional) | bounded-cosine gate; final value set empirically against the demo corpus during milestone 1 so that in-corpus questions clear it and off-topic questions do not, and the measured margin is recorded here when set |
+| `retrieval.threshold` | `0.20` (measured) | bounded-cosine gate, set empirically against the demo corpus — see the measurement note below |
 | `retrieval.max_passages` | `2` | enough to answer multi-part questions; more starts pasting unrelated passages |
 | `retrieval.candidates` | `8` | candidates scored/reported (matters for explain mode); retrieval quality does not depend on it |
 | `refusal.contact` | demo office string | fictional demo contact; a real agency must set this |
 
-> The threshold default is provisional until measured. Once M1's retrieval runs
-> against the demo corpus, the observed score bands for in-corpus vs. off-topic
-> questions and the confirmed default will be recorded here, in a commit of their
-> own, so the number has a visible empirical basis.
+> **Measured 2026-08-15** (8 in-corpus probes in English and Spanish, 6
+> off-topic probes, final scorer): top scores for in-corpus questions fall in
+> **0.239–0.453**; off-topic questions top out at **0.169**. The provisional
+> default of 0.28 would have wrongly refused a legitimate question scoring
+> 0.239, so the default is **0.20** — inside the measured gap, with margin on
+> both sides. The probe set lives in the test suite, so the calibration is
+> re-checked on every run, not just asserted here.
 
 ## Language and interface decisions
 

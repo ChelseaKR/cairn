@@ -25,7 +25,7 @@ class ConfigError(ValueError):
 class Config:
     corpus_path: str = "corpus/demo"
     index_path: str = ".cairn/index.json"
-    threshold: float = 0.28
+    threshold: float = 0.20
     max_passages: int = 2
     candidates: int = 8
     contact: str = (
