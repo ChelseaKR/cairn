@@ -1,0 +1,213 @@
+/* Cairn chat interface.
+ *
+ * Two presentations, light and dark, chosen by the reader's system setting.
+ * Every colour pair in both is checked against WCAG AA in the test suite, not
+ * eyeballed: tests/test_ui.py computes the ratios from these very tokens.
+ *
+ * Every box uses logical properties (inline-start, padding-inline, text-align:
+ * start) rather than left/right, so switching the document to dir="rtl"
+ * mirrors the layout instead of merely reversing the words inside it.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #ffffff;
+  --surface: #f1f4f7;
+  --text: #16202a;
+  --muted: #4c5a67;
+  --border: #74828e;
+  --accent: #0f5680;
+  --accent-text: #ffffff;
+  --focus: #9c3d06;
+  --alert-bg: #fcebe9;
+  --alert-text: #8a1c12;
+  --alert-border: #a8261a;
+  --notice-bg: #eaf1f7;
+
+  --radius: 6px;
+  --gap: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f151b;
+    --surface: #1a232c;
+    --text: #e6edf3;
+    --muted: #a7b5c1;
+    --border: #728394;
+    --accent: #7fc0ea;
+    --accent-text: #08131c;
+    --focus: #f2a95c;
+    --alert-bg: #2b1512;
+    --alert-text: #ffb9ad;
+    --alert-border: #e0705f;
+    --notice-bg: #16242f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Arabic", sans-serif;
+  line-height: 1.55;
+}
+
+.page {
+  max-width: 44rem;
+  margin-inline: auto;
+  padding-inline: var(--gap);
+  padding-block: var(--gap);
+}
+
+h1 { font-size: 1.6rem; margin-block: 0.6rem; }
+h2 { font-size: 1.15rem; margin-block: 1.4rem 0.5rem; }
+h3 { font-size: 0.85rem; margin-block: 0 0.3rem; text-transform: uppercase;
+     letter-spacing: 0.04em; color: var(--muted); }
+h4 { font-size: 0.9rem; margin-block: 0.8rem 0.3rem; color: var(--muted); }
+p  { margin-block: 0.5rem; }
+
+/* --- skip link: first focusable thing on the page, visible when focused --- */
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: -100vw;
+  inset-block-start: 0;
+  z-index: 10;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  inset-inline-start: 0;
+}
+
+/* --- focus: one visible treatment, everywhere, in both presentations --- */
+
+:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Where the browser supports it, keep the ring for keyboard users and off the
+   mouse, but never remove it without putting :focus-visible back. */
+:focus:not(:focus-visible) { outline-color: transparent; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* --- standing disclosure: permanent, no dismiss control --- */
+
+.disclosure {
+  background: var(--surface);
+  border-inline-start: 5px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.disclosure h2 { margin-block-start: 0.2rem; }
+.disclosure ul { margin-block: 0.5rem; padding-inline-start: 1.2rem; }
+.disclosure li { margin-block: 0.35rem; }
+
+/* --- transcript --- */
+
+.transcript {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+.turn { padding: 0.6rem 0.75rem; }
+.turn + .turn { border-block-start: 1px solid var(--border); }
+.turn-empty { color: var(--muted); }
+
+.asked { font-weight: 600; }
+.answer { white-space: pre-wrap; }
+.answer strong { display: block; margin-block-start: 0.4rem; }
+
+.notice {
+  background: var(--notice-bg);
+  border-inline-start: 4px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+}
+
+.sources { margin: 0; padding-inline-start: 1.4rem; }
+.sources li { margin-block: 0.2rem; }
+
+/* --- the assertive channel: errors only, invisible until there is one --- */
+
+.errors {
+  margin-block: var(--gap);
+  padding: 0.75rem 1rem;
+  background: var(--alert-bg);
+  color: var(--alert-text);
+  border: 2px solid var(--alert-border);
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+.errors:empty { display: none; }
+
+/* --- form --- */
+
+form { margin-block-start: var(--gap); }
+.field { margin-block: 0.9rem; }
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-block-end: 0.3rem;
+}
+
+select,
+textarea {
+  width: 100%;
+  min-height: 2.75rem; /* comfortably past the 24px minimum target size */
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+textarea { resize: vertical; }
+
+.hint {
+  margin-block: 0.35rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.send {
+  min-height: 2.75rem;
+  padding: 0.5rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

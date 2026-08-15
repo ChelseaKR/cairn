@@ -31,7 +31,10 @@ dev = ["pytest", "ruff"]
 cairn = "cairn.cli:main"
 
 [tool.setuptools]
-packages = ["cairn"]
+packages = ["cairn", "cairn.ui"]
+
+[tool.setuptools.package-data]
+"cairn.ui" = ["static/*.css", "static/*.js"]
 
 [tool.ruff]
 line-length = 96

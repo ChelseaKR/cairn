@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cairn.cli import main
+from cairn.cli import build_parser, main
 from cairn.language import POP_DIRECTIONAL_ISOLATE
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -144,10 +144,16 @@ class TestCli(CliHarness):
         self.assertEqual(out, "")
         self.assertIn("unsupported language", err)
 
-    def test_milestone_stubs_name_their_milestone_and_exit_2(self):
-        code, _, err = self.run_cli("serve")
-        self.assertEqual(code, 2)
-        self.assertIn("M4", err)
+    def test_11_serve_binds_to_this_machine_only_by_default(self):
+        # A demo server that listens on every interface by default is a demo
+        # server someone accidentally exposes. The behaviour of the server
+        # itself is covered in tests/test_ui.py.
+        args = build_parser().parse_args(["serve"])
+        self.assertEqual(args.host, "127.0.0.1")
+        self.assertEqual(args.port, 8765)
+        self.assertIs(
+            args.func.__wrapped__ if hasattr(args.func, "__wrapped__") else args.func, args.func
+        )
 
 
 if __name__ == "__main__":

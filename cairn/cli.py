@@ -5,12 +5,11 @@ Subcommands:
     cairn index            build the local index; report what was indexed
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
-    cairn serve            (milestone M4) accessible chat UI
+    cairn serve            the accessible chat interface, on localhost
 
 Exit codes: 0 for success — including refusals, which are a first-class
 outcome, not an error (DESIGN.md); 1 for real errors (bad config, missing
-index, malformed corpus, unsupported language); 2 for not-yet-implemented
-milestone stubs.
+index, malformed corpus, unsupported language).
 
 Right-to-left answers are printed with bidi isolates around the Latin runs
 (passage ids, contact numbers). A terminal is a bidi renderer like any other,
@@ -32,8 +31,7 @@ from cairn.explain import diagnose, render, trace_payload
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.language import isolate
 from cairn.messages import text as message
-
-STUB_EXIT_CODE = 2
+from cairn.server import serve
 
 
 def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
@@ -96,12 +94,21 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
+    index = read_index(cfg.index_path)
+    httpd = serve(cfg, index, host=args.host, port=args.port)
+    host, port = httpd.server_address[0], httpd.server_address[1]
+    print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
     print(
-        "cairn: serve (accessible chat interface) arrives in milestone M4; "
-        "see the roadmap in DESIGN.md. Until then, `cairn ask` is the demo path.",
-        file=sys.stderr,
+        f"cairn: {index.passage_count} passages, {index.doc_count} documents, "
+        f"languages {', '.join(index.language_codes)}"
     )
-    return STUB_EXIT_CODE
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print()  # keep the shell prompt off the ^C line
+    finally:
+        httpd.server_close()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -146,7 +153,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ask.set_defaults(func=_cmd_ask)
 
-    p_serve = sub.add_parser("serve", help="serve the accessible chat UI (milestone M4)")
+    p_serve = sub.add_parser("serve", help="serve the accessible chat interface")
+    p_serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="interface to bind (default: 127.0.0.1, i.e. this machine only)",
+    )
+    p_serve.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="port to bind (default: 8765; 0 picks a free one)",
+    )
     p_serve.set_defaults(func=_cmd_serve)
 
     return parser

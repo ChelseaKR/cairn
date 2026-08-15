@@ -9,6 +9,10 @@ build/
 dist/
 .venv/
 
+# browser check tooling (installed on demand, never by the demo path)
+tests/browser/node_modules/
+tests/browser/package-lock.json
+
 # tooling caches
 .ruff_cache/
 .pytest_cache/

@@ -28,9 +28,20 @@ from cairn.retrieve import RetrievalTrace
 
 @dataclass(frozen=True)
 class Source:
+    """A cited passage: what was quoted, from where, in what language.
+
+    The quoted text lives here rather than only in ``Answer.text`` because a
+    renderer has to know the language of each quote separately. An English
+    passage cited in an Arabic answer needs its own ``lang`` and ``dir``, or a
+    screen reader announces English in an Arabic voice and the browser lays it
+    out backwards. ``Answer.text`` is these quotes joined, and stays the
+    canonical plain-text form.
+    """
+
     title: str
     source_id: str  # stable passage id an operator can look up: <doc-id>#<ordinal>
     lang: str
+    text: str
 
     @property
     def direction(self) -> Direction:
@@ -42,6 +53,7 @@ class Source:
             "id": self.source_id,
             "lang": self.lang,
             "dir": self.direction,
+            "text": self.text,
         }
 
 
@@ -91,7 +103,12 @@ def compose(
     used = accepted[:max_passages]
     text = "\n\n".join(c.passage.text for c in used)
     sources = tuple(
-        Source(title=c.passage.title, source_id=c.passage.passage_id, lang=c.passage.lang)
+        Source(
+            title=c.passage.title,
+            source_id=c.passage.passage_id,
+            lang=c.passage.lang,
+            text=c.passage.text,
+        )
         for c in used
     )
     return Answer(
