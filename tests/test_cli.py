@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from cairn.cli import main
+from cairn.language import POP_DIRECTIONAL_ISOLATE
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -84,7 +85,7 @@ class TestCli(CliHarness):
             "ask", "--explain", "How much is the monthly grocery allowance for one person?"
         )
         self.assertEqual(code, 0)
-        self.assertIn("Candidates (", out)
+        self.assertIn("Attempt 1 (restricted to 'en')", out)
         self.assertIn("Stage 1 - retrieval:", out)
         self.assertIn("Stage 2 - answer:", out)
         self.assertIn("Verdict: GROUNDED", out)
@@ -100,29 +101,53 @@ class TestCli(CliHarness):
         payload = json.loads(out)
         self.assertEqual(payload["kind"], "refusal")
         explain = payload["explain"]
-        self.assertEqual(explain["threshold"], 0.20)
+        self.assertEqual(explain["threshold"], 0.165)
         self.assertTrue(all(not c["accepted"] for c in explain["candidates"]))
         self.assertEqual(explain["diagnosis"]["blame"], "retrieval")
         self.assertFalse(explain["diagnosis"]["grounded"])
         self.assertEqual(
             [s["stage"] for s in explain["diagnosis"]["stages"]], ["retrieval", "answer"]
         )
+        self.assertEqual(explain["language"]["lang"], "en")
+        self.assertEqual([a["scope"] for a in explain["attempts"]], ["language", "corpus"])
+        self.assertFalse(explain["cross_language"])
 
     def test_06_explain_is_opt_in(self):
         self.run_cli("index")
         _, plain, _ = self.run_cli("ask", "--json", "How much does the GoPass cost per year?")
         self.assertNotIn("explain", json.loads(plain))
 
-    def test_milestone_stubs_name_their_milestone_and_exit_2(self):
+    def test_07_index_reports_the_languages_it_indexed(self):
+        _, out, _ = self.run_cli("index")
+        self.assertIn("3 languages [ar, en, es]", out)
+
+    def test_08_lang_selects_the_answer_language(self):
         self.run_cli("index")
-        for argv, milestone in (
-            (("ask", "--lang", "es", "q"), "M3"),
-            (("serve",), "M4"),
-        ):
-            with self.subTest(argv=argv):
-                code, _, err = self.run_cli(*argv)
-                self.assertEqual(code, 2)
-                self.assertIn(milestone, err)
+        code, out, _ = self.run_cli(
+            "ask", "--json", "--lang", "ar", "How much is the grocery allowance?"
+        )
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload["lang"], "ar")
+        self.assertEqual(payload["dir"], "rtl")
+
+    def test_09_rtl_output_isolates_latin_source_ids(self):
+        self.run_cli("index")
+        _, out, _ = self.run_cli("ask", "كم تحصل الأسرة المكونة من شخص واحد شهريًا؟")
+        self.assertIn("المصادر:", out, "the sources heading speaks the answer language")
+        self.assertIn(POP_DIRECTIONAL_ISOLATE, out, "Latin ids are bidi-isolated")
+
+    def test_10_an_unsupported_language_is_an_error_not_a_bad_answer(self):
+        self.run_cli("index")
+        code, out, err = self.run_cli("ask", "--lang", "tlh", "anything")
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertIn("unsupported language", err)
+
+    def test_milestone_stubs_name_their_milestone_and_exit_2(self):
+        code, _, err = self.run_cli("serve")
+        self.assertEqual(code, 2)
+        self.assertIn("M4", err)
 
 
 if __name__ == "__main__":

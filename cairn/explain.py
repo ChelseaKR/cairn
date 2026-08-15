@@ -8,6 +8,11 @@ separately:
 *Retrieval* either put passages in front of the answer stage or it did not.
 *Answer* either had usable evidence and used it, or it was handed nothing.
 
+When a language restriction is in play the report shows every retrieval
+attempt, including the widened cross-language one, so the operator sees the
+filter that was applied rather than a candidate list that quietly omits most
+of the corpus.
+
 Because composition is extractive, an answer stage holding evidence cannot
 invent or garble a fact — so when retrieval succeeds and the answer is still
 wrong, the report says so and names the one composition knob that can drop a
@@ -24,6 +29,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cairn.answer import Answer
+from cairn.engine import AskResult
 from cairn.retrieve import Candidate, RetrievalTrace
 
 StageName = Literal["retrieval", "answer"]
@@ -94,16 +100,31 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
                 f"{_fmt(trace.candidates[0].score)}."
             ),
         )
+    if not trace.candidates and trace.scoped == 0:
+        return StageVerdict(
+            stage="retrieval",
+            ok=False,
+            code="no-passages-in-language",
+            detail=(
+                f"The corpus holds nothing at all in {trace.lang!r}; all "
+                f"{trace.excluded} passages were excluded before scoring. This is a "
+                "corpus coverage gap, not a ranking problem."
+            ),
+        )
     if not trace.candidates:
+        scope = (
+            f"None of the {trace.scoped} passages in {trace.lang!r}"
+            if trace.lang
+            else "No passage in the index"
+        )
         return StageVerdict(
             stage="retrieval",
             ok=False,
             code="no-lexical-overlap",
             detail=(
-                "No passage in the index shares a single scoring term with this "
-                "question, so nothing was even scored. Either the corpus does not "
-                "cover the subject, or the question's vocabulary does not match the "
-                "corpus's."
+                f"{scope} shares a single scoring term with this question, so "
+                "nothing was even scored. Either the corpus does not cover the "
+                "subject, or the question's vocabulary does not match the corpus's."
             ),
         )
     best = trace.candidates[0]
@@ -191,18 +212,52 @@ def _candidate_rows(trace: RetrievalTrace) -> list[str]:
     return rows
 
 
-def render(answer: Answer, diagnosis: Diagnosis, *, index_summary: str) -> str:
-    """The operator's plain-text report. Written to stdout beside the answer."""
+def _language_lines(result: AskResult) -> list[str]:
+    detection = result.detection
+    lines = [f"Language:  {detection.lang} ({detection.basis})"]
+    if detection.coverage:
+        shares = ", ".join(f"{code} {score:.2f}" for code, score in detection.coverage)
+        lines.append(f"           corpus vocabulary coverage: {shares}")
+    if result.cross_language:
+        cited = ", ".join(sorted({s.lang for s in result.answer.sources}))
+        lines.append(
+            f"           answered in {detection.lang} from {cited} sources "
+            "(cross-language fallback)"
+        )
+    return lines
+
+
+def _attempt_lines(result: AskResult) -> list[str]:
+    lines: list[str] = []
+    for number, attempt in enumerate(result.attempts, start=1):
+        trace = attempt.trace
+        scope = (
+            f"restricted to {trace.lang!r}"
+            if attempt.scope == "language"
+            else "widened to every language"
+        )
+        header = (
+            f"Attempt {number} ({scope}): {trace.scoped} passages scored, "
+            f"{trace.excluded} excluded, {len(trace.candidates)} candidates"
+        )
+        lines.append(header)
+        lines.extend(_candidate_rows(trace))
+        lines.append("")
+    return lines
+
+
+def render(result: AskResult, diagnosis: Diagnosis, *, index_summary: str) -> str:
+    """The operator's plain-text report. Written to stdout above the answer."""
+    answer = result.answer
     trace = answer.trace
     lines = [
         "=== retrieval trace " + "=" * (REPORT_WIDTH - 20),
         f"Question:  {trace.query}",
         f"Index:     {index_summary}",
         f"Threshold: {_fmt(trace.threshold)} (retrieval.threshold)",
+        *_language_lines(result),
         "",
-        f"Candidates ({len(trace.candidates)} scored, ranked):",
-        *_candidate_rows(trace),
-        "",
+        *_attempt_lines(result),
     ]
     for step, verdict in enumerate(diagnosis.stages, start=1):
         if verdict.code == "no-evidence":

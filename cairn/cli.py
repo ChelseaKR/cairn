@@ -9,7 +9,13 @@ Subcommands:
 
 Exit codes: 0 for success — including refusals, which are a first-class
 outcome, not an error (DESIGN.md); 1 for real errors (bad config, missing
-index, malformed corpus); 2 for not-yet-implemented milestone stubs.
+index, malformed corpus, unsupported language); 2 for not-yet-implemented
+milestone stubs.
+
+Right-to-left answers are printed with bidi isolates around the Latin runs
+(passage ids, contact numbers). A terminal is a bidi renderer like any other,
+and an unisolated ``grocery-allowance-ar#2`` inside an Arabic line has its
+punctuation reordered on screen.
 """
 
 from __future__ import annotations
@@ -19,12 +25,13 @@ import json
 import sys
 
 from cairn import __version__
-from cairn.answer import Answer, compose
 from cairn.config import Config, ConfigError, load_config
 from cairn.corpus import CorpusError
+from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import diagnose, render, trace_payload
 from cairn.index import IndexError_, build_and_write, read_index
-from cairn.retrieve import retrieve
+from cairn.language import isolate
+from cairn.messages import text as message
 
 STUB_EXIT_CODE = 2
 
@@ -36,41 +43,43 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
         synthetic_note = f" ({report.synthetic_doc_count} marked synthetic)"
     print(
         f"Indexed {report.passage_count} passages from {report.doc_count} "
-        f"documents{synthetic_note} -> {report.index_path}"
+        f"documents{synthetic_note} in {len(report.languages)} languages "
+        f"[{', '.join(report.languages)}] -> {report.index_path}"
     )
     return 0
 
 
-def _render_answer(answer: Answer) -> str:
+def _render_answer(result: AskResult) -> str:
+    answer = result.answer
+    rtl = answer.direction == "rtl"
+    lines = []
+    if answer.notice:
+        lines += [answer.notice, ""]
+    lines.append(answer.text)
     if answer.kind == "refusal":
-        return answer.text
-    lines = [answer.text, "", "Sources:"]
+        return "\n".join(lines)
+    lines += ["", message("sources_heading", answer.lang)]
     for n, source in enumerate(answer.sources, start=1):
-        lines.append(f"  [{n}] {source.title} ({source.source_id})")
+        reference = f"{source.title} ({source.source_id})"
+        lines.append(f"  [{n}] {isolate(reference) if rtl else reference}")
     return "\n".join(lines)
 
 
 def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
-    if args.lang:
-        print(
-            "cairn: --lang (language selection) arrives in milestone M3; "
-            "see the roadmap in DESIGN.md.",
-            file=sys.stderr,
-        )
-        return STUB_EXIT_CODE
     index = read_index(cfg.index_path)
-    trace = retrieve(
-        args.question, index, threshold=cfg.threshold, candidates=cfg.candidates
-    )
-    answer = compose(trace, max_passages=cfg.max_passages, contact=cfg.contact)
+    result = ask(args.question, index, cfg, lang=args.lang)
+    answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
 
     if args.json:
         payload = answer.to_payload()
         if diagnosis is not None:
             payload["explain"] = {
-                **trace_payload(trace),
+                **trace_payload(answer.trace),
                 "diagnosis": diagnosis.to_payload(),
+                "language": result.detection.to_payload(),
+                "attempts": [a.to_payload() for a in result.attempts],
+                "cross_language": result.cross_language,
             }
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
         return 0
@@ -80,9 +89,9 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
             f"{index.passage_count} passages from {index.doc_count} documents "
             f"({cfg.index_path})"
         )
-        print(render(answer, diagnosis, index_summary=summary))
+        print(render(result, diagnosis, index_summary=summary))
         print()
-    print(_render_answer(answer))
+    print(_render_answer(result))
     return 0
 
 
@@ -130,7 +139,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--lang",
         metavar="CODE",
         default=None,
-        help="response language selection (milestone M3)",
+        help=(
+            "answer in this language and prefer its sources (en, es, ar). "
+            "Omit to detect the language from the question."
+        ),
     )
     p_ask.set_defaults(func=_cmd_ask)
 
@@ -145,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cfg = load_config(args.config)
         return args.func(args, cfg)
-    except (ConfigError, CorpusError, IndexError_) as exc:
+    except (ConfigError, CorpusError, IndexError_, EngineError) as exc:
         print(f"cairn: error: {exc}", file=sys.stderr)
         return 1
 

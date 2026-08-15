@@ -1,0 +1,267 @@
+"""R4: three languages, one of them genuinely right-to-left.
+
+"Genuinely" is the whole point of this file. Translated strings are the easy
+half; these tests cover the half that is usually missing — direction derived
+from the language, bidi isolation of Latin runs inside Arabic sentences,
+script-aware tokenization, and an honest cross-language path when the corpus
+has no source in the language someone asked in.
+"""
+
+import unittest
+from pathlib import Path
+
+from cairn.config import Config
+from cairn.corpus import load_corpus
+from cairn.engine import EngineError, ask, available_languages
+from cairn.index import build_index
+from cairn.language import (
+    LANGUAGES,
+    POP_DIRECTIONAL_ISOLATE,
+    detect,
+    direction_of,
+    endonym_of,
+    isolate,
+)
+from cairn.messages import CATALOGUE, DEFAULT_LANG, text
+from cairn.text import dominant_script, normalize, tokenize
+
+DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
+CFG = Config()
+
+QUESTIONS = {
+    "en": "How much is the monthly grocery allowance for one person?",
+    "es": "Cuanto recibe un hogar de una persona del subsidio de alimentos?",
+    "ar": "كم تحصل الأسرة المكونة من شخص واحد شهريًا من مخصص البقالة؟",
+}
+# The transit pass exists only in English, on purpose (corpus/demo/README.md).
+ENGLISH_ONLY_QUESTION = "How much does the GoPass cost per year?"
+
+
+class MultilingualHarness(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.index = build_index(DEMO)
+
+    def ask(self, question, cfg=CFG, **kwargs):
+        return ask(question, self.index, cfg, **kwargs)
+
+
+class TestCorpusCoverage(MultilingualHarness):
+    def test_three_languages_one_of_them_rtl(self):
+        langs = set(self.index.language_codes)
+        self.assertGreaterEqual(len(langs), 3)
+        rtl = {code for code in langs if direction_of(code) == "rtl"}
+        self.assertTrue(rtl, "at least one corpus language must be right-to-left")
+        self.assertIn("ar", rtl)
+
+    def test_arabic_documents_are_arabic_script_and_synthetic(self):
+        arabic = [d for d in load_corpus(DEMO) if d.lang == "ar"]
+        self.assertGreaterEqual(len(arabic), 3)
+        for doc in arabic:
+            self.assertTrue(doc.synthetic)
+            self.assertEqual(dominant_script(doc.title), "arabic")
+            for passage in doc.passages:
+                self.assertEqual(dominant_script(passage.text), "arabic")
+
+
+class TestDirection(unittest.TestCase):
+    def test_direction_comes_from_the_language_code(self):
+        self.assertEqual(direction_of("ar"), "rtl")
+        self.assertEqual(direction_of("he"), "rtl")
+        self.assertEqual(direction_of("ar-EG"), "rtl", "subtags do not change direction")
+        self.assertEqual(direction_of("en"), "ltr")
+        self.assertEqual(direction_of("es"), "ltr")
+        self.assertEqual(direction_of("qqq"), "ltr", "unknown codes default to ltr")
+
+    def test_interface_languages_agree_with_the_direction_table(self):
+        for code, language in LANGUAGES.items():
+            self.assertEqual(language.direction, direction_of(code))
+
+    def test_isolate_wraps_and_closes(self):
+        wrapped = isolate("grocery-allowance-ar#2")
+        self.assertTrue(wrapped.endswith(POP_DIRECTIONAL_ISOLATE))
+        self.assertIn("grocery-allowance-ar#2", wrapped)
+        self.assertNotEqual(wrapped, "grocery-allowance-ar#2")
+
+
+class TestArabicTokenization(unittest.TestCase):
+    def test_diacritics_do_not_split_words(self):
+        self.assertEqual(tokenize("شهريًا"), tokenize("شهريا"))
+        self.assertEqual(
+            tokenize("تحصل الأسرة على $212 شهريًا"),
+            ["تحصل", "اسره", "علي", "212", "شهريا"],
+            "a diacritic must not break a word in two",
+        )
+
+    def test_alef_and_teh_marbuta_are_folded(self):
+        self.assertEqual(normalize("الأسرة"), normalize("الاسره"))
+        self.assertEqual(normalize("إغاثة"), normalize("اغاثه"))
+
+    def test_the_definite_article_does_not_eat_the_stem(self):
+        self.assertEqual(normalize("المساعدة"), normalize("مساعدة"))
+        self.assertEqual(normalize("بالبريد"), normalize("بريد"))
+        self.assertEqual(normalize("لمخصص"), normalize("مخصص"))
+
+    def test_short_and_numeric_tokens(self):
+        self.assertEqual(normalize("في"), "", "two-letter function words carry no signal")
+        self.assertEqual(normalize("20"), "20", "numbers survive at any length")
+
+    def test_latin_text_is_untouched_by_the_arabic_rules(self):
+        self.assertEqual(tokenize("monthly grocery allowance"), ["month", "groce", "allow"])
+
+
+class TestDetection(MultilingualHarness):
+    def test_a_question_is_answered_in_the_language_it_was_asked_in(self):
+        for lang, question in QUESTIONS.items():
+            with self.subTest(lang=lang):
+                result = self.ask(question)
+                self.assertEqual(result.detection.lang, lang)
+                self.assertEqual(result.answer.lang, lang)
+                self.assertEqual(result.answer.direction, direction_of(lang))
+
+    def test_same_language_sources_are_cited_when_the_corpus_has_them(self):
+        for lang, question in QUESTIONS.items():
+            with self.subTest(lang=lang):
+                answer = self.ask(question).answer
+                self.assertEqual(answer.kind, "grounded")
+                self.assertTrue(all(s.lang == lang for s in answer.sources))
+                self.assertFalse(self.ask(question).cross_language)
+
+    def test_arabic_is_chosen_by_script_not_by_vocabulary(self):
+        detection = detect("ما هي عاصمة فرنسا؟", self.index, default="en")
+        self.assertEqual(detection.lang, "ar")
+        self.assertEqual(detection.basis, "script")
+
+    def test_an_unrecognizable_question_falls_back_to_the_configured_default(self):
+        for question in ("", "zzzzqqqq wwwwxxxx"):
+            with self.subTest(question=question):
+                detection = detect(question, self.index, default="es")
+                self.assertEqual(detection.lang, "es")
+                self.assertEqual(detection.basis, "default")
+
+    def test_an_explicit_request_always_wins(self):
+        result = self.ask(QUESTIONS["en"], lang="ar")
+        self.assertEqual(result.detection.basis, "requested")
+        self.assertEqual(result.answer.lang, "ar")
+        self.assertEqual(result.answer.direction, "rtl")
+
+    def test_an_unsupported_language_is_refused_as_a_request_not_answered_badly(self):
+        with self.assertRaises(EngineError):
+            self.ask(QUESTIONS["en"], lang="tlh")
+
+    def test_available_languages_include_every_interface_language(self):
+        available = available_languages(self.index)
+        self.assertLessEqual(set(LANGUAGES), set(available))
+
+
+class TestCrossLanguageFallback(MultilingualHarness):
+    def test_it_answers_from_another_language_and_says_so(self):
+        result = self.ask(ENGLISH_ONLY_QUESTION, lang="es")
+        answer = result.answer
+        self.assertEqual(answer.kind, "grounded")
+        self.assertEqual(answer.lang, "es")
+        self.assertTrue(result.cross_language)
+        self.assertTrue(all(s.lang == "en" for s in answer.sources))
+        self.assertIsNotNone(answer.notice)
+        self.assertIn(endonym_of("en"), answer.notice)
+        self.assertIn("otro idioma", answer.notice, "the notice is in the answer language")
+
+    def test_the_quoted_source_is_not_translated(self):
+        answer = self.ask(ENGLISH_ONLY_QUESTION, lang="es").answer
+        passages = {p.passage_id: p for p in self.index.passages}
+        for source in answer.sources:
+            self.assertIn(passages[source.source_id].text, answer.text)
+
+    def test_the_notice_is_never_mixed_into_the_answer_text(self):
+        answer = self.ask(ENGLISH_ONLY_QUESTION, lang="es").answer
+        self.assertNotIn(answer.notice, answer.text)
+
+    def test_two_attempts_are_recorded_and_the_first_one_was_restricted(self):
+        result = self.ask(ENGLISH_ONLY_QUESTION, lang="es")
+        self.assertEqual([a.scope for a in result.attempts], ["language", "corpus"])
+        self.assertEqual(result.attempts[0].trace.lang, "es")
+        self.assertGreater(result.attempts[0].trace.excluded, 0)
+        self.assertIsNone(result.attempts[1].trace.lang)
+
+    def test_it_can_be_switched_off_in_favour_of_refusing(self):
+        strict = Config(cross_language_fallback=False)
+        result = self.ask(ENGLISH_ONLY_QUESTION, cfg=strict, lang="es")
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertEqual(len(result.attempts), 1)
+        self.assertIsNone(result.answer.notice)
+
+    def test_a_grounded_in_language_answer_never_widens(self):
+        result = self.ask(QUESTIONS["ar"])
+        self.assertEqual([a.scope for a in result.attempts], ["language"])
+
+
+class TestLocalizedVoice(MultilingualHarness):
+    def test_refusals_speak_the_language_of_the_question(self):
+        refusals = {
+            lang: self.ask("What vaccinations does my dog need?", lang=lang).answer.text
+            for lang in ("en", "es", "ar")
+        }
+        self.assertNotEqual(refusals["en"], refusals["es"])
+        self.assertNotEqual(refusals["en"], refusals["ar"])
+        self.assertEqual(dominant_script(refusals["ar"]), "arabic")
+        for lang, body in refusals.items():
+            with self.subTest(lang=lang):
+                self.assertIn(CFG.contact_for(lang).split(" (")[0][:20], body)
+
+    def test_rtl_refusals_isolate_the_latin_contact_details(self):
+        arabic = self.ask("What vaccinations does my dog need?", lang="ar").answer.text
+        self.assertIn(POP_DIRECTIONAL_ISOLATE, arabic)
+        english = self.ask("What vaccinations does my dog need?", lang="en").answer.text
+        self.assertNotIn(POP_DIRECTIONAL_ISOLATE, english)
+
+    def test_the_payload_states_language_and_direction(self):
+        payload = self.ask(QUESTIONS["ar"]).answer.to_payload()
+        self.assertEqual(payload["lang"], "ar")
+        self.assertEqual(payload["dir"], "rtl")
+        for source in payload["sources"]:
+            self.assertEqual(source["dir"], "rtl")
+
+
+class TestMessageCatalogue(unittest.TestCase):
+    def test_every_language_carries_every_key(self):
+        reference = set(CATALOGUE[DEFAULT_LANG])
+        for lang, catalogue in CATALOGUE.items():
+            with self.subTest(lang=lang):
+                self.assertEqual(set(catalogue), reference, "no language may miss a string")
+
+    def test_no_translation_is_left_as_the_english_string(self):
+        for lang, catalogue in CATALOGUE.items():
+            if lang == DEFAULT_LANG:
+                continue
+            for key, value in catalogue.items():
+                with self.subTest(lang=lang, key=key):
+                    self.assertNotEqual(
+                        value, CATALOGUE[DEFAULT_LANG][key], "untranslated string"
+                    )
+
+    def test_placeholders_match_across_languages(self):
+        import string
+
+        def fields(template):
+            return {f for _, f, _, _ in string.Formatter().parse(template) if f}
+
+        for key, reference in CATALOGUE[DEFAULT_LANG].items():
+            for lang, catalogue in CATALOGUE.items():
+                with self.subTest(lang=lang, key=key):
+                    self.assertEqual(fields(catalogue[key]), fields(reference))
+
+    def test_arabic_strings_are_actually_arabic(self):
+        for key, value in CATALOGUE["ar"].items():
+            with self.subTest(key=key):
+                self.assertEqual(dominant_script(value), "arabic", f"{key} is not Arabic")
+
+    def test_an_unknown_language_falls_back_rather_than_crashing(self):
+        self.assertEqual(text("sources_heading", "qqq"), text("sources_heading", "en"))
+
+    def test_an_unknown_key_raises(self):
+        with self.assertRaises(KeyError):
+            text("no_such_message", "en")
+
+
+if __name__ == "__main__":
+    unittest.main()

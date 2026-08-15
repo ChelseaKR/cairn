@@ -12,16 +12,35 @@ path = ".cairn/index.json"
 
 [retrieval]
 # Relevance gate on bounded [0, 1] cosine scores. Calibrated against the
-# bundled demo corpus (see DESIGN.md for the measured score bands); operators
-# swapping in their own corpus should re-check it with their own probe
-# questions.
-threshold = 0.20
+# bundled demo corpus in all three of its languages (see DESIGN.md for the
+# measured score bands); operators swapping in their own corpus should
+# re-check it with their own probe questions.
+threshold = 0.165
 # Passages composed into a grounded answer (rank order, accepted only).
 max_passages = 2
-# Candidates scored and reported (visible once explain mode lands in M2).
+# Candidates scored and reported. Visible in `ask --explain`.
 candidates = 8
 
+[language]
+# Used when a question's language cannot be told from the corpus vocabulary
+# (a very short question, or one with no corpus words in it at all). The web
+# interface always states a language explicitly, so this only affects the CLI.
+default = "en"
+# When nothing in the answer language clears the threshold, widen the search
+# to the whole corpus and say plainly that the source is in another language.
+# Set false to refuse instead — appropriate where quoting an untranslated
+# document would do more harm than refusing.
+cross_language_fallback = true
+
 [refusal]
-# The human channel a refusal points to. This default is FICTIONAL demo
-# content; a real deployment must replace it.
+# The human channel a refusal points to. These defaults are FICTIONAL demo
+# content; a real deployment must replace them.
 contact = "the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own)"
+
+# Optional per-language overrides. Without them every language gets the single
+# `contact` line above, which is right for a single-language deployment and
+# wrong the moment you serve more than one.
+[refusal.contact_by_language]
+en = "the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own)"
+es = "la oficina de Asistencia Comunitaria del Condado de Harbor, al 555-0142 (contacto ficticio de demostración; los operadores deben configurar el suyo)"
+ar = "مكتب المساعدة المجتمعية في مقاطعة هاربر على الرقم 555-0142 (جهة اتصال تجريبية مُختلَقة؛ على المشغّلين ضبط جهة اتصال خاصة بهم)"

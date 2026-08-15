@@ -1,13 +1,13 @@
 """R5: operator explain mode separates retrieval failure from answer failure."""
 
+import tempfile
 import unittest
 from pathlib import Path
 
-from cairn.answer import compose
 from cairn.config import Config
+from cairn.engine import ask
 from cairn.explain import diagnose, excerpt, render, trace_payload
 from cairn.index import build_index
-from cairn.retrieve import retrieve
 
 DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
 CFG = Config()
@@ -16,12 +16,13 @@ GROUNDED_Q = "How much is the monthly grocery allowance for one person?"
 MISS_Q = "What vaccinations does my dog need?"
 NO_OVERLAP_Q = "zzzzqqqq wwwwxxxx"
 
-# Retrieval ranks the passage holding the deadline second, so max_passages=1
-# composes an answer that is missing the fact the operator asked for. This is
-# the case explain mode exists to disambiguate: retrieval did its job.
-TRUNCATION_Q = "When is the deadline to apply for the housing grant?"
-TRUNCATION_FACT = "September 30"
-TRUNCATION_PASSAGE = "housing-relief-en#4"
+# Retrieval ranks the passage holding the fare second (the grocery document's
+# "how much" passage outranks it), so max_passages=1 composes an answer that is
+# missing the fact the operator asked for. This is the case explain mode exists
+# to disambiguate: retrieval did its job and the answer is still wrong.
+TRUNCATION_Q = "How much does the GoPass cost per year?"
+TRUNCATION_FACT = "$20"
+TRUNCATION_PASSAGE = "transit-pass-en#2"
 
 
 class ExplainHarness(unittest.TestCase):
@@ -30,26 +31,23 @@ class ExplainHarness(unittest.TestCase):
         cls.index = build_index(DEMO)
 
     def ask(self, question, *, threshold=None, max_passages=None):
-        trace = retrieve(
-            question,
-            self.index,
+        cfg = Config(
             threshold=CFG.threshold if threshold is None else threshold,
-            candidates=CFG.candidates,
+            max_passages=CFG.max_passages if max_passages is None else max_passages,
         )
-        max_passages = CFG.max_passages if max_passages is None else max_passages
-        answer = compose(trace, max_passages=max_passages, contact=CFG.contact)
-        return answer, diagnose(answer, max_passages=max_passages)
+        result = ask(question, self.index, cfg)
+        return result, diagnose(result.answer, max_passages=cfg.max_passages)
 
 
 class TestStageSeparation(ExplainHarness):
     def test_retrieval_miss_is_blamed_on_retrieval(self):
-        answer, diag = self.ask(MISS_Q)
-        self.assertEqual(answer.kind, "refusal")
+        result, diag = self.ask(MISS_Q)
+        self.assertEqual(result.answer.kind, "refusal")
         self.assertEqual(diag.blame, "retrieval")
         self.assertFalse(diag.stage("retrieval").ok)
         self.assertEqual(diag.stage("retrieval").code, "below-threshold")
         self.assertEqual(diag.stage("answer").code, "no-evidence")
-        self.assertIn("0.200", diag.stage("retrieval").detail, "the threshold is quoted")
+        self.assertIn("0.165", diag.stage("retrieval").detail, "the threshold is quoted")
 
     def test_no_lexical_overlap_is_distinguished_from_a_low_score(self):
         _, diag = self.ask(NO_OVERLAP_Q)
@@ -57,8 +55,8 @@ class TestStageSeparation(ExplainHarness):
         self.assertEqual(diag.blame, "retrieval")
 
     def test_grounded_answer_clears_both_stages(self):
-        answer, diag = self.ask(GROUNDED_Q, max_passages=8)
-        self.assertEqual(answer.kind, "grounded")
+        result, diag = self.ask(GROUNDED_Q, max_passages=8)
+        self.assertEqual(result.answer.kind, "grounded")
         self.assertIsNone(diag.blame)
         self.assertTrue(diag.stage("retrieval").ok)
         self.assertEqual(diag.stage("answer").code, "composed")
@@ -66,24 +64,24 @@ class TestStageSeparation(ExplainHarness):
 
     def test_a_missing_fact_with_healthy_retrieval_is_blamed_on_composition(self):
         # The whole point of R5: a bad answer, diagnosed to the right stage.
-        answer, diag = self.ask(TRUNCATION_Q, max_passages=1)
-        self.assertEqual(answer.kind, "grounded")
-        self.assertNotIn(TRUNCATION_FACT, answer.text, "the answer is missing the fact")
+        result, diag = self.ask(TRUNCATION_Q, max_passages=1)
+        self.assertEqual(result.answer.kind, "grounded")
+        self.assertNotIn(TRUNCATION_FACT, result.answer.text, "the answer is missing the fact")
         self.assertTrue(diag.stage("retrieval").ok, "retrieval is not at fault here")
         self.assertEqual(diag.stage("answer").code, "composed-truncated")
         self.assertIn(TRUNCATION_PASSAGE, [c.passage.passage_id for c in diag.dropped])
         self.assertIn("max_passages", diag.stage("answer").detail)
 
         # ... and with room to compose, the same question answers correctly.
-        answer, diag = self.ask(TRUNCATION_Q, max_passages=3)
-        self.assertIn(TRUNCATION_FACT, answer.text)
+        result, diag = self.ask(TRUNCATION_Q, max_passages=8)
+        self.assertIn(TRUNCATION_FACT, result.answer.text)
         self.assertEqual(diag.stage("answer").code, "composed")
 
 
 class TestTraceContents(ExplainHarness):
     def test_every_candidate_carries_score_and_threshold_verdict(self):
-        answer, _ = self.ask(GROUNDED_Q)
-        payload = trace_payload(answer.trace)
+        result, _ = self.ask(GROUNDED_Q)
+        payload = trace_payload(result.answer.trace)
         self.assertEqual(payload["threshold"], CFG.threshold)
         self.assertTrue(payload["candidates"])
         ranks = [c["rank"] for c in payload["candidates"]]
@@ -96,9 +94,9 @@ class TestTraceContents(ExplainHarness):
         self.assertTrue(accepted and rejected, "this probe shows both sides of the gate")
 
     def test_rejected_candidates_are_reported_not_hidden(self):
-        answer, _ = self.ask(MISS_Q)
-        self.assertEqual(answer.kind, "refusal")
-        payload = trace_payload(answer.trace)
+        result, _ = self.ask(MISS_Q)
+        self.assertEqual(result.answer.kind, "refusal")
+        payload = trace_payload(result.answer.trace)
         self.assertTrue(
             payload["candidates"], "a refusal still shows what was considered and rejected"
         )
@@ -112,17 +110,17 @@ class TestTraceContents(ExplainHarness):
 
 class TestReport(ExplainHarness):
     def test_report_names_the_stage_to_diagnose(self):
-        answer, diag = self.ask(MISS_Q)
-        report = render(answer, diag, index_summary="test index")
+        result, diag = self.ask(MISS_Q)
+        report = render(result, diag, index_summary="test index")
         self.assertIn("Stage 1 - retrieval: FAILED", report)
         self.assertIn("Stage 2 - answer: NOT REACHED", report)
         self.assertIn("Diagnose at: retrieval.", report)
         self.assertIn("NOT GROUNDED", report)
 
     def test_report_lists_accepted_and_rejected_candidates(self):
-        answer, diag = self.ask(GROUNDED_Q)
-        report = render(answer, diag, index_summary="test index")
-        for candidate in answer.trace.candidates:
+        result, diag = self.ask(GROUNDED_Q)
+        report = render(result, diag, index_summary="test index")
+        for candidate in result.answer.trace.candidates:
             self.assertIn(candidate.passage.passage_id, report)
         self.assertIn("ACCEPT", report)
         self.assertIn("reject", report)
@@ -136,14 +134,54 @@ class TestReport(ExplainHarness):
 
 class TestExplainIsObservational(ExplainHarness):
     def test_diagnosing_does_not_change_the_answer(self):
-        trace = retrieve(
-            GROUNDED_Q, self.index, threshold=CFG.threshold, candidates=CFG.candidates
+        plain = ask(GROUNDED_Q, self.index, CFG).answer
+        explained, diagnosis = self.ask(GROUNDED_Q)
+        render(explained, diagnosis, index_summary="test index")
+        self.assertEqual(plain.text, explained.answer.text)
+        self.assertEqual(plain.sources, explained.answer.sources)
+        self.assertEqual(plain.to_payload(), explained.answer.to_payload())
+
+
+class TestLanguageInTheTrace(ExplainHarness):
+    """A trace that hid the language filter would misdirect the operator."""
+
+    def test_the_report_states_the_language_decision_and_every_attempt(self):
+        result, diagnosis = self.ask("How much does the GoPass cost per year?")
+        report = render(result, diagnosis, index_summary="test index")
+        self.assertIn("Language:  en", report)
+        self.assertIn("Attempt 1 (restricted to 'en')", report)
+        self.assertIn("excluded", report, "the report says what the filter removed")
+
+    def test_a_widened_search_appears_as_a_second_attempt(self):
+        cfg = Config()
+        result = ask("How much does the GoPass cost per year?", self.index, cfg, lang="es")
+        report = render(
+            result,
+            diagnose(result.answer, max_passages=cfg.max_passages),
+            index_summary="test index",
         )
-        plain = compose(trace, max_passages=CFG.max_passages, contact=CFG.contact)
-        explained, _ = self.ask(GROUNDED_Q)
-        self.assertEqual(plain.text, explained.text)
-        self.assertEqual(plain.sources, explained.sources)
-        self.assertEqual(plain.to_payload(), explained.to_payload())
+        self.assertIn("Attempt 1 (restricted to 'es')", report)
+        self.assertIn("Attempt 2 (widened to every language)", report)
+        self.assertIn("cross-language fallback", report)
+
+    def test_a_language_the_corpus_does_not_cover_is_named_as_a_coverage_gap(self):
+        # An interface language with no corpus behind it is a coverage gap, and
+        # the operator should not have to guess that from an empty score list.
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "only-english.md").write_text(
+                "---\nid: only-en\ntitle: Only English\nlang: en\n---\n"
+                "The grocery allowance is $212 per month.\n",
+                encoding="utf-8",
+            )
+            index = build_index(tmp)
+            cfg = Config(cross_language_fallback=False)
+            result = ask("ما هي حدود الدخل؟", index, cfg, lang="ar")
+            diagnosis = diagnose(result.answer, max_passages=cfg.max_passages)
+            self.assertEqual(result.answer.kind, "refusal")
+            self.assertEqual(diagnosis.stage("retrieval").code, "no-passages-in-language")
+            self.assertEqual(diagnosis.blame, "retrieval")
+            report = render(result, diagnosis, index_summary="test index")
+            self.assertIn("corpus coverage gap", report)
 
 
 if __name__ == "__main__":
