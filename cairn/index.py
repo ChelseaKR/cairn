@@ -23,15 +23,25 @@ INDEX_FORMAT_VERSION = 1
 
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 
+# Truncation stemming: tokens are cut to their first STEM_LENGTH characters.
+# A deliberately crude, fully deterministic, dictionary-free normalizer that
+# unifies inflectional variants (month/monthly, deadline/deadlines,
+# recibe/reciben) across suffixing languages without any per-language rules.
+# Chosen after measured retrieval misses on the demo corpus caused exactly by
+# such variants; the trade-off (occasional collisions like person/personal)
+# is acceptable for a reference implementation and revisited in M3 when a
+# non-suffixing language (Arabic) joins the corpus.
+STEM_LENGTH = 5
+
 
 class IndexError_(ValueError):
     """The index file is missing, unreadable, or from another format version."""
 
 
 def tokenize(text: str) -> list[str]:
-    """Unicode word tokens, casefolded. Language-agnostic by design: the same
-    tokenizer serves Latin-script and RTL-script corpora (DESIGN.md)."""
-    return [m.group(0).casefold() for m in _WORD_RE.finditer(text)]
+    """Unicode word tokens, casefolded, truncation-stemmed. Language-agnostic
+    by design: the same tokenizer serves every corpus language (DESIGN.md)."""
+    return [m.group(0).casefold()[:STEM_LENGTH] for m in _WORD_RE.finditer(text)]
 
 
 @dataclass(frozen=True)
