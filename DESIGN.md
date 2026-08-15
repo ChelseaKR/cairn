@@ -356,6 +356,13 @@ Not a wish list — the things a reader could reasonably expect and will not fin
 - **One known colloquial-recall failure**, `ck-015`, described above.
 - **Cross-language fallback cannot cross scripts.** Lexical retrieval has no
   way to match an Arabic question to an English document, so those refuse.
+- **No manual screen-reader pass.** The browser checks verify the plumbing a
+  screen reader depends on — the roles, the politeness settings, that an
+  announcement fires and focus does not move, that the assertive channel stays
+  quiet on success — and axe-core checks the rule set. None of that is the
+  same as a person driving the page with VoiceOver or NVDA and reporting what
+  it was like. That session has not happened, and no automated check should be
+  read as standing in for it.
 - **No generative mode.** The specification permits one as a clearly separated,
   off-by-default option. None is implemented, and the extractive path is the
   reference behavior; anything generative would have to keep the "every fact
