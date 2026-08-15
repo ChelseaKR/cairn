@@ -28,6 +28,7 @@ from cairn.index import build_index
 from cairn.language import direction_of
 from cairn.messages import CATALOGUE
 from cairn.server import CSP, STATIC, build_handler
+from cairn.ui.contrast import PAIRS, palette
 from cairn.ui.page import SELECTABLE
 
 DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
@@ -90,16 +91,6 @@ def relative_luminance(colour):
 def contrast(a, b):
     high, low = sorted((relative_luminance(a), relative_luminance(b)), reverse=True)
     return (high + 0.05) / (low + 0.05)
-
-
-def palette(scheme):
-    """The custom properties as the browser would resolve them, per scheme."""
-    light_block = CSS.split("@media")[0]
-    tokens = dict(re.findall(r"--([a-z-]+):\s*(#[0-9a-f]{6})", light_block))
-    if scheme == "dark":
-        dark_block = CSS.split("@media (prefers-color-scheme: dark)")[1].split("}\n}")[0]
-        tokens.update(re.findall(r"--([a-z-]+):\s*(#[0-9a-f]{6})", dark_block))
-    return tokens
 
 
 class ServerHarness(unittest.TestCase):
@@ -365,36 +356,16 @@ class TestStylesheet(unittest.TestCase):
         self.assertNotEqual(palette("light"), palette("dark"))
 
     def test_every_colour_pair_passes_contrast_in_both_presentations(self):
-        text_pairs = [
-            ("text", "bg"),
-            ("text", "surface"),
-            ("text", "notice-bg"),
-            ("muted", "bg"),
-            ("muted", "surface"),
-            ("accent-text", "accent"),
-            ("alert-text", "alert-bg"),
-        ]
-        ui_pairs = [
-            ("border", "bg"),
-            ("border", "surface"),
-            ("focus", "bg"),
-            ("focus", "surface"),
-            ("accent", "bg"),
-            ("alert-border", "bg"),
-            ("alert-border", "alert-bg"),
-        ]
+        # The same list of pairs an evidence bundle's interface snapshot
+        # declares, so the auditor and this suite cannot disagree about which
+        # colours the page uses.
+        minimum = {"normal": 4.5, "large": 3.0}
         for scheme in ("light", "dark"):
             tokens = palette(scheme)
-            for foreground, background in text_pairs:
-                with self.subTest(scheme=scheme, pair=(foreground, background)):
-                    self.assertGreaterEqual(
-                        contrast(tokens[foreground], tokens[background]), 4.5
-                    )
-            for foreground, background in ui_pairs:
-                with self.subTest(scheme=scheme, pair=(foreground, background)):
-                    self.assertGreaterEqual(
-                        contrast(tokens[foreground], tokens[background]), 3.0
-                    )
+            for name, foreground, background, size in PAIRS:
+                with self.subTest(scheme=scheme, pair=name):
+                    ratio = contrast(tokens[foreground], tokens[background])
+                    self.assertGreaterEqual(ratio, minimum[size], f"{ratio:.2f}:1")
 
     def test_focus_is_never_removed_without_being_put_back(self):
         self.assertIn(":focus-visible", CSS)

@@ -1,0 +1,14 @@
+{
+  "description": "Evidence recorded from Cairn answering a committed set of questions against its bundled synthetic demo corpus. The questions are authored; every response was produced by the engine. Demonstrates the target and the instrument working together; not a benchmark.",
+  "files": {
+    "interface": "interface.html",
+    "items": "items.jsonl",
+    "responses": "responses.jsonl",
+    "sources": "sources.jsonl"
+  },
+  "format": "plumbline-bundle",
+  "format_version": 1,
+  "name": "cairn-demo",
+  "synthetic": true,
+  "version": "1.0.0"
+}

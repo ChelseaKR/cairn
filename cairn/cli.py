@@ -6,6 +6,7 @@ Subcommands:
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
+    cairn record           record an evidence bundle for the pinned auditor
 
 Exit codes: 0 for success — including refusals, which are a first-class
 outcome, not an error (DESIGN.md); 1 for real errors (bad config, missing
@@ -31,6 +32,7 @@ from cairn.explain import diagnose, render, trace_payload
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.language import isolate
 from cairn.messages import text as message
+from cairn.record import DEFAULT_BUNDLE, DEFAULT_QUESTIONS, RecordError, record
 from cairn.server import serve
 
 
@@ -111,6 +113,19 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
     return 0
 
 
+def _cmd_record(args: argparse.Namespace, cfg: Config) -> int:
+    index = read_index(cfg.index_path)
+    report = record(index, cfg, questions_path=args.questions, out_dir=args.out)
+    print(
+        f"Recorded {report.item_count} items "
+        f"({report.answer_count} answers, {report.refusal_count} refusals) "
+        f"in {len(report.languages)} languages [{', '.join(report.languages)}] "
+        f"-> {report.path}"
+    )
+    print(f"Bundle sha256: {report.bundle_sha256}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cairn",
@@ -167,6 +182,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_serve.set_defaults(func=_cmd_serve)
 
+    p_record = sub.add_parser(
+        "record",
+        help="record an evidence bundle from the real engine, for the pinned auditor",
+    )
+    p_record.add_argument(
+        "--questions",
+        default=DEFAULT_QUESTIONS,
+        help=f"question set (default: {DEFAULT_QUESTIONS})",
+    )
+    p_record.add_argument(
+        "--out", default=DEFAULT_BUNDLE, help=f"bundle directory (default: {DEFAULT_BUNDLE})"
+    )
+    p_record.set_defaults(func=_cmd_record)
+
     return parser
 
 
@@ -175,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cfg = load_config(args.config)
         return args.func(args, cfg)
-    except (ConfigError, CorpusError, IndexError_, EngineError) as exc:
+    except (ConfigError, CorpusError, IndexError_, EngineError, RecordError) as exc:
         print(f"cairn: error: {exc}", file=sys.stderr)
         return 1
 
