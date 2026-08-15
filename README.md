@@ -6,11 +6,13 @@ its sources on every answer, and when no source clears the relevance threshold
 it refuses plainly and points to a human — no guessing, ever. A cairn marks a
 verified trail; where there are no stones, there is no trail.
 
-**Status: pre-release.** Ingest, grounded answers with citations, refusal, the
-operator explain mode, multilingual operation including right-to-left, and the
-accessible chat interface are complete; the CI audit interlock is on the
-[roadmap](DESIGN.md#roadmap). This is a demonstration of correct behavior, not
-a production service.
+**Status: pre-release.** Every capability in the specification is implemented:
+ingest with idempotent indexing, grounded answers with citations, refusal as a
+first-class outcome, an operator explain mode that diagnoses a bad answer to
+the right stage, three languages including right-to-left, an accessible chat
+interface, and a fail-closed CI audit gate against a pinned external auditor.
+132 tests plus 46 browser behaviour checks, standard library only, offline.
+This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
 executed by the test suite, so its output is what you will get.
@@ -184,6 +186,34 @@ trusting a comment. It also runs every command in
 The browser checks under `tests/browser/` need Node and Chromium and are
 deliberately not part of this path: install, lint and test work with no Node,
 no browser, and no network.
+
+## The merge gate
+
+Cairn does not grade itself. `cairn record` asks the real engine a committed
+set of questions and writes what came back as an evidence bundle; the merge
+gate hands that bundle to [Plumbline](https://github.com/ChelseaKR/plumbline),
+a separate project, pinned to an exact commit in
+[`plumbline.pin`](plumbline.pin).
+
+```console
+$ python3 -m cairn record       # evidence, produced by the engine, not by hand
+$ ./plumbline-gate.sh           # the same command CI runs
+GATE: PASS — 12 suites
+```
+
+The harness is resolved at run time and verified to be at the pinned commit.
+It is in no import and no dependency list, so Cairn's install, lint and test
+path works with it completely unreachable — and CI proves that on every run,
+in the same job that proves the gate **fails** in that condition. A skipped
+check and a passed check are the same green tick on a pull request, so an
+unresolvable auditor has to be red: a gate that could not run is not a gate
+that passed.
+
+Running it for real found four things worth fixing, including two languages
+disagreeing about the same policy number and a Spanish refusal a standard
+detector read as an answer. They are written up in
+[DESIGN.md](DESIGN.md#what-the-first-audit-found), along with the two known
+limits that are named rather than tuned away.
 
 ## License
 
