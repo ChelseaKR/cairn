@@ -14,7 +14,7 @@ A one-person household receives $212 per month. Each additional household
 member adds $118 per month. For example, a household of three receives $448
 per month.
 
-## Who can apply
+## Income limits: who can apply
 
 Your household's gross monthly income must be at or below $2,430 for one
 person, plus $860 for each additional member. You must live in Harbor County.

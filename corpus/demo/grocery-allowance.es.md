@@ -14,7 +14,7 @@ participantes.
 Un hogar de una persona recibe $212 al mes. Cada miembro adicional del hogar
 agrega $118 al mes. Por ejemplo, un hogar de tres personas recibe $448 al mes.
 
-## Quién puede solicitar
+## Límites de ingresos: quién puede solicitar
 
 El ingreso mensual bruto de su hogar debe ser igual o menor a $2,430 para una
 persona, más $860 por cada miembro adicional. Debe vivir en el Condado de

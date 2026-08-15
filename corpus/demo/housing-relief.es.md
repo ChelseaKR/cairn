@@ -21,7 +21,7 @@ arrendamiento escrito vigente, estar atrasado al menos un mes completo en el
 alquiler, y el ingreso de su hogar debe ser igual o menor al 60 por ciento del
 ingreso medio del condado.
 
-## Fechas límite
+## Cuándo solicitar: fechas límite
 
 Las solicitudes se aceptan del 1 de marzo al 30 de septiembre de cada año, o
 hasta que se agoten los fondos del año, lo que ocurra primero. Una solicitud

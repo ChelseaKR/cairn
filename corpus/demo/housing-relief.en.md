@@ -20,7 +20,7 @@ You must rent your home in Harbor County under a current written lease, be at
 least one full month behind on rent, and your household income must be at or
 below 60 percent of the county median income.
 
-## Deadlines
+## When to apply: deadlines
 
 Applications are accepted from March 1 through September 30 each year, or
 until the year's funds run out, whichever comes first. A complete application
