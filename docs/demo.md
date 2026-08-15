@@ -216,6 +216,43 @@ never see twice.
 axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. It needs
 Node and a browser, and is deliberately not part of the dev path below.
 
+## 9. Run the audit
+
+The merge gate hands Cairn's own recorded answers to a separate project,
+[Plumbline](https://github.com/ChelseaKR/plumbline), pinned to an exact commit
+in [`plumbline.pin`](../plumbline.pin).
+
+```text
+$ python3 -m cairn record            # re-record the evidence from this engine
+Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+
+$ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
+GATE: PASS — target cairn-demo, dataset ..., run ...
+all 12 suites passed:
+  ...
+```
+
+This one needs the network the first time, to fetch the pinned harness. It is
+the only part of this page that does.
+
+Two things worth trying:
+
+```text
+# 1. Break the evidence. The audit refuses to score rather than grading it.
+$ sed -i '' 's/212/999/' plumbline/bundle/responses.jsonl
+$ ./plumbline-gate.sh ; echo $?      # 3 — integrity refusal, nothing scored
+$ python3 -m cairn record            # re-record honestly; the hash change is the trace
+
+# 2. Break the pin. The gate fails; it does not skip.
+$ sed 's#^repo = .*#repo = file:///nowhere.git#' plumbline.pin > /tmp/bad.pin
+$ PLUMBLINE_PIN_FILE=/tmp/bad.pin ./plumbline-gate.sh ; echo $?    # 4
+```
+
+The second one is the property the whole interlock rests on. A skipped check
+and a passed check are the same green tick on a pull request, so an
+unresolvable auditor has to be red. `tests/test_interlock.py` runs that drill
+on every test run, and so does CI.
+
 ## The dev path
 
 ```console
@@ -223,5 +260,7 @@ $ python3 -m unittest discover -s tests
 $ ruff check .
 ```
 
-No third-party dependency is required to run the tests. `ruff` is the only
-development extra, and the demo path does not need it.
+No third-party dependency is required to run the tests, and no auditor: the
+core path works with the harness completely unreachable, which CI proves on
+every run. `ruff` is the only development extra, and the demo path does not
+need it.

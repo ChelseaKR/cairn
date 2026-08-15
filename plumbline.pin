@@ -1,0 +1,24 @@
+# The auditor that gates this repository.
+#
+# One file, both callers: a developer running ./plumbline-gate.sh and the
+# audit job in CI read this and nothing else, so a local run and a CI run are
+# the same run. There is no second place recording a version.
+#
+# 'ref' is an exact commit, never a branch or a tag, and the runner rejects
+# anything else. A moving ref would mean a green gate today could quietly mean
+# something different tomorrow, which is the opposite of what an audit record
+# is for. Bumping it is a reviewed diff like any other dependency upgrade.
+#
+# The harness is NOT a dependency of this project. It is resolved at run time
+# into .plumbline-cache/ and verified to be at the pinned commit. Cairn's
+# install, lint and test path never touches it, and nothing in Cairn's own
+# dependency resolution can move the thing auditing Cairn.
+#
+# If it cannot be resolved, the gate FAILS. It does not skip and it does not
+# report green: a gate that could not run is not a gate that passed.
+
+repo = https://github.com/ChelseaKR/plumbline.git
+ref  = 25a583def6ac25afef48c96f76a81c0e89f966a0
+
+config = plumbline/target.toml
+out = plumbline/audits

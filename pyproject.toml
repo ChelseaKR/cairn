@@ -39,6 +39,10 @@ packages = ["cairn", "cairn.ui"]
 [tool.ruff]
 line-length = 96
 target-version = "py311"
+# The auditor is resolved into this directory at run time. It is somebody
+# else's code at a pinned commit; linting it here would be linting a
+# dependency.
+extend-exclude = [".plumbline-cache"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]

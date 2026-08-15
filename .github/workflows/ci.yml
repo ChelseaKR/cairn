@@ -1,0 +1,162 @@
+# Cairn CI.
+#
+# Three jobs, in deliberate order of dependency:
+#
+#   core       install, lint, test. Standard library only, no network needed,
+#              and no auditor: this is the path a contributor runs, and it
+#              must not depend on anything outside this repository.
+#   interface  the accessibility behaviours that need a real browser.
+#   audit      the merge gate. Resolves the pinned auditor and grades the
+#              recorded evidence.
+#
+# `audit` is the job that must be marked required in branch protection. It is
+# not enough for it to exist: a gate nobody has made blocking is a report.
+#
+# ---------------------------------------------------------------------------
+# Why this gate fails instead of skipping
+# ---------------------------------------------------------------------------
+# The obvious way to write an audit job is to skip it when the harness cannot
+# be fetched — the network is flaky, the run is on a fork, someone is offline.
+# Every one of those is a real inconvenience and none of them is a reason to
+# report green.
+#
+# A skipped gate and a passed gate look identical on a pull request: one green
+# check. The difference only exists in a log nobody opens. So the moment the
+# harness is unreachable is exactly the moment the gate has told you nothing,
+# and the honest report of "told you nothing" is a red check.
+#
+# So: no `continue-on-error`, no `if:` that lets this job be skipped, and
+# never `PLUMBLINE_SRC` (which bypasses the pin). If the harness cannot be
+# resolved, ./plumbline-gate.sh exits 4 and this job fails. A gate that could
+# not run is not a gate that passed.
+# ---------------------------------------------------------------------------
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core (install, lint, test — auditor unreachable)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: python3 -m unittest discover -s tests
+
+      - name: The demo path runs with no install at all
+        run: |
+          python3 -m cairn index
+          python3 -m cairn ask "How much is the monthly grocery allowance for one person?"
+          python3 -m cairn ask --explain "What vaccinations does my dog need?"
+
+      - name: Nothing above resolved the auditor
+        run: |
+          if [ -d .plumbline-cache ]; then
+            echo "the core path fetched the auditor; it must not need it" >&2
+            exit 1
+          fi
+          if grep -rn "plumbline" --include="*.py" cairn/ | grep -v "plumbline-bundle\|plumbline-checksums\|plumbline-contrast\|plumbline.pin\|plumbline/questions.toml\|plumbline/bundle"; then
+            echo "the engine imports the auditor; it must not" >&2
+            exit 1
+          fi
+
+      - name: Fail-closed drill — the gate fails when the harness cannot be resolved
+        run: |
+          # Same runner, same pin format, a repository that cannot be fetched.
+          # The gate must exit 4 rather than skipping or reporting success. If
+          # this step ever passes silently, the audit job below is decorative.
+          sed 's#^repo = .*#repo = file:///nonexistent/harness.git#' plumbline.pin > /tmp/unreachable.pin
+          set +e
+          PLUMBLINE_PIN_FILE=/tmp/unreachable.pin PLUMBLINE_CACHE_DIR=/tmp/empty-cache ./plumbline-gate.sh
+          code=$?
+          set -e
+          echo "gate exited $code with an unreachable harness"
+          test "$code" -eq 4
+
+  interface:
+    name: interface (accessibility behaviours in Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install browser checks
+        working-directory: tests/browser
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Index
+        run: python3 -m cairn index
+
+      - name: Run the behaviour checks
+        working-directory: tests/browser
+        run: npm run check
+
+  audit:
+    name: audit (merge gate — must be required in branch protection)
+    runs-on: ubuntu-latest
+    needs: [core]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Keyed on the pin file, so bumping the pin fetches the new harness and
+      # every other run reuses the old one. The key is the pin, never a
+      # branch name: the cache must not be able to serve a different commit
+      # than the one this repository asked for.
+      - name: Cache the pinned harness
+        uses: actions/cache@v4
+        with:
+          path: .plumbline-cache
+          key: plumbline-${{ hashFiles('plumbline.pin') }}
+
+      - name: Re-record the evidence from the current engine
+        run: |
+          python3 -m cairn index
+          python3 -m cairn record
+
+      - name: The committed evidence matches what the engine produces now
+        run: |
+          # `cairn record` is deterministic. If this diff is non-empty the
+          # engine's behaviour changed without the bundle being updated, and
+          # the audit below would be grading yesterday's answers.
+          git diff --exit-code -- plumbline/bundle
+
+      - name: Run the pinned audit
+        run: ./plumbline-gate.sh --summary-file "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: plumbline/audits/
+          if-no-files-found: warn

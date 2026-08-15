@@ -13,6 +13,11 @@ dist/
 tests/browser/node_modules/
 tests/browser/package-lock.json
 
+# the auditor, resolved at run time from plumbline.pin — never committed,
+# never a dependency of this project
+.plumbline-cache/
+plumbline/audits/
+
 # tooling caches
 .ruff_cache/
 .pytest_cache/
