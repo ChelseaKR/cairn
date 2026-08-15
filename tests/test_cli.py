@@ -43,8 +43,8 @@ class TestCli(CliHarness):
     def test_01_index_reports_counts_and_path(self):
         code, out, _ = self.run_cli("index")
         self.assertEqual(code, 0)
-        self.assertIn("Indexed 20 passages from 5 documents", out)
-        self.assertIn("(5 marked synthetic)", out)
+        self.assertIn("Indexed 40 passages from 10 documents", out)
+        self.assertIn("(10 marked synthetic)", out)
         self.assertIn(str(self.index_path), out)
 
     def test_02_ask_grounded_json(self):

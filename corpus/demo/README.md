@@ -10,5 +10,14 @@ Every document in this corpus carries `synthetic: true` in its front matter,
 and ingestion reports the synthetic count so the label survives into tooling
 output, not just this README.
 
-Languages in this corpus: English (`en`) and Spanish (`es`). An Arabic (`ar`)
-set joins in milestone M3 (see DESIGN.md roadmap).
+## Languages
+
+English (`en`), Spanish (`es`), and Arabic (`ar`, written right to left).
+
+The coverage is deliberately **uneven**: the Harbor GoPass exists only in
+English. A real agency's translated material always lags its English material,
+and an assistant that pretends otherwise is hiding the gap rather than
+handling it. Asking about the GoPass in Spanish or Arabic exercises the
+cross-language path — the answer says, in the language you asked in, that the
+only source available is in another language, and then quotes that source
+exactly as published rather than translating a policy amount.
