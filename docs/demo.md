@@ -1,0 +1,246 @@
+# The demo, end to end
+
+Every command below is run exactly as written, from a clean checkout, with no
+network, no API key, and no install step. The output shown under each one is
+the output you get — literally: `tests/test_docs.py` runs these commands in a
+temporary directory and fails if a single character differs. Documentation
+that drifts from behavior is a defect, so it is treated as one.
+
+Requires Python 3.11 or newer. Nothing else.
+
+## 1. Build the index
+
+```text
+$ git clone https://github.com/ChelseaKR/cairn.git
+$ cd cairn
+```
+
+```console
+$ python3 -m cairn index
+Indexed 40 passages from 10 documents (10 marked synthetic) in 3 languages [ar, en, es] -> .cairn/index.json
+```
+
+The count of synthetic documents is not decoration. Every file in the bundled
+corpus is invented, and the label travels from the front matter of each
+document into the tooling output rather than living only in a README.
+
+Re-running `index` on an unchanged corpus rewrites the same bytes: the index is
+serialized with sorted keys, a fixed layout, and no timestamps, so idempotency
+is checkable with a file hash rather than argued for. The test suite checks it
+that way.
+
+## 2. Ask something the corpus covers
+
+```console
+$ python3 -m cairn ask "How much is the monthly grocery allowance for one person?"
+## How much you get
+A one-person household receives $212 per month. Each additional household
+member adds $118 per month. For example, a household of three receives $448
+per month.
+
+## Income limits: who can apply
+Your household's gross monthly income must be at or below $2,430 for one
+person, plus $860 for each additional member. You must live in Harbor County.
+You do not need a permanent address to apply.
+
+Sources:
+  [1] Fresh Start Grocery Allowance (grocery-allowance-en#2)
+  [2] Fresh Start Grocery Allowance (grocery-allowance-en#3)
+```
+
+The answer is the cited passages, verbatim and in rank order. Nothing is
+paraphrased or summarized, so `$212` appears in the answer for exactly one
+reason: it appears in `grocery-allowance-en#2`. Every source is a document
+title plus a stable identifier an operator can open the document and count to.
+
+## 3. Ask something it does not cover
+
+```console
+$ python3 -m cairn ask "Can you help me renew my drivers license?"
+I don't have a source for that. None of the official documents this assistant is allowed to answer from cover your question, and I won't guess.
+For help from a person, contact the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own).
+```
+
+No sources, no hedged guess, no partial answer assembled out of the
+nearest-looking passage. The exit status is 0: refusing without evidence is
+the assistant working, not failing, and `--json` reports it as
+`"kind": "refusal"` so refusals can be counted rather than inferred from an
+error rate.
+
+## 4. Ask in another language
+
+```console
+$ python3 -m cairn ask "Cuanto cubre la subvencion de alivio de vivienda?"
+## Cuánto cubre la subvención
+La subvención cubre hasta $3,500 de alquiler no pagado. Se paga una vez por
+hogar; un hogar que ya recibió la subvención no puede recibirla de nuevo
+durante 36 meses.
+
+La Subvención de Alivio de Vivienda de Harbor es un pago único que ayuda a los
+inquilinos atrasados en el alquiler a permanecer en sus hogares. La subvención
+se paga directamente a su arrendador.
+
+Fuentes:
+  [1] Subvención de Alivio de Vivienda de Harbor (housing-relief-es#2)
+  [2] Subvención de Alivio de Vivienda de Harbor (housing-relief-es#1)
+```
+
+The question's language was determined from the corpus's own vocabulary — no
+model, no language-detection dependency — and the answer cites Spanish
+sources. `--lang es` states it outright if you would rather not rely on that.
+
+## 5. Ask in Arabic
+
+```console
+$ python3 -m cairn ask "كم قيمة رصيد المرافق الشتوي شهريًا؟"
+## قيمة الرصيد
+تحصل الأسرة المؤهلة على رصيد قدره $95 شهريًا من نوفمبر حتى مارس، بحد أقصى
+$475 في الشتاء الواحد. أما الأسر التي تعتمد على الكهرباء في التدفئة فتحصل على
+$40 إضافية شهريًا.
+
+يخفض رصيد هاربر الشتوي لفواتير المرافق تكلفة تدفئة المنزل خلال أشهر البرد
+الشديد. وتضيف شركة الكهرباء الرصيد مباشرة إلى حسابك، فلا يوجد شيك تصرفه ولا
+تمر الأموال بين يديك.
+
+المصادر:
+  [1] ⁨رصيد هاربر الشتوي لفواتير المرافق (utility-credit-ar#2)⁩
+  [2] ⁨رصيد هاربر الشتوي لفواتير المرافق (utility-credit-ar#1)⁩
+```
+
+The source identifiers in that list are wrapped in Unicode bidi isolates
+before printing. A terminal resolves direction the same way a browser does,
+and without isolation the trailing `)` of `(utility-credit-ar#2)` visibly
+migrates to the wrong end of an Arabic line. (This is why the raw markdown of
+this page contains invisible control characters inside the Arabic block —
+leave them alone.)
+
+## 6. Ask about something the corpus has in only one language
+
+```console
+$ python3 -m cairn ask --lang es "How much does the GoPass cost per year?"
+La única fuente que tengo para esto está escrita en otro idioma (⁨English⁩). Se cita a continuación tal como fue publicada.
+
+## How much you get
+A one-person household receives $212 per month. Each additional household
+member adds $118 per month. For example, a household of three receives $448
+per month.
+
+## The discount and the fee
+GoPass holders pay 50 percent of the standard fare on every ride. The pass
+costs $20 per year, and the fee is waived for riders enrolled in the Fresh
+Start Grocery Allowance.
+
+Fuentes:
+  [1] Fresh Start Grocery Allowance (grocery-allowance-en#2)
+  [2] Harbor GoPass Reduced Fare Program (transit-pass-en#2)
+```
+
+The transit document exists only in English, which is what agency translation
+backlogs actually look like. Cairn says so in the language you asked in, then
+quotes the English source exactly as published. It does not translate it: a
+translated policy amount is an unsourced policy amount. Set
+`[language] cross_language_fallback = false` to refuse instead.
+
+## 7. Find out why an answer was wrong
+
+```console
+$ python3 -m cairn ask --explain "What vaccinations does my dog need?"
+=== retrieval trace ==========================================================
+Question:  What vaccinations does my dog need?
+Index:     40 passages from 10 documents (.cairn/index.json)
+Threshold: 0.165 (retrieval.threshold)
+Language:  en (vocabulary)
+           corpus vocabulary coverage: en 0.40, es 0.00
+
+Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
+   1  0.082  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+          ## Income limits: who can apply Your household's gross monthly income must be at or bel…
+   2  0.051  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
+          ## What the credit is worth An eligible household receives a credit of $95 per month fr…
+   3  0.048  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
+          ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
+   4  0.047  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
+          ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
+
+Attempt 2 (widened to every language): 40 passages scored, 0 excluded, 4 candidates
+   1  0.082  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+          ## Income limits: who can apply Your household's gross monthly income must be at or bel…
+   2  0.051  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
+          ## What the credit is worth An eligible household receives a credit of $95 per month fr…
+   3  0.048  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
+          ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
+   4  0.047  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
+          ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
+
+Stage 1 - retrieval: FAILED (below-threshold)
+  4 candidates were scored and none cleared the 0.165 threshold. The best,
+  grocery-allowance-en#3, scored 0.082 and was short by 0.083.
+Stage 2 - answer: NOT REACHED (no-evidence)
+  The answer stage was handed no passages, so it refused. It could not have
+  produced text here; look upstream at retrieval.
+
+Verdict: NOT GROUNDED - refusal, no sources.
+Diagnose at: retrieval.
+==============================================================================
+
+I don't have a source for that. None of the official documents this assistant is allowed to answer from cover your question, and I won't guess.
+For help from a person, contact the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own).
+```
+
+Read the last line first. A bad answer has two possible authors and this says
+which one you have:
+
+- **Retrieval failed** — nothing cleared the gate, so the answer stage was
+  never given anything to work with. Fix the corpus or the threshold.
+- **Retrieval succeeded and the answer is still wrong** — the report says
+  `composed-truncated` and names the accepted passages that
+  `retrieval.max_passages` dropped. Fix the composition setting.
+
+Both retrieval attempts are shown, including the widened cross-language one,
+so the language filter is visible rather than silently narrowing a candidate
+list you are trying to debug.
+
+## 8. Serve the chat interface
+
+```text
+$ python3 -m cairn serve
+cairn: serving the chat interface on http://127.0.0.1:8765/  (ctrl-c to stop)
+cairn: 40 passages, 10 documents, languages ar, en, es
+```
+
+Open that address. The page binds to this machine only, loads no external
+resource of any kind, and declares a content security policy of
+`default-src 'none'` so the browser enforces that rather than a README
+claiming it.
+
+What to try, and what should happen:
+
+| Do this | Expect |
+| --- | --- |
+| Press <kbd>Tab</kbd> once from the top | The skip link appears and is focused |
+| Press <kbd>Enter</kbd> on it | Focus lands in the question box |
+| Keep pressing <kbd>Tab</kbd> | Transcript, language, question, send — then out of the page. No trap, and a visible focus ring at every stop |
+| Type a question and press <kbd>Enter</kbd> | The answer is appended and announced politely; focus stays in the question box |
+| Press <kbd>Shift</kbd>+<kbd>Enter</kbd> | A new line in the question box, as the hint under it says |
+| Switch the language to العربية | The whole page mirrors — the send button moves to the other side — and the chrome is retranslated |
+| Ask an English-only question in Arabic | An Arabic notice, then the English source marked `lang="en" dir="ltr"` so a screen reader reads it in an English voice |
+| Turn off JavaScript and ask again | It still answers. The form posts to the server, which renders the page |
+| Switch your system to dark mode | A dark presentation whose every colour pair passes AA |
+
+The disclosure at the top of the page is permanent. There is no dismiss
+control, because a disclosure you can dismiss is a disclosure most people
+never see twice.
+
+`tests/browser/` drives all of the above against real Chromium, along with
+axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. It needs
+Node and a browser, and is deliberately not part of the dev path below.
+
+## The dev path
+
+```console
+$ python3 -m unittest discover -s tests
+$ ruff check .
+```
+
+No third-party dependency is required to run the tests. `ruff` is the only
+development extra, and the demo path does not need it.
