@@ -6,9 +6,9 @@ its sources on every answer, and when no source clears the relevance threshold
 it refuses plainly and points to a human — no guessing, ever. A cairn marks a
 verified trail; where there are no stones, there is no trail.
 
-**Status: pre-release.** Ingest, grounded answers with citations, refusal, and
-the operator explain mode are complete; multilingual operation, the accessible
-chat UI, and the CI audit interlock are on the
+**Status: pre-release.** Ingest, grounded answers with citations, refusal, the
+operator explain mode, and multilingual operation including right-to-left are
+complete; the accessible chat UI and the CI audit interlock are on the
 [roadmap](DESIGN.md#roadmap). This is a demonstration of correct behavior, not
 a production service.
 
@@ -32,7 +32,7 @@ directly:
 
 ```console
 $ python3 -m cairn index
-Indexed 20 passages from 5 documents (5 marked synthetic) -> .cairn/index.json
+Indexed 40 passages from 10 documents (10 marked synthetic) in 3 languages [ar, en, es] -> .cairn/index.json
 
 $ python3 -m cairn ask "How much unpaid rent does the housing relief grant cover?"
 ## How much the grant covers
@@ -83,11 +83,44 @@ you have — including the case where the right passage cleared the threshold an
 was then dropped from the answer by `retrieval.max_passages`. Add `--json` for
 the same trace machine-readably. Explain mode never changes the answer.
 
+## Three languages, one of them right to left
+
+```console
+$ python3 -m cairn ask "Cuanto cubre la subvencion de alivio de vivienda?"
+## Cuánto cubre la subvención
+La subvención cubre hasta $3,500 de alquiler no pagado. ...
+
+Fuentes:
+  [1] Subvención de Alivio de Vivienda de Harbor (housing-relief-es#2)
+```
+
+A question is answered in the language it was asked in, from sources in that
+language, and `--lang` states the language outright when you would rather not
+rely on detection. Arabic is right-to-left in the way that matters: direction
+comes from the language code, and Latin runs inside an Arabic line — passage
+ids, phone numbers — are wrapped in Unicode bidi isolates so a terminal or a
+browser does not reorder them.
+
+Corpus coverage is deliberately uneven, because real agencies' translations
+lag. Ask in Spanish about a document that exists only in English and Cairn
+says so, in Spanish, and then quotes the English exactly as published:
+
+```console
+$ python3 -m cairn ask --lang es "How much does the GoPass cost per year?"
+La única fuente que tengo para esto está escrita en otro idioma (English).
+Se cita a continuación tal como fue publicada.
+...
+```
+
+It does not translate the source. A translated policy amount is an unsourced
+policy amount. Set `[language] cross_language_fallback = false` to refuse
+instead.
+
 ## The demo corpus is synthetic
 
 The bundled corpus under [`corpus/demo/`](corpus/demo/) is **entirely
 fictional**: an invented agency, invented programs, invented amounts and
-deadlines, in English and Spanish, each file marked `synthetic: true`. See
+deadlines, in English, Spanish, and Arabic, each file marked `synthetic: true`. See
 [its README](corpus/demo/README.md). Point `[corpus] path` in
 [`cairn.toml`](cairn.toml) at your own directory of front-matter markdown
 documents to use real content — swapping the corpus is a config change, never
@@ -110,9 +143,11 @@ $ ruff check .                            # lint (dev extra: pip install -e ".[d
 
 The test suite covers ingestion idempotency (byte-identical re-index), grounded
 answering with citation validity and numeric-fact traceability, refusal
-behavior (no sources, no corpus leakage, countable in JSON output), output
-determinism, and the CLI contract — and it re-checks the retrieval threshold
-calibration on every run.
+behavior (no sources, no corpus leakage, countable in JSON output), stage
+diagnosis in explain mode, multilingual behavior including script-aware
+tokenizing and bidi isolation, output determinism, and the CLI contract — and
+it re-measures the retrieval threshold calibration on every run rather than
+trusting a comment.
 
 ## License
 

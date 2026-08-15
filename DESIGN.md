@@ -39,15 +39,24 @@ interpreter — `python3 -m cairn ...` runs with no install step at all.
 ```
 cairn/                  the package
   corpus.py             load + chunk corpus documents (front-matter markdown)
+  text.py               tokenization, script classification, script-aware normalizing
   index.py              build/read the on-disk index; deterministic serialization
   retrieve.py           TF-IDF cosine scoring, threshold gate, retrieval trace
+  language.py           language registry, writing direction, bidi isolates, detection
+  messages.py           every string Cairn says in its own voice, per language
   answer.py             grounded answer composition and refusal (the only two outcomes)
+  engine.py             the ask pipeline: language, retrieval, fallback, composition
+  explain.py            operator explain mode: candidate trace and per-stage diagnosis
   config.py             TOML config loading with defaults
   cli.py                subcommands: index, ask, serve
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 tests/                  stdlib unittest suite (runs with zero third-party deps)
 ```
+
+`engine.ask` is the only entry point that answers a question. The CLI and the
+web interface both go through it, so the two cannot drift into answering
+differently — a drift that would be invisible until someone compared them.
 
 ### Data flow
 
@@ -82,27 +91,59 @@ unbounded scores would make the configured threshold meaningless across corpora.
 Trade-off accepted: BM25 ranks marginally better on long documents; this corpus
 model (short plain-language passages) does not exercise that advantage.
 
-- Tokenization: Unicode word characters (`\w+`), lowercased via `str.casefold()`,
-  then **truncation-stemmed to 5 characters** — a crude, dictionary-free,
-  deterministic normalizer that unifies inflectional variants (month/monthly,
-  deadline/deadlines, recibe/reciben) across suffixing languages with no
-  per-language rules. Added after measured misses caused by exactly those
-  variants; revisit in M3 when Arabic (non-suffixing morphology) joins.
-- IDF: smoothed, `log((N + 1) / (df + 1)) + 1`; terms appearing in more than
-  half the passages are ignored outright (df-based stopword suppression, no
-  per-language stopword lists). TF is sublinear (`1 + log tf`). Both added after
-  measured misses where repeated function words outweighed topical terms.
+- Tokenization (`text.py`): word characters **plus the combining marks that
+  belong to them**, lowercased via `str.casefold()`, then **truncation-stemmed
+  to 5 characters** — a crude, dictionary-free, deterministic normalizer that
+  unifies inflectional variants (month/monthly, deadline/deadlines,
+  recibe/reciben) with no per-language rules. Python's `\w` excludes nonspacing
+  marks, which split every diacritic-bearing Arabic word in two until the mark
+  ranges were added explicitly.
+- Normalization is conditioned on **script, not on a declared language**, so a
+  passage that mixes scripts still normalizes correctly and no operator has to
+  declare "this corpus is Arabic" for the Arabic in it to be findable. Arabic
+  script gets diacritic and tatweel stripping, alef/ya/teh-marbuta folding, and
+  one clitic prefix stripped when at least three characters survive. Stripping
+  the bare preposition `ل` matters most: without it, "لمخصص" and "مخصص" are
+  different terms and a question about a program does not match the document
+  describing it.
+- Tokens shorter than 3 characters are dropped unless numeric. Document
+  frequency suppresses words that are *common in the corpus*, but a demo corpus
+  is small enough that a question word can be rare in it and therefore score as
+  highly discriminating: measured, "ما"/"التي" and "es"/"la" alone pushed
+  off-topic questions to within 0.02 of genuine ones. Numbers are exempt —
+  "$20" is exactly the sort of fact a benefits question turns on.
+- IDF: smoothed, `log((N + 1) / (df + 1)) + 1`, and computed **within the
+  passage's language**. Corpus-wide document frequency was a real bug: once a
+  corpus holds three languages, no language's function words appear in half of
+  it, so none of them were ever suppressed and Arabic retrieval lost roughly a
+  third of its score on every question. TF is sublinear (`1 + log tf`).
+- **Document titles are scored into every passage of their document.** A
+  passage lifted from the middle of a policy document loses the one sentence
+  saying what the document is about, while questions name the program
+  constantly ("the grocery allowance", "el crédito de invierno"). Measured,
+  this was the largest single retrieval improvement of the multilingual work:
+  the weakest in-corpus question rose from 0.147 to 0.187 while the strongest
+  off-topic one fell from 0.155 to 0.148, turning an overlap into a gap. Only
+  body text is ever quoted back in an answer.
 - Ties broken by passage id (lexicographic) so ranking is fully deterministic.
 - **Tried and rejected:** pivoted length normalization (blending passage norms
   toward the corpus average, b ∈ {0.5, 0.6, 0.75}). Measured on the demo corpus
   it did not fix the one known hard case and degraded two Spanish rankings, so
   the simpler, more legible scorer stays.
-- **Known hard case, kept on purpose:** the transit document cross-references
-  the grocery program by name, and its short cross-referencing passage can
-  outrank the grocery document's own eligibility passage for one phrasing of an
-  income-limit question. Real corpora cross-reference constantly; this is the
-  failure mode explain mode (R5, M2) exists to make visible, not something to
-  tune away against a five-document corpus.
+- **Known hard case, kept on purpose:** the grocery document's "how much you
+  get" passage outranks the transit document's own fare passage for "how much
+  does the GoPass cost per year", so at the default `max_passages` of 2 the
+  fare is cited but at 1 it is dropped. Real corpora cross-reference and
+  overlap constantly; this is the failure mode explain mode (R5) exists to make
+  visible, not something to tune away against a ten-document corpus. It is the
+  worked example in `tests/test_explain.py`.
+- **Known limitation:** cross-language fallback is lexical, so it can only fire
+  where the question shares vocabulary with the other language's passages — in
+  practice, between languages in the same script. An Arabic question about an
+  English-only document refuses rather than quoting the English. Fixing that
+  needs either translation or embeddings; the first would emit unsourced text
+  and the second would end the offline-and-deterministic guarantee, so it
+  refuses, which is the behavior this project exists to demonstrate.
 
 ### Chunking
 
@@ -190,27 +231,70 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 | --- | --- | --- |
 | `corpus.path` | `corpus/demo` | the bundled synthetic corpus, so a clean checkout works immediately |
 | `index.path` | `.cairn/index.json` | dot-directory keeps generated state out of the operator's way |
-| `retrieval.threshold` | `0.20` (measured) | bounded-cosine gate, set empirically against the demo corpus — see the measurement note below |
+| `retrieval.threshold` | `0.165` (measured) | bounded-cosine gate, set empirically against the demo corpus — see the measurement note below |
 | `retrieval.max_passages` | `2` | enough to answer multi-part questions; more starts pasting unrelated passages |
 | `retrieval.candidates` | `8` | candidates scored/reported (matters for explain mode); retrieval quality does not depend on it |
+| `language.default` | `en` | used only when a question's language cannot be told from the corpus at all; the web interface always states one |
+| `language.cross_language_fallback` | `true` | widen the search past the answer language rather than refuse, and say so |
 | `refusal.contact` | demo office string | fictional demo contact; a real agency must set this |
+| `refusal.contact_by_language` | one demo line per language | a single-language deployment never touches this; a multilingual one must |
 
-> **Measured 2026-08-15** (8 in-corpus probes in English and Spanish, 6
-> off-topic probes, final scorer): top scores for in-corpus questions fall in
-> **0.239–0.453**; off-topic questions top out at **0.169**. The provisional
-> default of 0.28 would have wrongly refused a legitimate question scoring
-> 0.239, so the default is **0.20** — inside the measured gap, with margin on
-> both sides. The probe set lives in the test suite, so the calibration is
-> re-checked on every run, not just asserted here.
+> **Measured 2026-08-15** (15 in-corpus probes and 20 off-topic probes across
+> English, Spanish, and Arabic, final scorer): top scores for in-corpus
+> questions fall in **0.187–0.692**; off-topic questions top out at **0.148**.
+> Every in-corpus probe's fact passage lands in the top two, so the default
+> `max_passages` of 2 cites it. The default threshold is **0.165** — inside the
+> measured gap with roughly equal margin on each side. The probe sets live in
+> `tests/probes.py` and the gap is re-measured on every test run, so the
+> calibration cannot rot into a stale comment.
+
+Writing direction is deliberately **not** configurable: it is a property of a
+language, not of a deployment, and lives only in `language.py`. Two places to
+state the direction of Arabic is one place for it to be wrong.
+
+## Language, direction, and the cross-language path
+
+Three interface languages ship: English, Spanish, and Arabic. Arabic is there
+because the specification asks for a right-to-left language and because
+right-to-left is where "multilingual support" is usually only skin deep.
+
+- **Direction is derived from the language code** (`language.direction_of`),
+  from a table of right-to-left codes, and subtags are ignored — `ar-EG` is as
+  right-to-left as `ar`. There is no `dir` key in corpus front matter and no
+  direction column in the index.
+- **Bidi isolates, not hope.** A Latin run inside an Arabic sentence — a
+  passage id, a phone number, another language's endonym — is wrapped in
+  `U+2068 FSI … U+2069 PDI` before it is printed. Terminals are bidi renderers
+  like browsers; without isolation the trailing `)` of
+  `(grocery-allowance-ar#2)` visibly migrates to the wrong end of the line.
+- **Detection is corpus-driven and deterministic.** No model, no
+  language-detection dependency, no shipped word lists. The question's dominant
+  script narrows the field to languages written in that script; vocabulary
+  coverage against each language's indexed terms picks among what is left; ties
+  and questions with no corpus words at all fall back to `language.default`.
+  Explain mode reports which of those rules decided, and the coverage numbers.
+  An explicit `--lang` (or the interface's selector) always wins outright.
+- **Corpus content is never translated.** A translated policy amount is an
+  unsourced policy amount. When the answer language has no source that clears
+  the threshold, the search widens to the whole corpus and the answer carries a
+  *notice* — Cairn's own voice, in the language asked in — saying the source is
+  in another language. The notice is a separate field, never concatenated into
+  the answer text, so "the answer text is exactly the cited passages" stays
+  literally true and is tested as such.
+- **`messages.py` holds every string Cairn says in its own voice**, per
+  language, and the test suite fails if any language is missing a key, if a
+  translation was left as the English string, or if a key's placeholders differ
+  between languages. A silent fallback to English for one string is the failure
+  mode this prevents.
 
 ## Language and interface decisions
 
 - Python ≥ 3.11 (for `tomllib`). Developed on 3.12.
 - CLI subcommands: `cairn index`, `cairn ask "…"`, `cairn serve`. `--json` on
-  `ask` emits a machine-readable record (also the substrate the auditor interlock
-  will consume later). `--explain` renders the operator trace beside the answer,
-  or folds it into the JSON record. `--lang` is still an honest stub that names
-  its milestone and exits 2 rather than half-working.
+  `ask` emits a machine-readable record (also the substrate the auditor
+  interlock will consume later). `--explain` renders the operator trace beside
+  the answer, or folds it into the JSON record. `--lang` selects the response
+  language; an unsupported code is an error (exit 1), not a quietly bad answer.
 - Tests are stdlib `unittest` so the core dev path (`python3 -m unittest`) needs
   no third-party install at all. They are pytest-compatible for anyone who
   prefers that runner. Lint is `ruff` when available (declared as a dev extra),
@@ -229,7 +313,7 @@ in the index) but no rushed half-implementations.
 | **M1 (now)** | R3 refusal | first-class refusal outcome, configured human channel, no sources, no guess; tested and countable |
 | **M1 (now)** | (groundwork) | synthetic demo corpus in English and Spanish; config; unittest suite; docs for the offline demo path |
 | **M2 (done)** | R5 explain mode | `ask --explain`: every candidate with score, accepted/rejected at threshold, and a per-stage verdict that separates a retrieval miss from a composition problem. `--explain --json` carries the same data machine-readably |
-| **M3** | R4 multilingual | third language (Arabic, RTL) in demo corpus; language selection; same-language source preference (passage `lang` is already indexed in M1); answer-language matching |
+| **M3 (done)** | R4 multilingual | Arabic (RTL) in the demo corpus; explicit `--lang` selection and corpus-driven detection; same-language sources preferred; direction derived from the language code and Latin runs bidi-isolated; honest cross-language fallback with an untranslated quote |
 | **M4** | R6 + R7 UI/docs | accessible chat UI (WCAG 2.2 AA behaviors: skip link, polite live-region transcript, interrupting error channel, labeled input, standing AI disclosure, light/dark), served by stdlib `http.server`; demo walkthrough doc with a CI check that docs and actual output do not drift |
 | **M5** | auditor interlock | auditor pinned by exact commit in `auditor.pin` (single file read by local tooling and CI), resolved at run time — never a package dependency; gate job fails (never skips) when the auditor is unreachable, with the reason written into the workflow as a comment. Core install/lint/test stays fully independent of the auditor |
 
@@ -257,5 +341,12 @@ auditing.
   every file's front matter, and a corpus README stating it. Phone numbers use
   the 555 range.
 - **Two demo languages in M1:** the corpus-side requirement (synthetic content in
-  at least two languages) lands now (English + Spanish); the behavioral
-  multilingual requirement (R4) is M3. Arabic joins the corpus in M3 with RTL.
+  at least two languages) landed first (English + Spanish); the behavioral
+  multilingual requirement (R4) followed with Arabic and RTL.
+- **Deliberately uneven corpus coverage:** the transit pass exists only in
+  English. Translated agency material always lags the original, and an assistant
+  that pretends otherwise hides the gap instead of handling it. The asymmetry is
+  what exercises the cross-language path.
+- **Refusal contacts are per language:** `[refusal.contact_by_language]`. A
+  refusal that points a Spanish speaker at an English sentence has not really
+  pointed them anywhere.
