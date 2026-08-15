@@ -313,16 +313,17 @@ right-to-left is where "multilingual support" is usually only skin deep.
 
 ## Roadmap
 
-Milestones map to the specification's functional requirements. M1 is this build's
-scope; later milestones have skeletons (stub commands/flags, data already carried
-in the index) but no rushed half-implementations.
+Milestones map to the specification's functional requirements. All five are
+built. The table is kept as the record of what was done in what order, because
+the order was a decision and it is part of why the later work went the way it
+did; what is still open is listed under it.
 
 | Milestone | Spec requirement | Scope |
 | --- | --- | --- |
-| **M1 (now)** | R1 ingestion/indexing | CLI `index`, idempotent, reports counts + path |
-| **M1 (now)** | R2 grounded answering | extractive answers, threshold gate, sources list with titles + stable ids, numeric traceability by construction |
-| **M1 (now)** | R3 refusal | first-class refusal outcome, configured human channel, no sources, no guess; tested and countable |
-| **M1 (now)** | (groundwork) | synthetic demo corpus in English and Spanish; config; unittest suite; docs for the offline demo path |
+| **M1 (done)** | R1 ingestion/indexing | CLI `index`, idempotent, reports counts + path |
+| **M1 (done)** | R2 grounded answering | extractive answers, threshold gate, sources list with titles + stable ids, numeric traceability by construction |
+| **M1 (done)** | R3 refusal | first-class refusal outcome, configured human channel, no sources, no guess; tested and countable |
+| **M1 (done)** | (groundwork) | synthetic demo corpus in English and Spanish; config; unittest suite; docs for the offline demo path |
 | **M2 (done)** | R5 explain mode | `ask --explain`: every candidate with score, accepted/rejected at threshold, and a per-stage verdict that separates a retrieval miss from a composition problem. `--explain --json` carries the same data machine-readably |
 | **M3 (done)** | R4 multilingual | Arabic (RTL) in the demo corpus; explicit `--lang` selection and corpus-driven detection; same-language sources preferred; direction derived from the language code and Latin runs bidi-isolated; honest cross-language fallback with an untranslated quote |
 | **M4 (done)** | R6 + R7 UI/docs | accessible chat interface served by stdlib `http.server`: skip link, polite live-region transcript, errors-only assertive channel, labelled input with a key hint, standing disclosure, language selector that mirrors the layout, light and dark. Verified twice — markup and contrast in `tests/test_ui.py`, behavior and axe-core WCAG 2.2 AA in `tests/browser/`. `docs/demo.md` walks the demo and its output is executed by `tests/test_docs.py` |
@@ -330,9 +331,35 @@ in the index) but no rushed half-implementations.
 
 Ordering rationale: explain mode (M2) before multilingual (M3) because it is the
 operator's debugging instrument — it makes every later milestone cheaper to verify.
-UI last among the feature milestones because it renders behaviors the engine must
-already have. The interlock closes the loop once there are recorded answers worth
-auditing.
+It earned that: every retrieval bug the multilingual work exposed was found by
+reading a trace. UI last among the feature milestones because it renders
+behaviors the engine must already have. The interlock closes the loop once
+there are recorded answers worth auditing, and it immediately found four more
+things.
+
+### What is still open
+
+Not a wish list — the things a reader could reasonably expect and will not find.
+
+- **The `audit` job is not yet marked required in branch protection.** That is
+  a repository setting, not a file, and until it is set the gate is a report
+  rather than a gate. Nothing in this repository can do it.
+- **No committed baseline.** The pinned harness can compare a run against a
+  recorded one and fail on regression above the floors; Cairn sets floors but
+  no baseline, so a score can decay from 0.99 to 0.36 without tripping
+  anything. Adding one means committing an artifact that has to be regenerated
+  deliberately whenever behavior changes, which is a workflow decision as much
+  as a technical one.
+- **The `multilingual` audit suite is disabled**, because the pinned harness
+  ships language profiles for English and Spanish only. Re-enable it when a
+  pinned version ships Arabic; `plumbline/target.toml` carries the reasoning.
+- **One known colloquial-recall failure**, `ck-015`, described above.
+- **Cross-language fallback cannot cross scripts.** Lexical retrieval has no
+  way to match an Arabic question to an English document, so those refuse.
+- **No generative mode.** The specification permits one as a clearly separated,
+  off-by-default option. None is implemented, and the extractive path is the
+  reference behavior; anything generative would have to keep the "every fact
+  appears in a cited passage" invariant that is currently structural.
 
 ## The chat interface
 
