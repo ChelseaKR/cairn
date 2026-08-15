@@ -169,10 +169,12 @@ def render_page(lang: str, *, turns: str = "", status: str = "") -> str:
 {_disclosure(lang)}
 
       <h2 id="transcript-heading">{escape(message("transcript_heading", lang))}</h2>
-      <ol id="transcript" class="transcript" role="log" aria-live="polite"
-          aria-labelledby="transcript-heading" tabindex="0">
+      <div id="transcript" class="transcript" role="log" aria-live="polite"
+           aria-labelledby="transcript-heading" tabindex="0">
+        <ol id="turns" class="turns">
 {body}
-      </ol>
+        </ol>
+      </div>
 
       <p id="status" role="status" class="visually-hidden">{escape(status)}</p>
       <div id="errors" role="alert" class="errors"></div>

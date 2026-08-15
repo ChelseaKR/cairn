@@ -23,6 +23,7 @@
 
   var form = document.getElementById("ask");
   var transcript = document.getElementById("transcript");
+  var turns = document.getElementById("turns");
   var statusLine = document.getElementById("status");
   var errorLine = document.getElementById("errors");
   var input = document.getElementById("question");
@@ -77,7 +78,7 @@
   }
 
   function addTurn(question, payload, uiLang) {
-    var empty = transcript.querySelector(".turn-empty");
+    var empty = turns.querySelector(".turn-empty");
     if (empty) empty.remove();
 
     var asked = element("li", "turn turn-asked");
@@ -85,7 +86,7 @@
     asked.appendChild(
       element("p", "asked", question, uiLang, dirOf(uiLang))
     );
-    transcript.appendChild(asked);
+    turns.appendChild(asked);
 
     var grounded = payload.kind === "grounded";
     var answered = element("li", "turn turn-answered turn-" + payload.kind);
@@ -132,7 +133,7 @@
       });
       answered.appendChild(list);
     }
-    transcript.appendChild(answered);
+    turns.appendChild(answered);
     transcript.scrollTop = transcript.scrollHeight;
 
     announce(

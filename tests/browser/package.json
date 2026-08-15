@@ -1,0 +1,13 @@
+{
+  "name": "cairn-browser-checks",
+  "private": true,
+  "description": "Accessibility behaviours that only exist in a running browser. Not part of Cairn's demo path or its core dev path, which stay standard-library-only and offline.",
+  "type": "module",
+  "scripts": {
+    "check": "node a11y.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "playwright": "^1.62.0"
+  }
+}
