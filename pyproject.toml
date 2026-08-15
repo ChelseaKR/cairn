@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cairn-assistant"
+version = "0.1.0.dev0"
+description = "Retrieval-grounded question answering for public agencies: answers only from an operator-supplied corpus, cites its sources, refuses cleanly when it has none."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Chelsea Kelly-Reif" }]
+keywords = ["retrieval", "grounded", "question-answering", "public-sector", "citations"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Text Processing :: Indexing",
+]
+# Deliberately empty: the runtime is standard-library only so the demo path
+# works offline from a clean checkout (see DESIGN.md, "Core stance").
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+cairn = "cairn.cli:main"
+
+[tool.setuptools]
+packages = ["cairn"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

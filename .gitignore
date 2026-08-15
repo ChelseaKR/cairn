@@ -1,0 +1,14 @@
+# generated index state
+.cairn/
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+
+# tooling caches
+.ruff_cache/
+.pytest_cache/
