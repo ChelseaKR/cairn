@@ -157,6 +157,30 @@ A refusal:
 - exits with status 0 and is countable (the `kind` field in `--json` output).
   Non-zero exit codes are reserved for real errors (missing index, bad config).
 
+### Explain mode reports stages, not just scores
+
+`ask --explain` (spec R5) exists to answer one operator question: *whose fault
+is this answer?* A score list alone does not answer it, so the report ends with
+a verdict for each of the two stages that can disappoint:
+
+| Stage | Codes | Means |
+| --- | --- | --- |
+| retrieval | `passages-accepted` / `below-threshold` / `no-lexical-overlap` | did anything clear the gate, and if not, was it close or was there no vocabulary overlap at all |
+| answer | `composed` / `composed-truncated` / `no-evidence` | did the answer stage have usable evidence, and did it use all of it |
+
+The codes are machine-stable; the prose beside them is for humans. `blame`
+names the first stage that did not do its job, and is `null` when both did.
+
+The case that made the split worth building: a passage can clear the threshold
+and still be dropped from the answer by `retrieval.max_passages`. The answer is
+then wrong while retrieval is healthy. Reporting scores alone would make that
+look like a retrieval miss; `composed-truncated` names the dropped passage ids
+and the knob that dropped them. `no-evidence` is reported as *not reached*
+rather than as a failure, because a refusal is the answer stage doing its job.
+
+Explain mode is strictly observational: the answer with `--explain` is
+byte-identical to the answer without it, and a test pins that.
+
 ## Configuration
 
 TOML (`cairn.toml` at the repo/deployment root; `--config` overrides), read with
@@ -184,8 +208,9 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 - Python ≥ 3.11 (for `tomllib`). Developed on 3.12.
 - CLI subcommands: `cairn index`, `cairn ask "…"`, `cairn serve`. `--json` on
   `ask` emits a machine-readable record (also the substrate the auditor interlock
-  will consume later). `--explain` and `--lang` exist as flags now but are honest
-  stubs that name their milestone and exit 2 rather than half-working.
+  will consume later). `--explain` renders the operator trace beside the answer,
+  or folds it into the JSON record. `--lang` is still an honest stub that names
+  its milestone and exits 2 rather than half-working.
 - Tests are stdlib `unittest` so the core dev path (`python3 -m unittest`) needs
   no third-party install at all. They are pytest-compatible for anyone who
   prefers that runner. Lint is `ruff` when available (declared as a dev extra),
@@ -203,7 +228,7 @@ in the index) but no rushed half-implementations.
 | **M1 (now)** | R2 grounded answering | extractive answers, threshold gate, sources list with titles + stable ids, numeric traceability by construction |
 | **M1 (now)** | R3 refusal | first-class refusal outcome, configured human channel, no sources, no guess; tested and countable |
 | **M1 (now)** | (groundwork) | synthetic demo corpus in English and Spanish; config; unittest suite; docs for the offline demo path |
-| **M2** | R5 explain mode | `ask --explain`: every candidate with score, accepted/rejected at threshold, explicit grounded/not-grounded verdict. The retrieval trace data structure already exists in M1 (`retrieve.py` returns it); M2 is the renderer and its tests |
+| **M2 (done)** | R5 explain mode | `ask --explain`: every candidate with score, accepted/rejected at threshold, and a per-stage verdict that separates a retrieval miss from a composition problem. `--explain --json` carries the same data machine-readably |
 | **M3** | R4 multilingual | third language (Arabic, RTL) in demo corpus; language selection; same-language source preference (passage `lang` is already indexed in M1); answer-language matching |
 | **M4** | R6 + R7 UI/docs | accessible chat UI (WCAG 2.2 AA behaviors: skip link, polite live-region transcript, interrupting error channel, labeled input, standing AI disclosure, light/dark), served by stdlib `http.server`; demo walkthrough doc with a CI check that docs and actual output do not drift |
 | **M5** | auditor interlock | auditor pinned by exact commit in `auditor.pin` (single file read by local tooling and CI), resolved at run time — never a package dependency; gate job fails (never skips) when the auditor is unreachable, with the reason written into the workflow as a comment. Core install/lint/test stays fully independent of the auditor |

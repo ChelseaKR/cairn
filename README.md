@@ -6,9 +6,9 @@ its sources on every answer, and when no source clears the relevance threshold
 it refuses plainly and points to a human — no guessing, ever. A cairn marks a
 verified trail; where there are no stones, there is no trail.
 
-**Status: pre-release.** Milestone M1 (ingest, grounded answers with citations,
-refusal) is complete; multilingual operation, operator explain mode, the
-accessible chat UI, and the CI audit interlock are on the
+**Status: pre-release.** Ingest, grounded answers with citations, refusal, and
+the operator explain mode are complete; multilingual operation, the accessible
+chat UI, and the CI audit interlock are on the
 [roadmap](DESIGN.md#roadmap). This is a demonstration of correct behavior, not
 a production service.
 
@@ -56,6 +56,32 @@ evidence is correct behavior, not an error.
 
 `pip install -e .` additionally gives you the `cairn` console command;
 `--json` on `ask` emits a machine-readable record.
+
+## Explaining a bad answer
+
+`ask --explain` prints an operator trace above the answer: every candidate
+passage with its score and its accept/reject verdict at the threshold, then a
+verdict for each stage that could have gone wrong.
+
+```console
+$ python3 -m cairn ask --explain "What vaccinations does my dog need?"
+Candidates (2 scored, ranked):
+   1  0.067  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+   ...
+Stage 1 - retrieval: FAILED (below-threshold)
+  2 candidates were scored and none cleared the 0.200 threshold. ...
+Stage 2 - answer: NOT REACHED (no-evidence)
+  The answer stage was handed no passages, so it refused. ...
+
+Verdict: NOT GROUNDED - refusal, no sources.
+Diagnose at: retrieval.
+```
+
+The point is the last line. A wrong answer whose retrieval stage passed is a
+different bug from one whose retrieval stage failed, and the trace says which
+you have — including the case where the right passage cleared the threshold and
+was then dropped from the answer by `retrieval.max_passages`. Add `--json` for
+the same trace machine-readably. Explain mode never changes the answer.
 
 ## The demo corpus is synthetic
 
