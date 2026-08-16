@@ -108,6 +108,81 @@ class TestTraceContents(ExplainHarness):
         self.assertNotIn("\n", excerpt("two\n\nlines"))
 
 
+class TestTermEvidence(ExplainHarness):
+    """The trace says which of the question's words each passage held.
+
+    A score alone cannot distinguish "this passage is about something else"
+    from "the corpus has never heard of this word", and those need different
+    fixes. The term evidence is what makes the difference visible.
+    """
+
+    def test_query_terms_partition_into_matched_unmatched_and_ignored(self):
+        for question in (GROUNDED_Q, MISS_Q, TRUNCATION_Q, "who can get the discount bus pass"):
+            with self.subTest(question=question):
+                result, _ = self.ask(question)
+                trace = result.answer.trace
+                matched = {t for c in trace.candidates for t in c.matched}
+                unmatched, ignored = set(trace.unmatched), set(trace.ignored)
+                self.assertEqual(matched & unmatched, set())
+                self.assertEqual(matched & ignored, set())
+                self.assertEqual(unmatched & ignored, set())
+                # Nothing is invented and nothing is silently dropped: every
+                # term the question tokenized to is accounted for exactly once.
+                self.assertTrue(matched <= set(trace.query_terms))
+                self.assertTrue(unmatched | ignored <= set(trace.query_terms))
+                self.assertEqual(
+                    set(trace.scoring_terms), set(trace.query_terms) - ignored
+                )
+
+    def test_a_candidate_matched_at_least_one_term_or_it_would_not_have_scored(self):
+        result, _ = self.ask(MISS_Q)
+        self.assertTrue(result.answer.trace.candidates)
+        for candidate in result.answer.trace.candidates:
+            self.assertTrue(candidate.matched, candidate.passage.passage_id)
+            for term in candidate.matched:
+                self.assertIn(term, candidate.passage.term_counts)
+
+    def test_a_word_the_corpus_never_saw_is_reported_as_absent_not_as_common(self):
+        result, _ = self.ask(MISS_Q)
+        trace = result.answer.trace
+        self.assertIn("dog", trace.unmatched)
+        self.assertNotIn("dog", trace.ignored)
+
+    def test_a_word_the_corpus_suppressed_is_reported_as_common_not_as_absent(self):
+        # "the" is in most English passages, so document frequency zeroes it.
+        # Calling that "no passage contained it" would be a lie the operator
+        # could act on.
+        result, _ = self.ask("who can get the discount bus pass")
+        trace = result.answer.trace
+        self.assertIn("the", trace.ignored)
+        self.assertNotIn("the", trace.unmatched)
+
+    def test_the_report_and_the_json_carry_the_same_term_evidence(self):
+        result, diag = self.ask(MISS_Q)
+        trace = result.answer.trace
+        payload = trace_payload(trace)
+        self.assertEqual(payload["query_terms"], list(trace.query_terms))
+        self.assertEqual(payload["unmatched_terms"], list(trace.unmatched))
+        self.assertEqual(payload["ignored_terms"], list(trace.ignored))
+        self.assertEqual(
+            [c["matched_terms"] for c in payload["candidates"]],
+            [list(c.matched) for c in trace.candidates],
+        )
+        report = render(result, diag, index_summary="test index")
+        self.assertIn("question terms:", report)
+        self.assertIn("in no passage:", report)
+        for candidate in trace.candidates:
+            self.assertIn(f"matched {len(candidate.matched)}/", report)
+
+    def test_the_below_threshold_verdict_names_the_words_the_corpus_lacks(self):
+        result, diag = self.ask(MISS_Q)
+        detail = diag.stage("retrieval").detail
+        self.assertEqual(diag.stage("retrieval").code, "below-threshold")
+        for term in result.answer.trace.unmatched:
+            self.assertIn(term, detail)
+        self.assertIn("coverage gap", detail)
+
+
 class TestReport(ExplainHarness):
     def test_report_names_the_stage_to_diagnose(self):
         result, diag = self.ask(MISS_Q)

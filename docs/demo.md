@@ -134,28 +134,42 @@ Language:  en (vocabulary)
            corpus vocabulary coverage: en 0.40, es 0.00
 
 Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
+  question terms:      does, dog, need, vacci, what
+  in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
           ## Income limits: who can apply Your household's gross monthly income must be at or bel…
+          matched 1/5: need
    2  0.044  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
           ## What the credit is worth An eligible household receives a credit of $95 per month fr…
+          matched 1/5: what
    3  0.041  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
           ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
+          matched 1/5: what
    4  0.041  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
           ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
+          matched 1/5: what
 
 Attempt 2 (widened to every language): 40 passages scored, 0 excluded, 4 candidates
+  question terms:      does, dog, need, vacci, what
+  in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
           ## Income limits: who can apply Your household's gross monthly income must be at or bel…
+          matched 1/5: need
    2  0.044  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
           ## What the credit is worth An eligible household receives a credit of $95 per month fr…
+          matched 1/5: what
    3  0.041  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
           ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
+          matched 1/5: what
    4  0.041  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
           ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
+          matched 1/5: what
 
 Stage 1 - retrieval: FAILED (below-threshold)
   4 candidates were scored and none cleared the 0.165 threshold. The best,
-  grocery-allowance-en#3, scored 0.069 and was short by 0.096.
+  grocery-allowance-en#3, scored 0.069 and was short by 0.096 on 1 of 5
+  question terms (need). No passage searched contained does, dog, vacci — that
+  part of the question is a corpus coverage gap, not a threshold setting.
 Stage 2 - answer: NOT REACHED (no-evidence)
   The answer stage was handed no passages, so it refused. It could not have
   produced text here; look upstream at retrieval.
@@ -180,6 +194,21 @@ which one you have:
 Both retrieval attempts are shown, including the widened cross-language one,
 so the language filter is visible rather than silently narrowing a candidate
 list you are trying to debug.
+
+Then read the term lines. A score tells you a passage ranked low; the terms
+tell you why, and the two are different findings:
+
+- **`in no passage`** — the corpus has never seen this word. `does, dog,
+  vacci` above is the whole story of that refusal: no amount of threshold
+  tuning conjures a document about dogs. This is a coverage gap.
+- **`too common to score`** — the corpus *has* the word, in so many passages
+  that it distinguishes nothing, so it was suppressed. If a word you consider
+  load-bearing shows up here, the corpus is repeating it everywhere.
+- **`matched n/m`**, per candidate — which of the question's words that
+  passage actually contained. A passage that matched one weak word and a
+  passage that matched three strong ones can score similarly; only this line
+  tells them apart, and it is what turns "the ranking looks wrong" into a
+  claim you can check.
 
 ## 8. Serve the chat interface
 

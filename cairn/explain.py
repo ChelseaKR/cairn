@@ -128,17 +128,20 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
             ),
         )
     best = trace.candidates[0]
-    return StageVerdict(
-        stage="retrieval",
-        ok=False,
-        code="below-threshold",
-        detail=(
-            f"{len(trace.candidates)} candidates were scored and none cleared the "
-            f"{_fmt(trace.threshold)} threshold. The best, {best.passage.passage_id}, "
-            f"scored {_fmt(best.score)} and was short by "
-            f"{_fmt(trace.threshold - best.score)}."
-        ),
+    detail = (
+        f"{len(trace.candidates)} candidates were scored and none cleared the "
+        f"{_fmt(trace.threshold)} threshold. The best, {best.passage.passage_id}, "
+        f"scored {_fmt(best.score)} and was short by "
+        f"{_fmt(trace.threshold - best.score)} on "
+        f"{len(best.matched)} of {len(trace.scoring_terms)} question terms "
+        f"({', '.join(best.matched)})."
     )
+    if trace.unmatched:
+        detail += (
+            f" No passage searched contained {', '.join(trace.unmatched)} — that part "
+            "of the question is a corpus coverage gap, not a threshold setting."
+        )
+    return StageVerdict(stage="retrieval", ok=False, code="below-threshold", detail=detail)
 
 
 def _answer_verdict(
@@ -209,7 +212,27 @@ def _candidate_rows(trace: RetrievalTrace) -> list[str]:
             f"{passage.passage_id:<{width}}  [{passage.lang}] {passage.title}"
         )
         rows.append(f"          {excerpt(passage.text)}")
+        # The term evidence, not just the score: a passage that scored on one
+        # weak word and a passage that scored on four strong ones are different
+        # findings, and the number alone does not tell them apart.
+        rows.append(
+            f"          matched {len(candidate.matched)}/{len(trace.scoring_terms)}: "
+            + ", ".join(candidate.matched)
+        )
     return rows
+
+
+def _term_lines(trace: RetrievalTrace) -> list[str]:
+    """What the question's own words did. Printed once per attempt, because a
+    language restriction changes which of them could have matched anything."""
+    if not trace.query_terms:
+        return []
+    lines = [f"  question terms:      {', '.join(trace.query_terms)}"]
+    if trace.unmatched:
+        lines.append(f"  in no passage:       {', '.join(trace.unmatched)}")
+    if trace.ignored:
+        lines.append(f"  too common to score: {', '.join(trace.ignored)}")
+    return lines
 
 
 def _language_lines(result: AskResult) -> list[str]:
@@ -241,6 +264,7 @@ def _attempt_lines(result: AskResult) -> list[str]:
             f"{trace.excluded} excluded, {len(trace.candidates)} candidates"
         )
         lines.append(header)
+        lines.extend(_term_lines(trace))
         lines.extend(_candidate_rows(trace))
         lines.append("")
     return lines
@@ -285,6 +309,9 @@ def trace_payload(trace: RetrievalTrace) -> dict:
     """Machine-readable candidate list for ``ask --explain --json``."""
     return {
         "threshold": trace.threshold,
+        "query_terms": list(trace.query_terms),
+        "unmatched_terms": list(trace.unmatched),
+        "ignored_terms": list(trace.ignored),
         "candidates": [
             {
                 "rank": rank,
@@ -295,6 +322,7 @@ def trace_payload(trace: RetrievalTrace) -> dict:
                 "title": candidate.passage.title,
                 "lang": candidate.passage.lang,
                 "excerpt": excerpt(candidate.passage.text),
+                "matched_terms": list(candidate.matched),
             }
             for rank, candidate in enumerate(trace.candidates, start=1)
         ],

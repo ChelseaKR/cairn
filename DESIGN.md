@@ -265,6 +265,36 @@ rather than as a failure, because a refusal is the answer stage doing its job.
 Explain mode is strictly observational: the answer with `--explain` is
 byte-identical to the answer without it, and a test pins that.
 
+#### Term evidence, added after a diagnosis the scores could not settle
+
+A score says a passage ranked low. It does not say *why*, and the three
+reasons need three different fixes. So the trace also partitions the
+question's own terms, once per retrieval attempt, into exactly three sets:
+
+| Reported as | Means | The operator's move |
+| --- | --- | --- |
+| `matched n/m`, per candidate | terms this passage held **and** scored on | compare candidates: one weak word is not the same evidence as three strong ones |
+| `in no passage` | no passage searched contained the term | corpus coverage gap; no threshold setting fixes it |
+| `too common to score` | the corpus **has** the term, in enough passages that document frequency suppressed it | a scorer decision, and a sign the corpus repeats the word everywhere |
+
+Every query term lands in exactly one set, and a test pins that partition, so
+the report can neither invent a term nor quietly drop one. The distinction
+between the last two matters: a word the corpus never saw and a word the
+corpus saw too often both contribute zero, and calling either one by the
+other's name sends an operator to the wrong place.
+
+A term the passage contains but that IDF suppressed is deliberately **not**
+counted as a match — reporting it would tell an operator the passage was
+relevant on a word that contributed nothing to its score.
+
+This was built because the ranking investigation below needed it. The
+conclusion there — that the eligibility passage shares exactly one term with
+its question, and the question's weakest one — was reached by instrumenting
+the scorer by hand. That is a finding an operator should be able to reproduce
+with one command, not one that requires reading `retrieve.py`, so the
+instrument is now in the tool. `ask --explain --json` carries the same three
+sets machine-readably.
+
 ## Configuration
 
 TOML (`cairn.toml` at the repo/deployment root; `--config` overrides), read with
