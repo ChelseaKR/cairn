@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 244 tests plus 49 browser behaviour checks, standard library only,
+server. 254 tests plus 49 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -134,6 +134,18 @@ It does not translate the source. A translated policy amount is an unsourced
 policy amount. Set `[language] cross_language_fallback = false` to refuse
 instead.
 
+**How far that reaches, measured rather than promised.** The fallback is
+lexical, so it fires only when the question contains words the document
+contains — and across languages the only words that survive are proper nouns
+and numbers. `GoPass كم سعرها؟` is answered from the English document, in
+Arabic, with the English quoted untranslated: the fallback crosses scripts
+perfectly well. `¿Cuánto cuesta el GoPass por año?` refuses, in the same
+script. What decides it is whether the program is named, which puts the
+limitation on the person least likely to know its official name.
+[DESIGN.md](DESIGN.md#what-is-still-open) carries the four measurements and
+why the available bridge — letting a document declare its name in another
+language — is refused.
+
 ## The demo corpus is synthetic
 
 The bundled corpus under [`corpus/demo/`](corpus/demo/) is **entirely
@@ -161,6 +173,13 @@ under it, a permanent disclosure with no dismiss control, a language selector
 that mirrors the whole layout for Arabic, a visible focus ring at every stop,
 and light and dark presentations whose every colour pair passes AA. It answers
 without JavaScript, too — the form posts and the server renders.
+
+**No person has driven this page with a screen reader.** The browser checks
+verify the plumbing one depends on — the roles, the politeness settings, that
+an announcement fires and focus does not move, that the assertive channel
+stays quiet on success — and axe-core checks the rule set. None of that is the
+same as a VoiceOver or NVDA session, that session has not happened, and no
+automated check here should be read as standing in for it.
 
 Checked in two layers: `tests/test_ui.py` for markup, semantics, and computed
 contrast, offline with no dependencies; and `tests/browser/` for the behaviors

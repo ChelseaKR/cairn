@@ -221,12 +221,16 @@ model (short plain-language passages) does not exercise that advantage.
   closed upstream" below. The behavior is unchanged and still visible; what
   changed is that the gate can see it too.
 - **Known limitation:** cross-language fallback is lexical, so it can only fire
-  where the question shares vocabulary with the other language's passages — in
-  practice, between languages in the same script. An Arabic question about an
-  English-only document refuses rather than quoting the English. Fixing that
-  needs either translation or embeddings; the first would emit unsourced text
-  and the second would end the offline-and-deterministic guarantee, so it
-  refuses, which is the behavior this project exists to demonstrate.
+  where the question shares vocabulary with the other language's passages.
+  Measured, that means proper nouns and numbers and nothing else: an Arabic
+  question carrying the Latin string `GoPass` is answered from the English
+  transit document at 0.218, and a Spanish question that paraphrases the
+  program instead of naming it refuses. The limit is the shared words, not the
+  script — see "What is still open", where this correction is worked through.
+  Widening it needs either translation or embeddings; the first would emit
+  unsourced text and the second would end the offline-and-deterministic
+  guarantee, so it refuses, which is the behavior this project exists to
+  demonstrate.
 
 ### The colloquial-recall failure, worked as a ranking problem and closed
 
@@ -624,15 +628,38 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   at 0.90 with one known failure out of sixteen, so a second one turns the
   gate red, and the committed baseline pins 0.9375 so fixing this one is a
   reviewed diff too.
-- **Cross-language fallback cannot cross scripts.** Lexical retrieval has no
-  way to match an Arabic question to an English document, so those refuse.
-  The one bridge that does not need translation or embeddings would be to let
-  the English document declare its name in Arabic — and that is worse than the
-  refusal, twice over: it is translated metadata that no reviewer has seen,
-  added specifically to make an untranslated quote findable, and it is the
-  alias mechanism above, whose measurement says it degrades passage choice.
-  The refusal is the honest answer to "we have this document, in a language
-  you did not ask in, and no way to know it is what you meant."
+- **Cross-language fallback needs shared words, and in practice that means
+  the document's own name.** This item used to say the fallback "cannot cross
+  scripts". Writing a test for that claim disproved it, and the corrected
+  version is narrower and less flattering. What was measured, all four asked
+  of the English-only transit document at the 0.165 threshold:
+
+  | Asked | Best candidate | Outcome |
+  | --- | --- | --- |
+  | `¿Cuánto cuesta el GoPass por año?` | `housing-relief-es#4` 0.145 | **refusal** |
+  | `¿El Harbor GoPass cuesta $20 al año?` | `transit-pass-en#2` 0.198 | answered, English quoted, notice in Spanish |
+  | `كم تكلفة بطاقة الحافلة المخفضة في السنة؟` | `grocery-allowance-ar#1` 0.069 | **refusal** |
+  | `GoPass كم سعرها؟` | `transit-pass-en#1` 0.218 | answered, English quoted, notice in Arabic |
+
+  So the fallback does cross scripts: an Arabic question carrying the Latin
+  program name reaches the English document and quotes it untranslated. And a
+  Spanish question that does *not* carry it refuses, same script or not. The
+  boundary was never the writing system; it is whether the question contains
+  words the document contains, and between languages the only words that
+  survive are proper nouns and numbers.
+
+  That is a worse limitation than the one previously written down, because it
+  falls exactly on the person least likely to know the program's official
+  name. Someone who can write "Harbor GoPass" gets an answer; someone asking
+  for "el pase de autobús con descuento" gets a refusal — which is `ck-015`
+  again, arriving through a different door. The fix is the same one, and it is
+  not a scorer: an agency that publishes a document in one language only, and
+  names it only in that language, has a coverage gap that retrieval cannot
+  paper over. The bridge that would paper over it — letting the English
+  document declare its name in Arabic — stays refused: it is translated
+  metadata no reviewer has seen, added specifically to make an untranslated
+  quote findable, and it is the alias mechanism whose measurement says it
+  degrades passage choice.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
