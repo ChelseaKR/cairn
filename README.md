@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 260 tests plus 50 browser behaviour checks, standard library only,
+server. 275 tests plus 62 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -171,8 +171,9 @@ skip link that lands in the question box, a transcript announced politely that
 never steals focus, a separate assertive channel that carries errors and
 nothing else, a labelled input with the Enter/Shift-Enter behavior written
 under it, a permanent disclosure with no dismiss control, a language selector
-that mirrors the whole layout for Arabic, a visible focus ring at every stop,
-and light and dark presentations whose every colour pair passes AA. It answers
+that mirrors the whole layout for Arabic, a visible focus ring at every stop in
+both presentations, and light and dark presentations whose every colour pair
+passes AA. It answers
 without JavaScript, too — the form posts and the server renders.
 
 **No person has driven this page with a screen reader.** The browser checks
@@ -189,7 +190,7 @@ light, dark, and right-to-left.
 
 ```console
 $ cd tests/browser && npm install && npm run check
-50/50 behaviour checks passed
+62/62 behaviour checks passed
 ```
 
 ## Configuration

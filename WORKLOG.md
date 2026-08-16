@@ -96,8 +96,10 @@ One line per implementation session: date, what was built, from what input.
   the count at that commit was 187. Left in place rather than rewritten,
   because the pushed history is the provenance.
 
-- 2026-08-16 — Session 4 (AI implementation session, clean-room implementation
-  side). Input: the same specification and hygiene rules, this repository's own
+- 2026-08-16 — Session 5 (AI implementation session, clean-room implementation
+  side). **Logged at the time as "Session 4", which the session above already
+  was**; renumbered on 2026-08-15 with the original label kept here rather than
+  erased. Input: the same specification and hygiene rules, this repository's own
   state, and the public Plumbline repository consumed as any other user of it
   would. No other repository, document or transcript was read.
 
@@ -162,11 +164,13 @@ One line per implementation session: date, what was built, from what input.
   upgrades and both behaviour-neutral here. 255 tests plus 49 browser checks;
   14 suites, none disabled.
 
-- 2026-08-16 — Review pass (AI review session, clean-room implementation
-  side). Deliberately not numbered: the two entries above are both "Session
-  4", one dated 2026-08-15 and one 2026-08-16, and picking a number here would
-  either repeat that or imply a session 5 that never happened. A provenance
-  log is worth more with its inconsistency visible than tidied over.
+- 2026-08-16 — Session 6 (AI review session, clean-room implementation side).
+  Logged at the time as an unnumbered "Review pass", on the reasoning that two
+  entries above were both "Session 4" and any number here would either repeat
+  the collision or imply a session 5 that never happened. The second half of
+  that was wrong — session 5 did happen, it was mislabelled — so the collision
+  was fixed at its source on 2026-08-15 and this entry has the number it
+  earned. The original wording is in the commit that added it, `4bf8376`.
 
   Input: the same specification and hygiene rules, and this repository's own
   state. No original repository, no other project's code. A quality pass
@@ -218,3 +222,98 @@ One line per implementation session: date, what was built, from what input.
   Not done: the branch-protection ruleset is still committed and **not
   applied**, the screen-reader pass has still not happened, and `ck-015` and
   `ck-022` behave exactly as recorded.
+
+- 2026-08-16 — Session 7 (AI review session, clean-room implementation side).
+  Input: the same specification and hygiene rules, and this repository's own
+  state; plus the pinned Plumbline checkout in `.plumbline-cache/`, read the
+  way a dependency's source is read. No original repository, no other
+  project's code, nothing pushed anywhere. A second quality pass: it worked
+  the list session 6 left, and then kept going on the same two questions —
+  which checks cannot fail, and which claims are not true.
+
+  **A reason for not doing something, which turned out to be false.**
+  `Answer.cited_text` is documented as the form for a client that cannot
+  render a sources list, and it dropped `answer.notice` — so a cross-language
+  answer reached such a client as an English passage in a Spanish session with
+  nothing saying why. That is the same defect as the missing citation markers
+  the live audit found, one field over, and the previous pass left it on the
+  grounds that fixing it moves the bundle hash and every score. It does not:
+  no item in the committed question set reaches the cross-language path, so no
+  recorded answer carries a notice, and the bundle re-records byte-identical
+  at `3222a884…` with the gate returning the same run id `54a2e2945ef4242b`.
+  Checked by running it, not by reasoning about it.
+
+  That measurement is itself the finding: **the audit has never graded a
+  cross-language answer.** DESIGN.md says the corpus asymmetry "is what
+  exercises the cross-language path", and it does exercise the code — the
+  tests and the browser checks both drive it — but not the evidence. It is a
+  declared open item now, with a test that fails the day an item does cross.
+  Adding one is left undone deliberately: it moves the dataset hash, the
+  baseline and several published figures at once, and `multilingual` would
+  score it zero, which is the correct finding and a reviewed diff of its own.
+
+  **One configuration could produce a grounded answer with no source.**
+  `Config(max_passages=0)` composed zero passages while the trace still said
+  passages had been accepted, so `kind` stayed `"grounded"`, `grounded` stayed
+  true in the payload, and the answer was empty with nothing cited. That is
+  the one outcome this project says it does not have, reached through the
+  constructor rather than the corpus, because the bounds were checked in
+  `load_config` and not on the type — and this is a reference implementation
+  whose whole invitation is that somebody imports it. There were no tests over
+  configuration at all. The bounds live on `Config` now.
+
+  **The pin was bypassable by a variable this repository never sets.**
+  `PLUMBLINE_SRC` skips resolution entirely and the runner warns and proceeds;
+  the workflow said "never PLUMBLINE_SRC" in a comment and nothing enforced
+  it, while the variable can arrive from a repository variable or a runner's
+  own profile. The runner is vendored byte for byte, so the fix is not in the
+  file: every gate invocation now runs under `env -u PLUMBLINE_SRC`, drilled
+  both ways. And "vendored verbatim" — claimed in three places, checked
+  nowhere — is now diffed against the resolved harness in the one job that
+  has one.
+
+  **Three checks that could pass without checking**, all of the same shape: a
+  loop over a population that can be empty. Focus visibility was checked in
+  the light presentation only while the file's own header claimed both; the
+  minimum-target-size check iterated whatever `min-height` rules it found and
+  passed when it found none; the check on the authored `answering_sources`
+  ground truth skips items with no dollar amount and would skip all of them if
+  amounts were written differently. Each now requires its population. The
+  guard's coverage inventory had the same ambiguity from the other side —
+  printing nothing when no suite held items out, which is what a renamed
+  harness key would also print — and says it in words now.
+
+  **An indented heading rendered its own marker.** `cairn/ui/page.py` stripped
+  `#` off the raw line and `app.js` stripped the whitespace first, so the two
+  renderers disagreed about `  ## Something` — one page showed the marker and
+  the other did not, against a comment in `app.js` saying they produce
+  identical markup. No corpus document is indented, which is why nothing was
+  failing. The rule is two named patterns now, spelled identically in both
+  files, with a test on the spelling.
+
+  Also corrected: a comment in `tests/test_ui.py` still carried the
+  "cross-language fallback cannot cross scripts" claim this repository
+  disproved two sessions ago, and `workflow_job()` in `tests/test_live.py`
+  read comments as code — a sentence explaining why the audit job does not
+  call the live runner counted as the audit job calling it.
+
+  **The Session 4 collision is fixed at its source.** Session 6 declined to
+  number itself because two entries above it both said "Session 4" and a
+  number here would either repeat that or imply a session 5 that never
+  happened. The second half was wrong: session 5 did happen and was
+  mislabelled. The 2026-08-16 entry is Session 5 with its original label
+  recorded in it, session 6 has the number it earned, and nothing is erased —
+  the original wording of both is in the commits that wrote them.
+
+  275 tests plus 62 browser checks; 14 suites, none disabled; gate and guard
+  green on the same run id as before, and the live check still byte-identical
+  over the socket. Nothing in this session moved a score, which is the point:
+  every fix here was either outside the measured path or provably neutral on
+  it.
+
+  Not done, still: the branch-protection ruleset is committed and **not
+  applied**, the screen-reader pass has not happened, `ck-015` and `ck-022`
+  behave exactly as recorded, and the browser checks' own dependencies
+  (`axe-core`, `playwright`) float on caret ranges with the lockfile
+  gitignored — the auditor is pinned to a commit and the rule set that grades
+  the interface is not.
