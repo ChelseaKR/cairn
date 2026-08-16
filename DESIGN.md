@@ -144,6 +144,35 @@ model (short plain-language passages) does not exercise that advantage.
   toward the corpus average, b ∈ {0.5, 0.6, 0.75}). Measured on the demo corpus
   it did not fix the one known hard case and degraded two Spanish rankings, so
   the simpler, more legible scorer stays.
+- **Tried and rejected: declared aliases on a document.** The obvious fix for
+  the colloquial-recall refusal below is to let a corpus document declare the
+  other names its program is known by — `aliases: discount bus pass; reduced
+  fare card` in front matter — scored into its passages like the title and
+  never quoted back. An agency does know what its programs get called, so this
+  is real information rather than a trick. It was built, measured on the demo
+  corpus at weights 1 through 5, and reverted, because of what the measurement
+  showed:
+
+  | Question | Without aliases | With aliases (weight 2) |
+  | --- | --- | --- |
+  | who can get the discount bus pass | refused (0.137) | answered 0.356, **from "Where to get one"** — not the eligibility paragraph |
+  | what is the grocery card worth | answered from the intro | answered from **"How to apply"** — further from the answer |
+  | I need help with my rent | refused (0.088) | answered 0.190, correct paragraph |
+  | who qualifies for rent help | wrong program (utility credit) | still the wrong program, now scored higher |
+
+  An alias lifts every passage of its document by the same amount, so the
+  passages compress against each other — for the transit document, the four
+  candidate scores moved from a 0.02 spread to 0.3561 / 0.3405 / 0.3384 /
+  0.3166, which is close enough to arbitrary that passage choice stops being a
+  ranking and becomes a coin toss. Net effect: more answers, more of them from
+  the wrong paragraph. Turning a visible refusal into an invisible wrong
+  answer is the trade this project exists to refuse, and no weight avoided it
+  — the same dilution also cost the calibration gap, dropping the weakest
+  in-corpus probe from 0.196 to 0.160, below the threshold.
+
+  The mechanism is not exotic: it is the title weighting's effect, at a weight
+  low enough to be honest about. Titles get away with it because a title is
+  the document's own words and the weight was measured against every probe.
 - **Known hard case, kept on purpose:** the grocery document's "how much you
   get" passage outranks the transit document's own fare passage for "how much
   does the GoPass cost per year", so at the default `max_passages` of 2 the
@@ -352,9 +381,23 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   ships language profiles for English and Spanish only. The fix is a data
   change in Plumbline, which Cairn consumes at a pin and cannot push to; it is
   written out above, along with what enforces the gap staying visible.
-- **One known colloquial-recall failure**, `ck-015`, described above.
+- **One known colloquial-recall failure**, `ck-015`. Worked, measured, and
+  kept: the reason is not the threshold and not the vocabulary but the
+  ranking — the highest-scoring passage for "who can get the discount bus
+  pass" is the one about the fare, not the one about eligibility, so every
+  way of making the question clear the gate answers it from the wrong
+  paragraph. `tests/test_answering.py` pins that diagnosis rather than the
+  refusal, so the day retrieval ranks it correctly, the test fails and says
+  so. The alias experiment above is the fix that looked obvious and was not.
 - **Cross-language fallback cannot cross scripts.** Lexical retrieval has no
   way to match an Arabic question to an English document, so those refuse.
+  The one bridge that does not need translation or embeddings would be to let
+  the English document declare its name in Arabic — and that is worse than the
+  refusal, twice over: it is translated metadata that no reviewer has seen,
+  added specifically to make an untranslated quote findable, and it is the
+  alias mechanism above, whose measurement says it degrades passage choice.
+  The refusal is the honest answer to "we have this document, in a language
+  you did not ask in, and no way to know it is what you meant."
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays

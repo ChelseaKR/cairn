@@ -150,6 +150,58 @@ class TestThresholdCalibration(EngineHarness):
         self.assertEqual(ask(question, self.index, strict).answer.kind, "refusal")
 
 
+class TestTheKnownColloquialRefusal(EngineHarness):
+    """Why `ck-015` stays refused, pinned as a measurement rather than a claim.
+
+    "who can get the discount bus pass" is the one question in the audit's
+    evidence that Cairn refuses and should not. The obvious readings of that
+    are both wrong, and each has an obvious fix that makes the system worse:
+
+    - *The threshold is too high.* It is not: the highest-scoring passage for
+      this question is the one about the fare and the fee, not the one about
+      who is eligible. Lowering the gate would answer the question from the
+      wrong paragraph — a confident, well-cited, wrong answer, which is a
+      worse outcome than a refusal and a harder one to notice.
+    - *The document needs the words people actually use.* Tried, measured,
+      rejected — see DESIGN.md. Folding declared aliases into a document's
+      passages lifts the whole document at once, which compresses the
+      passages against each other and makes the choice between them close to
+      arbitrary.
+
+    So this test does not assert "it refuses". It asserts the reason: the
+    ranking is wrong before the threshold ever gets a say. Fix the ranking and
+    this test fails, which is the correct moment for it to fail.
+    """
+
+    QUESTION = "who can get the discount bus pass"
+    ELIGIBILITY = "transit-pass-en#3"
+
+    def test_the_eligibility_passage_is_not_what_this_question_retrieves(self):
+        trace = retrieve(
+            self.QUESTION, self.index, threshold=CFG.threshold, candidates=CFG.candidates
+        )
+        self.assertTrue(trace.candidates, "the question should at least score something")
+        self.assertNotEqual(
+            trace.candidates[0].passage.passage_id,
+            self.ELIGIBILITY,
+            "retrieval now ranks this correctly — lower the threshold and delete this test",
+        )
+
+    def test_so_it_refuses_rather_than_answering_from_the_wrong_paragraph(self):
+        self.assertEqual(self.answer(self.QUESTION).kind, "refusal")
+
+    def test_and_the_same_question_asked_formally_is_answered(self):
+        # The limit is the phrasing, not the fact: the corpus has it, and
+        # naming the program finds the program. (Which paragraph of it comes
+        # back is the ranking question above; the document is right.)
+        answer = self.answer("Who is eligible for the Harbor GoPass Reduced Fare Program?")
+        self.assertEqual(answer.kind, "grounded")
+        self.assertTrue(
+            all(s.source_id.startswith("transit-pass-en#") for s in answer.sources),
+            [s.source_id for s in answer.sources],
+        )
+
+
 class TestTraceSubstrate(EngineHarness):
     """The retrieval trace is what explain mode renders; pin its semantics."""
 

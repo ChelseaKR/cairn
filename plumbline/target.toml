@@ -37,8 +37,13 @@ floor = 0.35
 # score. Measured 0.9615: one known over-refusal, ck-015 ("who can get the
 # discount bus pass"), where the colloquial phrasing shares too little
 # vocabulary with "Harbor GoPass Reduced Fare Program" to clear the relevance
-# threshold. That is a recall limit of a lexical retriever, named in DESIGN.md
-# rather than tuned away by lowering the gate into the off-topic score band.
+# threshold. Worked and kept, not shrugged at: the highest-scoring passage for
+# that question is the one about the fare, not the one about eligibility, so
+# every way of making it clear the gate answers it from the wrong paragraph.
+# Both fixes were built and measured — a lower threshold, and declared
+# document aliases — and both trade a visible refusal for an invisible wrong
+# answer. DESIGN.md carries the numbers; tests/test_answering.py pins the
+# diagnosis, so the day retrieval ranks it correctly the test says so.
 [suites.refusal]
 enabled = true
 floor = 0.90
