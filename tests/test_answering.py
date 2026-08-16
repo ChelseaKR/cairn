@@ -6,10 +6,11 @@ gap the default threshold sits in, these tests fail rather than letting the
 calibration drift silently.
 """
 
+import tempfile
 import unittest
 from pathlib import Path
 
-from cairn.config import Config
+from cairn.config import Config, ConfigError, load_config
 from cairn.engine import ask
 from cairn.index import build_index
 from cairn.retrieve import retrieve
@@ -110,6 +111,69 @@ class TestRefusal(EngineHarness):
         for question in ("", "   ", "zzzzqqqq wwwwxxxx"):
             with self.subTest(question=repr(question)):
                 self.assertEqual(self.answer(question).kind, "refusal")
+
+
+class TestNoConfigurationCanEmitAnUnsourcedAnswer(EngineHarness):
+    """The core promise, held against the configuration rather than the corpus.
+
+    "There is no code path that emits an answer without supporting corpus
+    passages" was true of every corpus and every question, and false of one
+    configuration. `Config(max_passages=0)` — a plausible reading of "no
+    limit" — sliced the accepted passages away in composition while the trace
+    still said passages had been accepted, so `kind` stayed `"grounded"`,
+    `to_payload()["grounded"]` stayed true, and what came back was an empty
+    answer with no sources under it. A negative value was quieter: `[:-1]`
+    drops the last accepted passage rather than meaning "all of them".
+
+    `cairn.toml` could not reach either, because `load_config` checked the
+    bounds. Nothing else did, and this is a reference implementation whose
+    whole invitation is that somebody imports it. The bounds live on `Config`
+    now, and nothing here had a test.
+    """
+
+    UNUSABLE = (
+        ("max_passages", 0),
+        ("max_passages", -1),
+        ("candidates", 0),
+        ("threshold", 0.0),
+        ("threshold", 1.5),
+    )
+
+    def test_a_configuration_that_could_break_the_promise_is_refused(self):
+        for key, value in self.UNUSABLE:
+            with self.subTest(**{key: value}):
+                with self.assertRaises(ConfigError):
+                    Config(**{key: value})
+
+    def test_the_file_and_the_constructor_are_held_to_the_same_bounds(self):
+        # Two sets of rules is how the caller-side hole opened in the first
+        # place: the loader enforced them and the type did not.
+        for key, value in self.UNUSABLE:
+            with self.subTest(**{key: value}), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "cairn.toml"
+                path.write_text(f"[retrieval]\n{key} = {value}\n", encoding="utf-8")
+                with self.assertRaises(ConfigError):
+                    load_config(path)
+
+    def test_every_usable_configuration_grounds_on_at_least_one_source(self):
+        for cfg in (
+            Config(),
+            Config(max_passages=1),
+            Config(max_passages=8),
+            Config(candidates=1),
+            Config(threshold=0.99),
+            Config(cross_language_fallback=False),
+        ):
+            for question in (IN_CORPUS[0][0], OFF_TOPIC[0]):
+                with self.subTest(cfg=cfg.max_passages, question=question):
+                    answer = ask(question, self.index, cfg).answer
+                    payload = answer.to_payload()
+                    self.assertEqual(payload["grounded"], answer.kind == "grounded")
+                    if answer.kind == "grounded":
+                        self.assertTrue(answer.sources, "grounded with nothing under it")
+                        self.assertTrue(answer.text.strip())
+                    else:
+                        self.assertEqual(answer.sources, ())
 
 
 class TestThresholdCalibration(EngineHarness):

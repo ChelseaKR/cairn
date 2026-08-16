@@ -57,6 +57,38 @@ class Config:
         default_factory=lambda: dict(_DEMO_CONTACTS)
     )
 
+    def __post_init__(self) -> None:
+        """Validate on construction, not only on load.
+
+        These bounds used to live in :func:`load_config`, which meant they
+        held for `cairn.toml` and for nothing else. This is a reference
+        implementation an agency is invited to import, and
+        ``Config(max_passages=0)`` — a plausible reading of "no limit" —
+        produced a **grounded answer with no sources and no text**: composition
+        sliced the accepted passages to nothing while the trace still said
+        passages had been accepted, so `kind` stayed "grounded" and
+        `to_payload()["grounded"]` stayed true. That is the one thing this
+        project says cannot happen, arriving through the constructor rather
+        than through the corpus. A negative value was quieter and no better:
+        `accepted[:-1]` silently drops the *last* accepted passage rather than
+        meaning "all of them".
+
+        The invariant is a property of the configuration, so it is enforced
+        where the configuration is made.
+        """
+        if not 0.0 < self.threshold <= 1.0:
+            raise ConfigError(
+                "retrieval.threshold must be in (0, 1]: scores are bounded cosine"
+            )
+        if self.max_passages < 1:
+            raise ConfigError(
+                "retrieval.max_passages must be >= 1: composing zero passages "
+                "would emit an answer with no source behind it, which is the "
+                "one outcome this system does not have"
+            )
+        if self.candidates < 1:
+            raise ConfigError("retrieval.candidates must be >= 1")
+
     def contact_for(self, lang: str) -> str:
         """The human channel a refusal in ``lang`` should point to. Falls back
         to the single ``contact`` string, which is what a deployment that
@@ -109,7 +141,9 @@ def load_config(path: str | Path | None = None) -> Config:
     language = data.get("language", {})
     defaults = Config()
     contact = _get(refusal, "contact", str, defaults.contact)
-    cfg = Config(
+    # Bounds are checked by Config itself (see __post_init__), so a file and a
+    # caller cannot be held to two different sets of rules.
+    return Config(
         corpus_path=_get(corpus, "path", str, defaults.corpus_path),
         index_path=_get(index, "path", str, defaults.index_path),
         threshold=_get(retrieval, "threshold", float, defaults.threshold),
@@ -122,8 +156,3 @@ def load_config(path: str | Path | None = None) -> Config:
         contact=contact,
         contact_by_language=_contacts(refusal),
     )
-    if not 0.0 < cfg.threshold <= 1.0:
-        raise ConfigError("retrieval.threshold must be in (0, 1]: scores are bounded cosine")
-    if cfg.max_passages < 1 or cfg.candidates < 1:
-        raise ConfigError("retrieval.max_passages and retrieval.candidates must be >= 1")
-    return cfg
