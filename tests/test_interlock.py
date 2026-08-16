@@ -205,9 +205,41 @@ class TestTheCiGateIsWiredToFail(unittest.TestCase):
 
     def test_the_gate_cannot_be_skipped_or_softened(self):
         self.assertNotIn("continue-on-error", self.active)
-        self.assertNotIn("PLUMBLINE_SRC", self.active, "that flag bypasses the pin")
         audit = self.active.split("audit:", 1)[1]
         self.assertNotIn("if:", audit.split("Keep the report")[0])
+
+    def test_nothing_in_the_workflow_sets_the_bypass(self):
+        # `PLUMBLINE_SRC` skips resolution entirely: the pin is not read and
+        # the run is graded by whatever directory it names. The runner warns
+        # and proceeds, which is right for the harness's own developers and
+        # wrong for a merge gate.
+        self.assertNotIn("PLUMBLINE_SRC=", self.active, "that flag bypasses the pin")
+        self.assertNotIn("PLUMBLINE_SRC:", self.active, "that flag bypasses the pin")
+
+    def test_every_gate_invocation_unsets_the_bypass_first(self):
+        # Not enough that this workflow does not set it. The variable can
+        # arrive from a repository-level variable or a self-hosted runner's
+        # own environment, and the runner is vendored byte for byte from
+        # Plumbline, so the pin cannot be enforced by editing it. `env -u`
+        # enforces it at the call site instead, whatever put the variable
+        # there. Every call, not most of them.
+        calls = [
+            line.strip()
+            for line in self.active.splitlines()
+            if "./plumbline-gate.sh" in line
+        ]
+        self.assertTrue(calls, "the workflow does not run the gate at all")
+        for call in calls:
+            with self.subTest(call=call):
+                self.assertIn("env -u PLUMBLINE_SRC", call)
+
+    def test_the_vendored_runner_is_checked_against_the_resolved_harness(self):
+        # "Vendored verbatim" is claimed in three documents and is the whole
+        # reason the bypass is not simply patched out of the runner. The audit
+        # job — the one job with a resolved harness — diffs the two.
+        audit = self.active.split("audit:", 1)[1]
+        self.assertIn("gate/plumbline-gate.sh", audit)
+        self.assertIn("diff -u", audit)
 
     def test_the_reason_for_failing_rather_than_skipping_is_written_down(self):
         self.assertIn("skip", self.text.lower())

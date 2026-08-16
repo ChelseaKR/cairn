@@ -36,9 +36,27 @@
 # and the honest report of "told you nothing" is a red check.
 #
 # So: no `continue-on-error`, no `if:` that lets this job be skipped, and
-# never `PLUMBLINE_SRC` (which bypasses the pin). If the harness cannot be
-# resolved, ./plumbline-gate.sh exits 4 and this job fails. A gate that could
-# not run is not a gate that passed.
+# never `PLUMBLINE_SRC`. If the harness cannot be resolved,
+# ./plumbline-gate.sh exits 4 and this job fails. A gate that could not run is
+# not a gate that passed.
+#
+# ---------------------------------------------------------------------------
+# Why every gate invocation says `env -u PLUMBLINE_SRC`
+# ---------------------------------------------------------------------------
+# The runner honours `PLUMBLINE_SRC` as a develop-the-harness escape hatch: set
+# it and resolution is skipped entirely, the pin is not consulted, and the run
+# is graded by whatever is in that directory. It warns loudly on stderr and
+# then does it anyway — which is the right call for the harness's own
+# developers and the wrong one for a merge gate, because a warning in a log
+# nobody opens next to a green check is a green check.
+#
+# The runner is vendored from Plumbline byte for byte (a step below proves it),
+# so the fix does not belong in the file: patching it here would fork the one
+# implementation of resolution this repository has, which is the thing the
+# vendoring exists to prevent. It belongs at the call site. `env -u` removes
+# the variable from the gate's environment whatever put it there — a workflow
+# edit, a repository-level variable, a self-hosted runner's profile — so the
+# only harness this job can be graded by is the pinned one.
 # ---------------------------------------------------------------------------
 
 name: ci
@@ -97,7 +115,7 @@ jobs:
           # this step ever passes silently, the audit job below is decorative.
           sed 's#^repo = .*#repo = file:///nonexistent/harness.git#' plumbline.pin > /tmp/unreachable.pin
           set +e
-          PLUMBLINE_PIN_FILE=/tmp/unreachable.pin PLUMBLINE_CACHE_DIR=/tmp/empty-cache ./plumbline-gate.sh
+          env -u PLUMBLINE_SRC PLUMBLINE_PIN_FILE=/tmp/unreachable.pin PLUMBLINE_CACHE_DIR=/tmp/empty-cache ./plumbline-gate.sh
           code=$?
           set -e
           echo "gate exited $code with an unreachable harness"
@@ -161,7 +179,20 @@ jobs:
           git diff --exit-code -- plumbline/bundle
 
       - name: Run the pinned audit
-        run: ./plumbline-gate.sh --summary-file "$GITHUB_STEP_SUMMARY"
+        run: env -u PLUMBLINE_SRC ./plumbline-gate.sh --summary-file "$GITHUB_STEP_SUMMARY"
+
+      # The reason the bypass above is fixed at the call site rather than in
+      # the runner. If this diff is ever non-empty, "vendored verbatim" — said
+      # in DESIGN.md, in plumbline-live.sh, and in the comment at the top of
+      # this file — has stopped being true, and the argument for not patching
+      # the runner locally has stopped holding with it. It runs here because
+      # this is the job that has a resolved harness to compare against; the
+      # step above is what put it there.
+      - name: The runner is the one the pinned harness ships, byte for byte
+        run: |
+          ref=$(sed -n 's/^[[:space:]]*ref[[:space:]]*=[[:space:]]*\([0-9a-f]\{40\}\).*/\1/p' plumbline.pin | head -n 1)
+          test -n "$ref"
+          diff -u ".plumbline-cache/$ref/gate/plumbline-gate.sh" plumbline-gate.sh
 
       # The gate checks floors. This checks what a floor cannot: a score that
       # moved without breaching one — in either direction, because an
@@ -231,7 +262,7 @@ jobs:
       # whether the server matches the graded evidence is only a question
       # worth answering while that evidence is passing.
       - name: Resolve the harness, by running the gate that owns resolution
-        run: ./plumbline-gate.sh
+        run: env -u PLUMBLINE_SRC ./plumbline-gate.sh
 
       - name: Grade the running server and compare it to the recording
         run: ./plumbline-live.sh --summary-file "$GITHUB_STEP_SUMMARY"

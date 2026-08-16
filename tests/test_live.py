@@ -42,14 +42,24 @@ def load(path: Path) -> dict:
 
 
 def workflow_job(name: str) -> str:
-    """One job's block out of the workflow, without the jobs after it."""
+    """One job's block out of the workflow, without the jobs after it.
+
+    Comments are stripped, the way `tests/test_interlock.py` strips them: the
+    questions asked of a job here are about what it *does*. Naming a script in
+    a comment explaining why the job does not call it used to read as calling
+    it, which is a check failing on the sentence that documents it.
+    """
     text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     lines = text.splitlines()
     start = lines.index(f"  {name}:")
+    end = len(lines)
     for offset, line in enumerate(lines[start + 1:], start + 1):
         if line.startswith("  ") and not line.startswith("   ") and line.rstrip().endswith(":"):
-            return "\n".join(lines[start:offset])
-    return "\n".join(lines[start:])
+            end = offset
+            break
+    return "\n".join(
+        line for line in lines[start:end] if not line.lstrip().startswith("#")
+    )
 
 
 def responses_of(bundle: Path) -> dict[str, str]:
