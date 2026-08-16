@@ -27,7 +27,23 @@ the report the gate just wrote, and fails on:
 - any suite in the baseline that this run did not score at all;
 - any suite disabled in `plumbline/target.toml` without a declared gap saying
   what is missing and where the fix belongs;
+- any suite whose floor is not the pinned harness's own default and which does
+  not say why;
 - a run that compared against no baseline, or against a different one.
+
+**Why a floor needs a reason, and why the reason is checked here.** Each suite
+the harness ships names a default floor, chosen by whoever wrote the metric.
+Cairn overrides six of them. Four are stricter and two are looser, and every
+one of those is a defensible call — but an unexplained loosening is exactly
+the shape a red gate takes on its way to green, and a rule written in a
+comment is a rule nobody enforces. `plumbline/target.toml` was carrying five
+undocumented overrides on 2026-08-15 and the write-up that found them said
+five; there were six. So the rule moved out of the prose: a floor that differs
+from the default must carry `floor_reason`, and this script decides what "the
+default" is by reading it out of the pinned harness rather than out of a
+number typed in Cairn's own config, which could be wrong in the same commit
+that made it wrong. A pin bump that changes a default therefore reopens the
+question at the next gate run, which is the point.
 
 **Why an improvement fails too, which it did not used to.** The first version
 of this guard printed a note on a score that rose: *the baseline is behind,
@@ -80,18 +96,22 @@ regeneration command is printed with every finding.
 
 Exit codes follow the harness's vocabulary so a build log reads consistently:
 
-    0  every scored suite matches the committed baseline, and every disabled
-       suite declares its gap
-    1  findings: a score moved off the baseline in either direction, or a gap
-       is undeclared
-    4  the guard could not run (no report, no baseline, unreadable input) —
-       a check that could not run is not a check that passed
+    0  every scored suite matches the committed baseline, every disabled suite
+       declares its gap, and every non-default floor says why it is not the
+       default
+    1  findings: a score moved off the baseline in either direction, a gap is
+       undeclared, or a floor was overridden silently
+    4  the guard could not run (no report, no baseline, unreadable input, no
+       resolved harness to read the default floors out of) — a check that
+       could not run is not a check that passed
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
+import re
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -102,6 +122,8 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_AUDITS = "plumbline/audits"
 DEFAULT_BASELINE = "plumbline/baseline.json"
 DEFAULT_TARGET = "plumbline/target.toml"
+DEFAULT_PIN = "plumbline.pin"
+DEFAULT_CACHE_ROOT = ".plumbline-cache"
 
 EXIT_OK = 0
 EXIT_FINDINGS = 1
@@ -128,6 +150,10 @@ REGENERATE = (
 # Keys Cairn requires on a disabled suite. The harness never reads a disabled
 # suite's table, so these are Cairn's own and cost the harness nothing.
 GAP_KEYS = ("gap", "fix_belongs_in")
+
+# Cairn's own key again: the harness ignores it, and it is required on any
+# suite whose floor is not the harness's default for that suite.
+FLOOR_REASON_KEY = "floor_reason"
 
 
 class GuardError(Exception):
@@ -171,6 +197,209 @@ def load_target(path: Path) -> dict:
         raise GuardError(f"unreadable target configuration at {path}: {exc}") from exc
 
 
+def pinned_harness_src(pin_path: Path, cache_root: Path) -> Path:
+    """Where ./plumbline-gate.sh put the harness this repository is pinned to.
+
+    Derived from the pin rather than searched for, so this can only ever read
+    the commit the gate verified. A cache directory holding several refs is
+    normal on a laptop; picking one by mtime would be picking whichever
+    harness ran last.
+    """
+    try:
+        pin_text = pin_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise GuardError(f"cannot read the pin at {pin_path}: {exc}") from exc
+    match = re.search(r"(?m)^\s*ref\s*=\s*([0-9a-f]{40})\s*$", pin_text)
+    if not match:
+        raise GuardError(f"{pin_path} does not name a 40-character commit in a 'ref =' line")
+    return cache_root / match.group(1) / "src"
+
+
+def harness_defaults(src_dir: Path) -> dict[str, float]:
+    """Every suite the pinned harness ships, and the floor it chose for itself.
+
+    Read out of the harness's source with :mod:`ast` — parsed, never imported
+    and never executed. The harness is deliberately not a dependency of this
+    project and importing it here to read two class attributes would make it
+    one, in the script whose whole job is to be independent of what it checks.
+
+    An empty result is an error, not an empty answer. "No suite declares a
+    default" and "this is not a harness checkout" produce the same dictionary,
+    and one of them would silently excuse every floor in the target config
+    from having a reason — a rule that stops applying when its input goes
+    missing is not a rule.
+    """
+    suites_dir = src_dir / "plumbline" / "suites"
+    if not suites_dir.is_dir():
+        raise GuardError(
+            f"no resolved harness at {src_dir}. Run ./plumbline-gate.sh first: it "
+            f"is the one thing in this repository that fetches the harness, and "
+            f"this check reads the suite defaults out of the commit it verified."
+        )
+    defaults: dict[str, float] = {}
+    for module in sorted(suites_dir.glob("*.py")):
+        try:
+            tree = ast.parse(module.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError) as exc:
+            raise GuardError(f"cannot parse the pinned harness at {module}: {exc}") from exc
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            attrs: dict[str, object] = {}
+            for stmt in node.body:
+                if (
+                    isinstance(stmt, ast.Assign)
+                    and len(stmt.targets) == 1
+                    and isinstance(stmt.targets[0], ast.Name)
+                    and isinstance(stmt.value, ast.Constant)
+                ):
+                    attrs[stmt.targets[0].id] = stmt.value.value
+            suite_id = attrs.get("id")
+            floor = attrs.get("default_floor")
+            if attrs.get("implemented") is False:
+                # A documented skeleton. The harness refuses to enable one, so
+                # requiring the target config to mention it would be requiring
+                # a configuration error.
+                continue
+            if isinstance(suite_id, str) and suite_id and isinstance(floor, (int, float)):
+                defaults[suite_id] = float(floor)
+    if not defaults:
+        raise GuardError(
+            f"the harness at {src_dir} declares no suite default floors. Either it "
+            f"is not a harness checkout or the attribute was renamed upstream; "
+            f"either way every floor in the target config would go unchecked."
+        )
+    return defaults
+
+
+def unmentioned_suites(target: dict, defaults: dict[str, float]) -> list[Finding]:
+    """Suites the pinned harness implements that the target config never names.
+
+    The third way to switch a check off, and the only one nothing caught.
+    `enabled = false` needs a declared gap, and a suite that stops being scored
+    is caught by the baseline comparison — but both of those read the universe
+    of suites out of `plumbline/target.toml` and `plumbline/baseline.json`. A
+    diff that deletes `[suites.privacy]` from the config *and* its entry from
+    the baseline deletes it from the universe too: the gate reports "13 suites
+    passed", every set comparison in this file is over the survivors, the
+    tests over the committed artifacts compare those two files to each other
+    and agree, and the PII check is gone with nothing in the repository saying
+    so. The harness will not catch it either — its config loader only rejects
+    suites it does not know, never suites the config forgot.
+
+    So the universe comes from the harness. A suite it ships is either enabled
+    here or disabled here with a declared gap; being absent is not an option,
+    because absence is the shape "we quietly stopped checking that" takes.
+    """
+    named = set(target.get("suites", {}))
+    findings = []
+    for suite_id in sorted(set(defaults) - named):
+        findings.append(
+            Finding(
+                blocking=True,
+                subject=suite_id,
+                detail=(
+                    f"is implemented by the pinned harness and is not mentioned "
+                    f"in the target config at all — not enabled, not disabled "
+                    f"with a declared gap, absent. A suite deleted from this "
+                    f"file and from the baseline in one commit stops being "
+                    f"checked and stops being counted, and every other check "
+                    f"here reads its list of suites out of those two files. Add "
+                    f"[suites.{suite_id}], enabled or with a gap."
+                ),
+                label="MISSING",
+            )
+        )
+    return findings
+
+
+def floor_findings(
+    target: dict, defaults: dict[str, float]
+) -> tuple[list[dict], list[Finding]]:
+    """Every floor that is not the harness's own, and whether it says why.
+
+    The gate reports the floor it applied. It has nothing to say about who
+    chose that number or against what, and a floor is the strictness of the
+    check itself: lower it far enough and a suite passes whatever the system
+    does. So an override is allowed and an unexplained override is not.
+    """
+    overrides: list[dict] = []
+    findings: list[Finding] = []
+    for suite_id, spec in sorted(target.get("suites", {}).items()):
+        if not isinstance(spec, dict) or not spec.get("enabled", True):
+            continue
+        if suite_id not in defaults:
+            findings.append(
+                Finding(
+                    blocking=True,
+                    subject=suite_id,
+                    detail=(
+                        f"is enabled here and the pinned harness ships no suite by "
+                        f"that name, so there is no default to hold its floor "
+                        f"against. Known suites: {', '.join(sorted(defaults))}."
+                    ),
+                    label="UNKNOWN",
+                )
+            )
+            continue
+        default = defaults[suite_id]
+        floor = spec.get("floor", default)
+        if not isinstance(floor, (int, float)) or isinstance(floor, bool):
+            findings.append(
+                Finding(
+                    blocking=True,
+                    subject=suite_id,
+                    detail=f"floor is {floor!r}, which is not a number.",
+                    label="UNDECLARED",
+                )
+            )
+            continue
+        reason = str(spec.get(FLOOR_REASON_KEY, "")).strip()
+        if abs(float(floor) - default) <= TOLERANCE:
+            if reason:
+                findings.append(
+                    Finding(
+                        blocking=False,
+                        subject=suite_id,
+                        detail=(
+                            f"floor {float(floor):.2f} is the harness default and "
+                            f"still carries a {FLOOR_REASON_KEY}; the reason is "
+                            f"stale and reads as an override that is not one."
+                        ),
+                        label="note",
+                    )
+                )
+            continue
+        direction = "stricter than" if float(floor) > default else "LOOSER than"
+        if not reason:
+            findings.append(
+                Finding(
+                    blocking=True,
+                    subject=suite_id,
+                    detail=(
+                        f"floor {float(floor):.2f} is {direction} the pinned "
+                        f"harness's default of {default:.2f}, with no "
+                        f"{FLOOR_REASON_KEY} in [suites.{suite_id}]. A floor is how "
+                        f"strict this gate is; moving one without saying why is "
+                        f"indistinguishable from moving it to make a failure pass. "
+                        f"Write the reason, or restore {default:.2f}."
+                    ),
+                    label="UNDECLARED",
+                )
+            )
+            continue
+        overrides.append(
+            {
+                "suite": suite_id,
+                "floor": float(floor),
+                "default": default,
+                "direction": direction,
+                "reason": reason,
+            }
+        )
+    return overrides, findings
+
+
 def newest_report(audits_dir: Path) -> Path:
     """The report the gate wrote most recently.
 
@@ -198,7 +427,34 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
     gaps: list[dict] = []
     findings: list[Finding] = []
     for suite_id, spec in sorted(target.get("suites", {}).items()):
-        if not isinstance(spec, dict) or spec.get("enabled", True):
+        if not isinstance(spec, dict):
+            continue
+        if spec.get("enabled", True):
+            # A gap declaration left behind on a suite that is now on. It is
+            # not merely stale: it is loaded. The requirement below is "a
+            # disabled suite must declare a gap", so a suite that already
+            # carries one can be switched off in a one-word diff and satisfy
+            # the requirement on the way past, with a sentence written for a
+            # gap that closed. `multilingual` carried exactly that from the
+            # milestone in which it was disabled.
+            left = [key for key in GAP_KEYS if str(spec.get(key, "")).strip()]
+            if left:
+                findings.append(
+                    Finding(
+                        blocking=True,
+                        subject=suite_id,
+                        detail=(
+                            f"is enabled and still declares "
+                            f"{' and '.join(left)}. A gap declaration on a "
+                            f"running suite pre-satisfies the check that a "
+                            f"disabled suite must explain itself, so the next "
+                            f"person to write `enabled = false` gets a pass "
+                            f"from a sentence about a gap that closed. Delete "
+                            f"it; the history belongs in the comment above."
+                        ),
+                        label="STALE",
+                    )
+                )
             continue
         missing = [key for key in GAP_KEYS if not str(spec.get(key, "")).strip()]
         if missing:
@@ -411,7 +667,7 @@ def uncovered(report: dict) -> list[str]:
 
 def render_terminal(
     *, report_path: Path, report: dict, baseline: dict, gaps: list[dict],
-    findings: list[Finding],
+    findings: list[Finding], overrides: list[dict] = (),
 ) -> list[str]:
     blocking = [f for f in findings if f.blocking]
     verdict = "FAIL" if blocking else "PASS"
@@ -435,6 +691,23 @@ def render_terminal(
             lines.append(f"    the fix belongs in: {gap['fix_belongs_in']}")
     else:
         lines.append("declared gaps: none — every implemented suite is enabled.")
+    if overrides:
+        plural = "" if len(overrides) == 1 else "s"
+        lines.append(
+            f"floors that are not the harness's own ({len(overrides)} suite{plural}, "
+            f"each with a recorded reason):"
+        )
+        for entry in overrides:
+            lines.append(
+                f"  {entry['suite']}: {entry['floor']:.2f}, {entry['direction']} "
+                f"the default {entry['default']:.2f}"
+            )
+    else:
+        # Said out loud, for the same reason the coverage line is: an absence
+        # here and a check that stopped reading the harness print identically.
+        lines.append(
+            "every floor is the pinned harness's own default — none was overridden."
+        )
     partial = uncovered(report)
     if partial:
         lines.append("suites that could not check everything they were handed:")
@@ -467,7 +740,8 @@ def render_terminal(
 
 
 def render_markdown(
-    *, report: dict, gaps: list[dict], findings: list[Finding]
+    *, report: dict, gaps: list[dict], findings: list[Finding],
+    overrides: list[dict] = (),
 ) -> list[str]:
     blocking = [f for f in findings if f.blocking]
     lines = [
@@ -486,6 +760,17 @@ def render_markdown(
         lines.append("")
     else:
         lines += ["Every implemented suite is enabled.", ""]
+    if overrides:
+        lines += ["| Floor not the harness's own | Set to | Default | Why |",
+                  "|---|---|---|---|"]
+        for entry in overrides:
+            lines.append(
+                f"| `{entry['suite']}` | {entry['floor']:.2f} | "
+                f"{entry['default']:.2f} | {entry['reason']} |"
+            )
+        lines.append("")
+    else:
+        lines += ["Every floor is the pinned harness's own default.", ""]
     partial = uncovered(report)
     if partial:
         lines += ["Suites that could not check everything they were handed:", ""]
@@ -519,6 +804,13 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"the committed bar (default: {DEFAULT_BASELINE})")
     parser.add_argument("--target", default=DEFAULT_TARGET,
                         help=f"the audit target config (default: {DEFAULT_TARGET})")
+    parser.add_argument("--pin", default=DEFAULT_PIN,
+                        help=f"the harness pin, read for its ref (default: {DEFAULT_PIN})")
+    parser.add_argument("--cache", default=DEFAULT_CACHE_ROOT,
+                        help=(f"where ./plumbline-gate.sh resolved the harness "
+                              f"(default: {DEFAULT_CACHE_ROOT})"))
+    parser.add_argument("--harness-src",
+                        help="the harness src/ directory, bypassing --pin and --cache")
     parser.add_argument("--summary-file",
                         help="append the findings as markdown to this file")
     args = parser.parse_args(argv)
@@ -528,7 +820,14 @@ def main(argv: list[str] | None = None) -> int:
         report = load_json(report_path, "audit report")
         baseline = load_json(Path(args.baseline), "committed baseline")
         target = load_target(Path(args.target))
+        src = (
+            Path(args.harness_src) if args.harness_src
+            else pinned_harness_src(Path(args.pin), Path(args.cache))
+        )
+        defaults = harness_defaults(src)
+        overrides, floor_faults = floor_findings(target, defaults)
         gaps, findings = assess(report, baseline, target)
+        findings = unmentioned_suites(target, defaults) + floor_faults + findings
     except GuardError as exc:
         print(f"GUARD: COULD NOT RUN — {exc}", file=sys.stderr)
         print("GUARD: a check that could not run is not a check that passed.",
@@ -537,13 +836,14 @@ def main(argv: list[str] | None = None) -> int:
 
     lines = render_terminal(
         report_path=report_path, report=report, baseline=baseline,
-        gaps=gaps, findings=findings,
+        gaps=gaps, findings=findings, overrides=overrides,
     )
     print("\n".join(lines))
     if args.summary_file:
         with open(args.summary_file, "a", encoding="utf-8") as handle:
             handle.write("\n".join(render_markdown(
-                report=report, gaps=gaps, findings=findings)) + "\n")
+                report=report, gaps=gaps, findings=findings,
+                overrides=overrides)) + "\n")
     return EXIT_FINDINGS if any(f.blocking for f in findings) else EXIT_OK
 
 

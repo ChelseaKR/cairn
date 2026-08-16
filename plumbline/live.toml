@@ -119,7 +119,7 @@ floor = 1.0
 
 [suites.fairness]
 enabled = true
-floor = 0.80
+floor = 0.85
 
 [suites.representational_harms]
 enabled = true

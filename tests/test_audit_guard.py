@@ -283,10 +283,15 @@ class TestTheCommittedArtifacts(unittest.TestCase):
         # drift, exactly as a document that never said so while it was off.
         # Written as a claim about the present tense, so the historical
         # account of how the gap closed is free to stay.
+        # Per suite, not all-or-nothing. The guard used to skip this whole
+        # test the moment *any* suite was gapped, but the claim is about each
+        # suite separately: one legitimately disabled suite would have let a
+        # stale "the multilingual suite is not scored" stand in DESIGN.md
+        # forever, with the skip reading as green in the runner's output.
         gaps, _ = declared_gaps(self.target)
-        if gaps:
-            self.skipTest("there are declared gaps; the test below is the one that applies")
-        scored = {entry["suite"] for entry in self.baseline["suites"]}
+        gapped = {gap["suite"] for gap in gaps}
+        scored = {entry["suite"] for entry in self.baseline["suites"]} - gapped
+        self.assertTrue(scored, "no suite is scored at all; nothing here is checking anything")
         for name in ("README.md", "DESIGN.md"):
             text = (ROOT / name).read_text(encoding="utf-8")
             for para in text.split("\n\n"):
@@ -316,12 +321,144 @@ class TestTheCommittedArtifacts(unittest.TestCase):
                 )
 
 
+class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
+    """A floor is how strict the gate is, so moving one has to be explained;
+    and the list of suites has to come from somewhere other than the file
+    being audited."""
+
+    DEFAULTS = {"smoke": 1.0, "accuracy": 0.75, "fairness": 0.85}
+
+    def test_a_floor_at_the_default_needs_no_reason(self):
+        overrides, findings = audit_guard.floor_findings(
+            {"suites": {"fairness": {"enabled": True, "floor": 0.85}}}, self.DEFAULTS
+        )
+        self.assertEqual(findings, [])
+        self.assertEqual(overrides, [])
+
+    def test_an_omitted_floor_is_the_default_and_needs_no_reason(self):
+        _, findings = audit_guard.floor_findings(
+            {"suites": {"fairness": {"enabled": True}}}, self.DEFAULTS
+        )
+        self.assertEqual(findings, [])
+
+    def test_a_looser_floor_with_no_reason_fails(self):
+        # The case that was live in this repository: fairness at 0.80 against
+        # a harness default of 0.85, with nothing on record saying why.
+        _, findings = audit_guard.floor_findings(
+            {"suites": {"fairness": {"enabled": True, "floor": 0.80}}}, self.DEFAULTS
+        )
+        self.assertEqual(blocking(findings), ["fairness"])
+        self.assertIn("LOOSER", findings[0].detail)
+
+    def test_a_stricter_floor_with_no_reason_fails_too(self):
+        # Not because stricter is wrong, but because a gate whose strictness
+        # nobody wrote down cannot be reviewed in either direction.
+        _, findings = audit_guard.floor_findings(
+            {"suites": {"accuracy": {"enabled": True, "floor": 0.95}}}, self.DEFAULTS
+        )
+        self.assertEqual(blocking(findings), ["accuracy"])
+
+    def test_a_reason_makes_it_a_recorded_override(self):
+        overrides, findings = audit_guard.floor_findings(
+            {"suites": {"accuracy": {"enabled": True, "floor": 0.35,
+                                     "floor_reason": "the metric is wrong for us"}}},
+            self.DEFAULTS,
+        )
+        self.assertEqual(findings, [])
+        self.assertEqual(overrides[0]["default"], 0.75)
+        self.assertEqual(overrides[0]["floor"], 0.35)
+
+    def test_whitespace_is_not_a_reason(self):
+        _, findings = audit_guard.floor_findings(
+            {"suites": {"accuracy": {"enabled": True, "floor": 0.35, "floor_reason": "  "}}},
+            self.DEFAULTS,
+        )
+        self.assertEqual(blocking(findings), ["accuracy"])
+
+    def test_a_deleted_suite_is_a_finding_rather_than_a_smaller_universe(self):
+        # Delete [suites.privacy] from the config and its line from the
+        # baseline in one commit and every other check here agrees, because
+        # every other check reads the list of suites out of those two files.
+        findings = audit_guard.unmentioned_suites(
+            {"suites": {"smoke": {"enabled": True}, "accuracy": {"enabled": True}}},
+            self.DEFAULTS,
+        )
+        self.assertEqual(blocking(findings), ["fairness"])
+
+    def test_a_suite_disabled_with_a_gap_still_counts_as_mentioned(self):
+        findings = audit_guard.unmentioned_suites(
+            {"suites": {name: {"enabled": True} for name in self.DEFAULTS}}, self.DEFAULTS
+        )
+        self.assertEqual(findings, [])
+
+    def test_a_gap_declaration_on_a_running_suite_is_a_loaded_gun(self):
+        # It would satisfy "a disabled suite must declare a gap" the instant
+        # somebody wrote `enabled = false`, using a sentence about a gap that
+        # had already closed.
+        _, findings = declared_gaps(
+            {"suites": {"multilingual": {"enabled": True, "gap": "closed in Aug",
+                                         "fix_belongs_in": "plumbline"}}}
+        )
+        self.assertEqual(blocking(findings), ["multilingual"])
+
+    def test_an_empty_harness_is_an_error_not_an_empty_rulebook(self):
+        with tempfile.TemporaryDirectory() as name:
+            src = Path(name) / "src"
+            (src / "plumbline" / "suites").mkdir(parents=True)
+            with self.assertRaises(audit_guard.GuardError):
+                audit_guard.harness_defaults(src)
+            with self.assertRaises(audit_guard.GuardError):
+                audit_guard.harness_defaults(Path(name) / "nothing-here")
+
+    def test_the_committed_config_holds_the_rule_against_the_pinned_harness(self):
+        # The real files, when there is a resolved harness to hold them
+        # against. This is the guard's job in CI and it runs there; locally it
+        # runs whenever ./plumbline-gate.sh has been run at least once. The
+        # absence of a harness is reported rather than passed over — see the
+        # exit-4 tests above — so this is not a silent skip.
+        src = audit_guard.pinned_harness_src(PIN, ROOT / ".plumbline-cache")
+        if not (src / "plumbline" / "suites").is_dir():
+            self.skipTest("no resolved harness; ./plumbline-gate.sh fetches it")
+        defaults = audit_guard.harness_defaults(src)
+        target = tomllib.loads(TARGET.read_text(encoding="utf-8"))
+        overrides, findings = audit_guard.floor_findings(target, defaults)
+        self.assertEqual(blocking(findings), [])
+        self.assertEqual(audit_guard.unmentioned_suites(target, defaults), [])
+        self.assertTrue(overrides, "this repository does override floors; say which")
+
+
 class TestRunningIt(unittest.TestCase):
-    def write(self, tmp: Path, report: dict, baseline: dict, target: str) -> None:
+    """End-to-end exits. The floor rule and the missing-suite rule are pure
+    functions with their own tests below; here the stand-in harness agrees
+    with the target so that these cases exercise the baseline comparison and
+    nothing else."""
+
+    def write(self, tmp: Path, report: dict, baseline: dict, target: str,
+              harness: dict[str, float] | None = None) -> None:
         (tmp / "audits" / "run").mkdir(parents=True)
         (tmp / "audits" / "run" / "report.json").write_text(json.dumps(report))
         (tmp / "baseline.json").write_text(json.dumps(baseline))
         (tmp / "target.toml").write_text(target, encoding="utf-8")
+        # The guard reads default floors out of the pinned harness's source
+        # rather than out of Cairn's own config, so running it needs a
+        # harness. The core dev path has none on purpose, which is why this
+        # writes a minimal stand-in instead of reaching into .plumbline-cache.
+        if harness is None:
+            parsed = tomllib.loads(target)
+            harness = {
+                name: float(spec.get("floor", 1.0))
+                for name, spec in parsed.get("suites", {}).items()
+            }
+        suites = tmp / "harness" / "plumbline" / "suites"
+        suites.mkdir(parents=True, exist_ok=True)
+        (suites / "generated.py").write_text(
+            "\n\n".join(
+                f'class S{n}:\n    id = "{name}"\n    default_floor = {floor}'
+                for n, (name, floor) in enumerate(sorted(harness.items()))
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
     def invoke(self, tmp: Path, *extra: str) -> int:
         # The guard is a build-log tool; its report belongs in a build log,
@@ -331,6 +468,7 @@ class TestRunningIt(unittest.TestCase):
                 "--audits", str(tmp / "audits"),
                 "--baseline", str(tmp / "baseline.json"),
                 "--target", str(tmp / "target.toml"),
+                "--harness-src", str(tmp / "harness"),
                 *extra,
             ])
 
@@ -434,8 +572,17 @@ class TestTheGuardIsWiredIntoTheGate(unittest.TestCase):
         )
 
     def test_the_guard_cannot_be_softened(self):
+        # The whole step, not the half of it before the `run:` line.
+        # `continue-on-error: true` is valid anywhere in a step's mapping and
+        # the obvious place to put it is under the command — which is exactly
+        # where the old slice stopped looking. tests/test_interlock.py bans
+        # the string workflow-wide, so the hole was covered; the test named
+        # for it could not see it, which is the worse half of the problem.
         audit = self.active.split("audit:", 1)[1]
-        guard_step = audit.split("audit_guard.py", 1)[0].rsplit("- name:", 1)[1]
+        before, marker, after = audit.partition("audit_guard.py")
+        self.assertEqual(marker, "audit_guard.py", "the audit job no longer runs the guard")
+        guard_step = before.rsplit("- name:", 1)[1] + marker + after.split("- name:", 1)[0]
+        self.assertIn("run:", guard_step, "the slice must cover the command, not just its name")
         self.assertNotIn("continue-on-error", guard_step)
 
 
