@@ -76,12 +76,57 @@ class Index:
     def passage_count(self) -> int:
         return len(self.passages)
 
+    def __post_init__(self) -> None:
+        """An index that scores has to be an index that adds up.
+
+        Nothing checked this, and the failure was quiet and in the worst
+        direction. Scoring is TF-IDF against per-language statistics, and
+        `stats_for` used to fabricate an empty `LanguageStats` for a language
+        it had never heard of. Empty statistics give *every* term an IDF of
+        exactly 1.0 — `log((0+1)/(0+1)) + 1` — so a passage whose language is
+        missing from the table is scored on raw term overlap with no
+        document-frequency suppression at all: "the", "de" and "من" count as
+        much as the program's name, and the passage lands far above a
+        threshold calibrated against weighted scores. An ungrounded answer
+        presented as grounded, from a corrupt or hand-edited index file, with
+        no error anywhere.
+
+        `build_index` cannot produce that — it derives the table from the
+        passages — which is exactly why the invariant belongs here rather than
+        there: what reaches this constructor from `read_index` is whatever is
+        on disk.
+        """
+        missing = sorted({p.lang for p in self.passages} - set(self.languages))
+        if missing:
+            raise IndexError_(
+                f"index has passages in {', '.join(missing)} and no statistics for "
+                f"them. Scoring would give every term the same weight, and the "
+                f"relevance threshold is calibrated against weighted scores. "
+                f"Re-run `cairn index`."
+            )
+        seen: set[str] = set()
+        for passage in self.passages:
+            if passage.passage_id in seen:
+                raise IndexError_(
+                    f"duplicate passage id {passage.passage_id!r}: a citation to it "
+                    f"resolves to whichever copy a reader guessed"
+                )
+            seen.add(passage.passage_id)
+            if not passage.text.strip():
+                raise IndexError_(
+                    f"passage {passage.passage_id!r} has no text: an answer composed "
+                    f"from it would cite a source and quote nothing"
+                )
+
     @property
     def language_codes(self) -> tuple[str, ...]:
         return tuple(sorted(self.languages))
 
     def stats_for(self, lang: str) -> LanguageStats:
-        return self.languages.get(lang) or LanguageStats(passage_count=0, doc_freq={})
+        """Statistics for a language the index actually has. The empty
+        fallback that used to live here is the defect described in
+        :meth:`__post_init__`; the invariant makes the lookup total."""
+        return self.languages[lang]
 
 
 @dataclass(frozen=True)
@@ -168,34 +213,46 @@ def read_index(index_path: str | Path) -> Index:
     path = Path(index_path)
     if not path.is_file():
         raise IndexError_(f"no index at {path} — run `cairn index` first")
-    with open(path, encoding="utf-8") as fh:
-        payload = json.load(fh)
-    if payload.get("format_version") != INDEX_FORMAT_VERSION:
-        raise IndexError_(
-            f"{path}: index format {payload.get('format_version')!r} is not "
-            f"{INDEX_FORMAT_VERSION}; re-run `cairn index`"
+    # A generated file, so a malformed one means "re-run `cairn index`" and
+    # not a traceback. `cairn.cli` catches IndexError_ and prints that advice;
+    # a truncated write used to surface as a bare JSONDecodeError and a hand
+    # edit as a KeyError, neither of which reached it.
+    try:
+        with open(path, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        if payload.get("format_version") != INDEX_FORMAT_VERSION:
+            raise IndexError_(
+                f"{path}: index format {payload.get('format_version')!r} is not "
+                f"{INDEX_FORMAT_VERSION}; re-run `cairn index`"
+            )
+        return Index(
+            passages=tuple(
+                IndexedPassage(
+                    passage_id=p["passage_id"],
+                    doc_id=p["doc_id"],
+                    title=p["title"],
+                    lang=p["lang"],
+                    text=p["text"],
+                    term_counts=p["term_counts"],
+                )
+                for p in payload["passages"]
+            ),
+            languages={
+                lang: LanguageStats(
+                    passage_count=stats["passage_count"], doc_freq=stats["doc_freq"]
+                )
+                for lang, stats in payload["languages"].items()
+            },
+            doc_count=payload["doc_count"],
+            synthetic_doc_count=payload["synthetic_doc_count"],
         )
-    return Index(
-        passages=tuple(
-            IndexedPassage(
-                passage_id=p["passage_id"],
-                doc_id=p["doc_id"],
-                title=p["title"],
-                lang=p["lang"],
-                text=p["text"],
-                term_counts=p["term_counts"],
-            )
-            for p in payload["passages"]
-        ),
-        languages={
-            lang: LanguageStats(
-                passage_count=stats["passage_count"], doc_freq=stats["doc_freq"]
-            )
-            for lang, stats in payload["languages"].items()
-        },
-        doc_count=payload["doc_count"],
-        synthetic_doc_count=payload["synthetic_doc_count"],
-    )
+    except IndexError_:
+        raise
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as exc:
+        raise IndexError_(
+            f"{path}: the index file is malformed ({type(exc).__name__}: {exc}); "
+            f"re-run `cairn index`"
+        ) from exc
 
 
 def build_and_write(corpus_dir: str | Path, index_path: str | Path) -> BuildReport:

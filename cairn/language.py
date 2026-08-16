@@ -60,12 +60,28 @@ RTL_CODES = frozenset(
 )
 
 
+def normalize_code(code: str) -> str:
+    """The primary subtag, casefolded: ``en-GB`` and ``EN`` are both ``en``.
+
+    Written out as a function because two parts of the system disagreed about
+    it. :func:`direction_of` has always ignored subtags — ``ar-EG`` is as
+    right-to-left as ``ar`` — while retrieval scopes a search with an exact
+    string comparison against a corpus document's declared language. So
+    ``lang: en-GB`` was English for layout and a separate language for
+    retrieval, and an English question answered from that document was
+    labelled cross-language and told the reader the source was "written in
+    another language (en-GB)". Corpus loading normalises through here, so
+    there is one answer to what language a document is in.
+    """
+    return code.split("-", 1)[0].casefold()
+
+
 def direction_of(code: str) -> Direction:
     """Writing direction for a language code. Subtags are ignored (``ar-EG``
     is as right-to-left as ``ar``). One table, no override parameter: an
     override is the second place for the direction of Arabic to be stated, and
     a caller that forgot to pass it would silently lay the page out backwards."""
-    return "rtl" if code.split("-", 1)[0].casefold() in RTL_CODES else "ltr"
+    return "rtl" if normalize_code(code) in RTL_CODES else "ltr"
 
 
 def endonym_of(code: str) -> str:

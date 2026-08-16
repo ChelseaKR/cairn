@@ -19,6 +19,8 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from cairn.language import LANGUAGES
+
 DEFAULT_CONFIG_PATH = "cairn.toml"
 
 # Fictional demo contacts, one per interface language. A real deployment must
@@ -88,6 +90,25 @@ class Config:
             )
         if self.candidates < 1:
             raise ConfigError("retrieval.candidates must be >= 1")
+        # `language.default` is the language Cairn *speaks* when it cannot
+        # tell what was asked — the refusal, the cross-language notice, the
+        # interface chrome. It was unvalidated, and the same "bounds at the
+        # edge" shape as max_passages: the server checks the selector value
+        # against its own list and the engine checks an explicitly requested
+        # language against the corpus, so both edges were guarded and the
+        # value that skips both edges was not. `Config(default_lang="fr")`
+        # produced a grounded answer labelled `lang: "fr"` carrying an English
+        # cross-language notice, because `messages.catalogue_for` falls back
+        # to English for a code it has no catalogue for; with "he" it also
+        # came out `dir="rtl"` with an English body. An operator serving
+        # French would write exactly that line.
+        if self.default_lang not in LANGUAGES:
+            raise ConfigError(
+                f"language.default must be a language Cairn has system strings "
+                f"for ({', '.join(sorted(LANGUAGES))}), got {self.default_lang!r}. "
+                f"A corpus may be in any language; the language Cairn answers "
+                f"and refuses in may not be one it cannot write a refusal in."
+            )
 
     def contact_for(self, lang: str) -> str:
         """The human channel a refusal in ``lang`` should point to. Falls back
@@ -107,10 +128,28 @@ def _get(section: dict, key: str, kind: type, default):
     return value
 
 
-def _contacts(refusal: dict) -> dict[str, str]:
-    """Per-language overrides, exactly as written in the file. A deployment
-    that serves one language sets ``contact`` and never touches this."""
-    table = refusal.get("contact_by_language", {})
+def _contacts(refusal: dict, defaults: dict[str, str]) -> dict[str, str]:
+    """Per-language overrides, resolved the way every other key here resolves.
+
+    A key absent from the file means "use the built-in default", and this one
+    did not honour that. Passing ``{}`` for an absent table overrode the
+    dataclass's own per-language defaults, so a `cairn.toml` that set only
+    ``[corpus] path`` served an Arabic speaker a refusal that ended in the
+    English contact line — while *no config file at all* served them the
+    Arabic one. The file was less safe than its absence, for a key it never
+    mentioned.
+
+    The middle case is the one that has to stay safe. An operator who sets
+    ``contact`` and no table has stated one channel for every language, and
+    must not have Cairn's fictional demo contacts filled in around it: an
+    invented Spanish phone number in a real deployment is worse than an
+    English one that is at least real.
+    """
+    if "contact_by_language" not in refusal:
+        # An operator's own single contact serves every language; otherwise
+        # the built-in demo set, which is what `Config()` gives.
+        return {} if "contact" in refusal else dict(defaults)
+    table = refusal["contact_by_language"]
     if not isinstance(table, dict):
         raise ConfigError("refusal.contact_by_language must be a table of language codes")
     for code, value in table.items():
@@ -154,5 +193,5 @@ def load_config(path: str | Path | None = None) -> Config:
             language, "cross_language_fallback", bool, defaults.cross_language_fallback
         ),
         contact=contact,
-        contact_by_language=_contacts(refusal),
+        contact_by_language=_contacts(refusal, defaults.contact_by_language),
     )

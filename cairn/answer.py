@@ -80,6 +80,50 @@ class Answer:
     # the answer text, which stays byte-for-byte corpus content.
     notice: str | None = None
 
+    def __post_init__(self) -> None:
+        """The two-outcome promise, held by the type rather than by the caller.
+
+        The module docstring says there is no code path that emits answer text
+        without accepted passages, and until 2026-08-16 the only thing making
+        that true was :func:`compose` having two branches. `Answer` is a public
+        frozen dataclass in a reference implementation whose whole invitation
+        is that somebody imports it; "grounded" and "refusal" were labels a
+        caller chose, and `Answer(kind="grounded", text="", sources=())` was
+        constructible, would serialize with `"grounded": true`, and is exactly
+        the shape the `Config(max_passages=0)` bug produced one layer up.
+        Bounds moved onto `Config` in that fix; this is the same move for the
+        thing the bounds were protecting.
+
+        A refusal is held to the mirror image. It carries no sources — every
+        consumer already assumes that, and `cited_text` returns a refusal
+        unchanged because of it — and no notice, because a notice is a
+        statement about a quoted source and a refusal quotes nothing.
+        """
+        if self.kind == "grounded":
+            if not self.sources:
+                raise ValueError(
+                    "a grounded answer with no sources is the one outcome this "
+                    "system does not have: cite a passage or refuse"
+                )
+            if not self.text.strip():
+                raise ValueError(
+                    "a grounded answer with no text is a citation with nothing "
+                    "under it; composition must quote the passages it cites"
+                )
+        elif self.kind == "refusal":
+            if self.sources:
+                raise ValueError(
+                    "a refusal cites nothing: sources on a refusal would present "
+                    "evidence for an answer that was never given"
+                )
+            if self.notice is not None:
+                raise ValueError(
+                    "a refusal carries no notice: the notice describes a quoted "
+                    "source, and a refusal quotes none"
+                )
+        else:
+            raise ValueError(f"unknown answer kind {self.kind!r}")
+
     @property
     def direction(self) -> Direction:
         return direction_of(self.lang)
@@ -145,6 +189,17 @@ def compose(
     lang: str,
     notice: str | None = None,
 ) -> Answer:
+    # `Config` refuses max_passages < 1 and says at length why. This is the
+    # same bound at the other end of the same wire: `compose` is a public
+    # function that takes the number directly, and `accepted[:0]` produces an
+    # answer with no sources while `accepted[:-1]` quietly drops the last
+    # accepted passage. Neither has a caller in this repository and both are
+    # one import away for anyone else.
+    if max_passages < 1:
+        raise ValueError(
+            f"max_passages must be >= 1, got {max_passages}: composing zero "
+            f"passages would emit an answer with no source behind it"
+        )
     accepted = trace.accepted
     if not accepted:
         return Answer(

@@ -22,10 +22,28 @@ as the document's paragraph structure is stable.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from cairn.language import normalize_code
+
 REQUIRED_KEYS = ("id", "title", "lang")
+
+# A doc id has to survive being written into an inline citation marker, and
+# the interchange grammar for one is narrower than "any string": it starts
+# with a letter and holds letters, digits, dot, underscore, colon and hyphen.
+# Nothing enforced that, and the failure is silent in the worst direction — an
+# id like `2024-winter-credit` or an Arabic-script id produces markers no
+# consumer recognises as citations at all, so every genuinely grounded answer
+# in the evidence reads as uncited and the audit reports a fabrication problem
+# that does not exist.
+#
+# `#` is excluded for a second reason: it is the separator between a doc id
+# and a passage ordinal, and `citation_marker` rewrites every `#` in the id.
+# Doc ids `a#b` and `a.b` are distinct documents that both emit `[a.b.2]`, so
+# a marker would resolve to whichever of the two a reader guessed.
+DOC_ID = re.compile(r"^[A-Za-z][A-Za-z0-9._:-]*$")
 
 
 class CorpusError(ValueError):
@@ -102,8 +120,24 @@ def load_document(path: Path) -> Document:
     if missing:
         raise CorpusError(f"{path}: front matter missing required key(s): {', '.join(missing)}")
     doc_id = meta["id"]
+    if not DOC_ID.match(doc_id):
+        raise CorpusError(
+            f"{path}: doc id {doc_id!r} cannot be written as a citation. An id "
+            f"must start with a letter and hold only letters, digits, '.', '_', "
+            f"':' and '-' — that is the grammar of the inline citation marker "
+            f"every answer from this document will carry. An id outside it "
+            f"produces markers nothing recognises as citations, so grounded "
+            f"answers read as uncited."
+        )
     title = meta["title"]
-    lang = meta["lang"]
+    # Normalised here and nowhere else. Retrieval scopes a search by comparing
+    # this string exactly (`passage.lang != lang`), while `direction_of`
+    # already ignores subtags — so `lang: en-GB` was a language of its own for
+    # scoping and plain English for layout, and an English question against an
+    # `en-GB` document came back with "the only source I have for this is
+    # written in another language (en-GB)". One front-matter subtag, a
+    # permanently false grounding claim on every answer from that document.
+    lang = normalize_code(meta["lang"])
     passages = _chunk(body, doc_id=doc_id, title=title, lang=lang)
     if not passages:
         raise CorpusError(f"{path}: document has no body passages to index")

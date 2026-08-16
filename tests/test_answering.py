@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cairn.answer import Answer, compose
 from cairn.config import Config, ConfigError, load_config
 from cairn.engine import ask
 from cairn.index import build_index
@@ -174,6 +175,73 @@ class TestNoConfigurationCanEmitAnUnsourcedAnswer(EngineHarness):
                         self.assertTrue(answer.text.strip())
                     else:
                         self.assertEqual(answer.sources, ())
+
+    def test_a_file_that_mentions_no_contact_is_the_same_as_no_file(self):
+        # A key absent from the file means "use the default", and this one did
+        # not: an absent `contact_by_language` was passed through as `{}`,
+        # which overrode the type's per-language defaults. So a cairn.toml
+        # setting only `[corpus] path` ended an Arabic refusal with the
+        # English contact line, while *no config file at all* ended it in
+        # Arabic. The file was less safe than its absence, for a key it never
+        # mentioned.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cairn.toml"
+            path.write_text("[corpus]\npath = 'corpus/demo'\n", encoding="utf-8")
+            self.assertEqual(load_config(path).contact_by_language,
+                             Config().contact_by_language)
+            for lang in ("en", "es", "ar"):
+                self.assertEqual(load_config(path).contact_for(lang),
+                                 Config().contact_for(lang))
+
+    def test_an_operator_contact_is_never_padded_out_with_demo_ones(self):
+        # The other half. Somebody who states one channel and no table has
+        # stated it for every language, and filling Cairn's fictional Spanish
+        # and Arabic phone numbers in around it would put an invented contact
+        # into a real deployment.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cairn.toml"
+            path.write_text("[refusal]\ncontact = 'the front desk'\n", encoding="utf-8")
+            cfg = load_config(path)
+            for lang in ("en", "es", "ar"):
+                with self.subTest(lang=lang):
+                    self.assertEqual(cfg.contact_for(lang), "the front desk")
+
+    def test_compose_refuses_the_bound_the_config_refuses(self):
+        # `Config` grew these bounds; `compose` is a public function taking
+        # the number directly and did not. `accepted[:0]` returns a grounded
+        # answer with no sources and `accepted[:-1]` silently drops the last
+        # accepted passage, so the promise the config docstring makes was one
+        # import away from being false again.
+        trace = retrieve(
+            IN_CORPUS[0][0], self.index, threshold=CFG.threshold,
+            candidates=CFG.candidates, lang="en",
+        )
+        self.assertTrue(trace.accepted, "this fixture needs an accepted passage")
+        for value in (0, -1):
+            with self.subTest(max_passages=value), self.assertRaises(ValueError):
+                compose(trace, max_passages=value, refusal_text="no", lang="en")
+
+    def test_the_two_outcomes_are_enforced_by_the_type(self):
+        # Not by whichever branch of `compose` a caller happened to reach.
+        # `Answer` is public, frozen, and serializes `"grounded": true` off
+        # `kind` alone, so a hand-built one was the same defect as the
+        # max_passages bug with the bug's own layer removed.
+        trace = retrieve(
+            IN_CORPUS[0][0], self.index, threshold=CFG.threshold,
+            candidates=CFG.candidates, lang="en",
+        )
+        real = compose(trace, max_passages=1, refusal_text="no", lang="en")
+        with self.assertRaises(ValueError):
+            Answer(kind="grounded", text="something", sources=(), trace=trace, lang="en")
+        with self.assertRaises(ValueError):
+            Answer(kind="grounded", text="   ", sources=real.sources, trace=trace, lang="en")
+        with self.assertRaises(ValueError):
+            Answer(kind="refusal", text="no", sources=real.sources, trace=trace, lang="en")
+        with self.assertRaises(ValueError):
+            Answer(kind="refusal", text="no", sources=(), trace=trace, lang="en",
+                   notice="the source is in another language")
+        with self.assertRaises(ValueError):
+            Answer(kind="partial", text="x", sources=(), trace=trace, lang="en")
 
 
 class TestThresholdCalibration(EngineHarness):
