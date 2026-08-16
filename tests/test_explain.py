@@ -123,6 +123,14 @@ class TestTermEvidence(ExplainHarness):
                 trace = result.answer.trace
                 matched = {t for c in trace.candidates for t in c.matched}
                 unmatched, ignored = set(trace.unmatched), set(trace.ignored)
+                # Every assertion below is a disjointness, a subset or a set
+                # difference, and all of them hold when all four sets are
+                # empty — a tokenizer that returned nothing passed this test.
+                self.assertTrue(trace.query_terms, "the question tokenized to nothing")
+                self.assertTrue(
+                    matched | unmatched | ignored,
+                    "no term was placed in any of the three sets",
+                )
                 self.assertEqual(matched & unmatched, set())
                 self.assertEqual(matched & ignored, set())
                 self.assertEqual(unmatched & ignored, set())

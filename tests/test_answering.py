@@ -70,6 +70,11 @@ class TestGroundedAnswering(EngineHarness):
 
     def test_sources_carry_titles_stable_ids_and_a_language(self):
         answer = self.answer(IN_CORPUS[0][0])
+        # A refusal has no sources, so a threshold or tokenizer change that
+        # turned this question into one would empty the loop and leave the
+        # only check on citation shape reporting green.
+        self.assertEqual(answer.kind, "grounded")
+        self.assertTrue(answer.sources)
         for source in answer.sources:
             self.assertTrue(source.title)
             doc_id, _, ordinal = source.source_id.partition("#")

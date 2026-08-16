@@ -120,12 +120,38 @@ async function focusRing(page) {
   });
 }
 
+/* One check, two claims, and the second one is why.
+ *
+ * `withTags` filters axe's rule set. If none of the five tags matches a rule —
+ * an axe-core major that renames or retires a tag is the realistic way — axe
+ * runs zero rules and returns an empty `violations`, so "clean" is true of a
+ * scan that graded nothing. All six scans go green, the pinned check count is
+ * unchanged because the same six `ok`s were reached, and the conformance
+ * claim this file exists to support is resting on nothing. That is the same
+ * "an empty universe reads as a clean one" argument EXPECTED_CHECKS is here
+ * for, applied to the checks themselves rather than to their number.
+ *
+ * `checkRuleSetVersion` does not close it: a tag rename arrives in a version
+ * bump, and that check compares the running version to package.json, which
+ * the bump also changed. So the rule set has to be counted where it is used.
+ */
 async function axeScan(page, label) {
   const result = await new AxeBuilder({ page }).withTags(WCAG).analyze();
+  const graded =
+    result.violations.length +
+    result.passes.length +
+    result.incomplete.length +
+    result.inapplicable.length;
   const summary = result.violations
     .map((v) => `${v.id} (${v.nodes.length}) — ${v.help}`)
     .join("; ");
-  ok(result.violations.length === 0, `axe WCAG 2.2 AA clean: ${label}`, summary);
+  ok(
+    graded > 0 && result.violations.length === 0,
+    `axe WCAG 2.2 AA ran and found nothing: ${label}`,
+    graded === 0
+      ? `no rule matched tags [${WCAG.join(", ")}], so this scan graded nothing`
+      : summary
+  );
   return result;
 }
 

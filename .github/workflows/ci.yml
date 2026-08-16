@@ -77,7 +77,12 @@ jobs:
       matrix:
         python: ["3.11", "3.12"]
     steps:
+      # Nothing in this workflow pushes, so no job has any use for a
+      # credential left behind in .git/config where every later step and
+      # every uploaded artifact can reach it.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -125,7 +130,12 @@ jobs:
     name: interface (accessibility behaviours in Chromium)
     runs-on: ubuntu-latest
     steps:
+      # Nothing in this workflow pushes, so no job has any use for a
+      # credential left behind in .git/config where every later step and
+      # every uploaded artifact can reach it.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -159,7 +169,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [core]
     steps:
+      # Nothing in this workflow pushes, so no job has any use for a
+      # credential left behind in .git/config where every later step and
+      # every uploaded artifact can reach it.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -209,6 +224,16 @@ jobs:
       # a suite switched off without saying so. It reads the report the step
       # above just wrote, so it runs after it and never instead of it. No
       # `continue-on-error`, for the same reason the gate has none.
+      # The one test in the suite that needs a resolved harness, run in the
+      # one job that has one. It holds plumbline/target.toml's floors and its
+      # suite list against the defaults parsed out of the pinned harness's own
+      # source, and it skips itself when there is no checkout to read — which,
+      # in `core`, is always, because `core` fails if the cache exists at all.
+      # So it ran on a laptop where somebody had happened to run the gate, and
+      # nowhere else, while its docstring said it ran here.
+      - name: The floors and the suite list, against the harness that defines them
+        run: python3 -m unittest tests.test_audit_guard -v
+
       - name: The committed baseline still matches, and no gap is undeclared
         run: python3 audit_guard.py --summary-file "$GITHUB_STEP_SUMMARY"
 
@@ -253,7 +278,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [core]
     steps:
+      # Nothing in this workflow pushes, so no job has any use for a
+      # credential left behind in .git/config where every later step and
+      # every uploaded artifact can reach it.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

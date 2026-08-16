@@ -295,8 +295,15 @@ class TestTheReadmeShowsRealOutput(CleanCheckout):
                 actual = " ".join(
                     self.run_documented(command).stdout.translate(INVISIBLE).split()
                 )
+                fragments = self.fragments(shown)
+                # A block whose command line is followed by nothing yields no
+                # fragments and contributes no assertions, so "every word the
+                # README shows is a word the command printed" reports green
+                # for a block that shows nothing. `test_there_are_blocks_to_
+                # check` counts commands, not output, so it does not cover it.
+                self.assertTrue(fragments, f"{command} is shown with no output")
                 position = 0
-                for fragment in self.fragments(shown):
+                for fragment in fragments:
                     found = actual.find(fragment, position)
                     self.assertNotEqual(
                         found, -1,

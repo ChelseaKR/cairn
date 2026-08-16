@@ -478,7 +478,17 @@ class TestQuotedCorpusText(unittest.TestCase):
 
     def test_no_rendered_heading_still_carries_its_marker(self):
         rendered = page._quoted_block("\n".join(line for line, _ in self.CASES))
-        for fragment in re.findall(r"<strong>(.*?)</strong>", rendered):
+        emphasized = re.findall(r"<strong>(.*?)</strong>", rendered)
+        # The population first. `findall` returns [] when nothing is
+        # emphasized at all, and "no heading kept its marker" is then true
+        # because no heading was rendered — a `_quoted_block` that stopped
+        # recognising headings entirely would pass this.
+        self.assertEqual(
+            len(emphasized),
+            sum(1 for _, expected in self.CASES if "<strong>" in expected),
+            "the cases that should render as headings did not",
+        )
+        for fragment in emphasized:
             self.assertFalse(
                 fragment.lstrip().startswith("#"),
                 f"an emphasized heading kept its marker: {fragment!r}",
@@ -530,15 +540,36 @@ class TestQuotedCorpusText(unittest.TestCase):
     def test_every_corpus_heading_survives_both_rules_the_same_way(self):
         # The parity check above is on the rule; this is on the content the
         # rule is actually applied to.
+        #
+        # The expected value is NOT `ATX_MARKER.sub("", line)`, which is what
+        # stood here and is the third instance of the defect the docstring two
+        # methods up describes: computing what should come out by running the
+        # substitution under test over what went in, so both sides move
+        # together and the specification becomes whatever the code does.
+        # Measured: widen ATX_MARKER from `^\s*#+\s*` to `^\s*#+\s*.?` — a
+        # plausible edit while tuning trailing hashes — and every corpus
+        # heading renders with its first letter deleted, so a grounded answer
+        # quotes something the cited passage does not say, and the old version
+        # of this test passed.
+        #
+        # The rule here is one the renderer does not own: a whitespace-
+        # separated token that is not made only of hashes is a word, and a
+        # renderer that only removes markup cannot lose a word.
+        emphasized = 0
         for document in load_corpus(DEMO):
             for passage in document.passages:
                 with self.subTest(passage=passage.passage_id):
                     rendered = page._quoted_block(passage.text)
+                    emphasized += rendered.count("<strong>")
                     self.assertNotIn("<strong>#", rendered)
                     for line in passage.text.splitlines():
-                        words = page.ATX_MARKER.sub("", line).strip()
-                        if words:
-                            self.assertIn(escape(words), rendered)
+                        for word in line.split():
+                            if set(word) == {"#"}:
+                                continue
+                            self.assertIn(escape(word), rendered, f"lost {word!r}")
+        self.assertGreaterEqual(
+            emphasized, 10, "no corpus heading rendered as one; nothing here is checking"
+        )
 
 
 class TestRightToLeftRendering(ServerHarness):
@@ -615,10 +646,27 @@ class TestStylesheet(unittest.TestCase):
             "contrast check is grading their light values",
         )
 
+    def test_every_colour_the_stylesheet_declares_is_graded(self):
+        # The population, from the stylesheet rather than from PAIRS. The
+        # contrast check below iterates PAIRS, so a pair that fails can be
+        # made to pass by deleting it: it leaves the loop, the colours stay in
+        # the page, and the companion check above derives its universe from
+        # PAIRS too and so loses sight of it as well. The stylesheet is the
+        # thing that decides which colours the interface uses, so it is the
+        # thing that decides what has to be graded.
+        declared = set(palette("light"))
+        graded = {token for _, fg, bg, _ in PAIRS for token in (fg, bg)}
+        self.assertTrue(declared, "the stylesheet declares no colours")
+        self.assertEqual(
+            sorted(declared - graded), [],
+            "these colours are in the stylesheet and in no graded pair",
+        )
+
     def test_every_colour_pair_passes_contrast_in_both_presentations(self):
         # The same list of pairs an evidence bundle's interface snapshot
         # declares, so the auditor and this suite cannot disagree about which
-        # colours the page uses.
+        # colours the page uses. The check above is what stops that list from
+        # shrinking away from the stylesheet.
         minimum = {"normal": 4.5, "large": 3.0}
         for scheme in ("light", "dark"):
             tokens = palette(scheme)

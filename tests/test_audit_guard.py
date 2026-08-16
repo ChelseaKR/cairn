@@ -306,6 +306,21 @@ class TestTheCommittedArtifacts(unittest.TestCase):
         # A gap declared only in a config file is a gap declared to nobody.
         # Both documents must carry a line that names the suite and says it is
         # not scored — the phrase is the contract; the prose around it is free.
+        #
+        # The committed config declares no gaps, so the loop below iterates
+        # nothing — which is correct and is also indistinguishable from a
+        # `declared_gaps` that had stopped finding them. Its companion asserts
+        # `findings == []`, so a helper returning `([], [])` for a disabled
+        # suite would satisfy both, and a suite would be switched off with
+        # nothing in the repository saying so. A positive control first, then:
+        # the helper is proven live on a synthetic input before the real
+        # config is handed to it.
+        control, _ = declared_gaps(
+            {"suites": {"privacy": {"enabled": False, "gap": "unscored, see plumbline",
+                                    "fix_belongs_in": "plumbline"}}}
+        )
+        self.assertEqual([gap["suite"] for gap in control], ["privacy"])
+
         gaps, _ = declared_gaps(self.target)
         for name in ("README.md", "DESIGN.md"):
             text = (ROOT / name).read_text(encoding="utf-8")
@@ -386,8 +401,24 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
         self.assertEqual(blocking(findings), ["fairness"])
 
     def test_a_suite_disabled_with_a_gap_still_counts_as_mentioned(self):
+        # Written out rather than built from DEFAULTS. The comprehension that
+        # stood here made the target's suite set the defaults' set by
+        # construction, so `set(defaults) - named` was empty whatever
+        # DEFAULTS held — and no suite in it was disabled, so the case in the
+        # method's own name was never exercised.
         findings = audit_guard.unmentioned_suites(
-            {"suites": {name: {"enabled": True} for name in self.DEFAULTS}}, self.DEFAULTS
+            {
+                "suites": {
+                    "smoke": {"enabled": True},
+                    "accuracy": {"enabled": True},
+                    "fairness": {
+                        "enabled": False,
+                        "gap": "unscored; the harness cannot express it yet",
+                        "fix_belongs_in": "plumbline",
+                    },
+                }
+            },
+            self.DEFAULTS,
         )
         self.assertEqual(findings, [])
 
@@ -412,10 +443,17 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
 
     def test_the_committed_config_holds_the_rule_against_the_pinned_harness(self):
         # The real files, when there is a resolved harness to hold them
-        # against. This is the guard's job in CI and it runs there; locally it
-        # runs whenever ./plumbline-gate.sh has been run at least once. The
-        # absence of a harness is reported rather than passed over — see the
-        # exit-4 tests above — so this is not a silent skip.
+        # against.
+        #
+        # It used to say "this is the guard's job in CI and it runs there",
+        # and that was false. The unit suite runs in `core`, and `core` fails
+        # if `.plumbline-cache` exists at all — that is the step proving the
+        # engine's own path never needs the auditor. So in CI this skipped
+        # every time, and it ran only on a laptop where somebody had happened
+        # to run ./plumbline-gate.sh recently. The `audit` job now runs this
+        # module explicitly, after the step that resolves the harness, which
+        # is what makes the skip below a local convenience rather than the
+        # only outcome CI ever sees.
         src = audit_guard.pinned_harness_src(PIN, ROOT / ".plumbline-cache")
         if not (src / "plumbline" / "suites").is_dir():
             self.skipTest("no resolved harness; ./plumbline-gate.sh fetches it")
@@ -425,6 +463,24 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
         self.assertEqual(blocking(findings), [])
         self.assertEqual(audit_guard.unmentioned_suites(target, defaults), [])
         self.assertTrue(overrides, "this repository does override floors; say which")
+
+    def test_the_job_with_a_harness_is_the_job_that_runs_this_module(self):
+        # The other half of the fix above, and the half that can rot. The
+        # check immediately above skips itself without a resolved harness, so
+        # its coverage is entirely a claim about which CI job runs it — and
+        # that claim was wrong for a milestone. Held against the workflow
+        # here, with comments stripped, so a step deleted in a tidy-up fails
+        # a test rather than quietly restoring the skip.
+        from tests.test_live import workflow_job
+
+        audit = workflow_job("audit")
+        self.assertIn("unittest tests.test_audit_guard", audit)
+        self.assertLess(
+            audit.index("plumbline-gate.sh"),
+            audit.index("unittest tests.test_audit_guard"),
+            "the module runs before anything has resolved the harness, so it skips",
+        )
+        self.assertNotIn("unittest tests.test_audit_guard", workflow_job("core"))
 
 
 class TestRunningIt(unittest.TestCase):

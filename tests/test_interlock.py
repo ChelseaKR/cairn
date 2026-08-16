@@ -275,6 +275,9 @@ class TestTheEvidenceIsIntact(unittest.TestCase):
         responses = [
             json.loads(line) for line in (BUNDLE / "responses.jsonl").read_text().splitlines()
         ]
+        # Two empty files satisfy `[] == []` and `all([])`, which is the
+        # whole check. The population is the committed question set.
+        self.assertGreaterEqual(len(items), 20, "the evidence bundle came back empty")
         self.assertEqual([i["id"] for i in items], [r["id"] for r in responses])
         self.assertTrue(all(r["response"].strip() for r in responses))
 
