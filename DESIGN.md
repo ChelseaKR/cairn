@@ -550,8 +550,16 @@ right-to-left is where "multilingual support" is usually only skin deep.
   the threshold, the search widens to the whole corpus and the answer carries a
   *notice* — Cairn's own voice, in the language asked in — saying the source is
   in another language. The notice is a separate field, never concatenated into
-  the answer text, so "the answer text is exactly the cited passages" stays
+  `Answer.text`, so "the answer text is exactly the cited passages" stays
   literally true and is tested as such.
+- **The one place the notice does join the text is `Answer.cited_text`**, and
+  for the same reason the inline citation markers are in it: that property is
+  the whole answer for a client with no second field to put anything in — a
+  terminal, an SMS gateway, a transcript. Leaving the notice out of it hands a
+  Spanish speaker an English passage with nothing saying why, which is the
+  defect the missing markers were, one field over. It changed no committed
+  evidence when it landed, because no item in the question set reaches the
+  cross-language path at all — see "What is still open".
 - **`messages.py` holds every string Cairn says in its own voice**, per
   language, and the test suite fails if any language is missing a key, if a
   translation was left as the English string, or if a key's placeholders differ
@@ -671,6 +679,17 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   metadata no reviewer has seen, added specifically to make an untranslated
   quote findable, and it is the alias mechanism whose measurement says it
   degrades passage choice.
+- **No committed evidence item reaches the cross-language path**, so no audit
+  report this repository publishes says anything about it. The corpus
+  asymmetry above is what makes the path reachable, and `tests/` and the
+  browser checks both drive it — but all 26 items in
+  `plumbline/questions.toml` are answered from sources in the language they
+  were asked in, and `tests/test_open_items.py` asserts that, so the claim
+  cannot rot quietly. The suite with the most to say would be `multilingual`,
+  which scores a response by the language it came back in and would score such
+  an item zero: correct, and a cost worth paying rather than avoiding. Adding
+  one moves the dataset hash, the baseline and several published figures in a
+  single reviewed diff, and that diff has not been made.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
@@ -1229,8 +1248,14 @@ it is now closed upstream.
   refusal that points a Spanish speaker at an English sentence has not really
   pointed them anywhere.
 - **Markdown markers are dropped when rendering a quote,** and the heading line
-  is emphasized instead. Markup is removed, never words: a test asserts every
-  non-marker character of the answer survives into the page.
+  is emphasized instead. Markup is removed, never words: a test asserts both
+  halves — that no emphasized heading still carries a marker, and that every
+  non-marker character of the answer survives into the page. The rule is two
+  regular expressions, and the server-side renderer and the client script are
+  required to spell them identically, because they build the same transcript
+  by two routes. They did not, for one shape: an indented heading kept its
+  `##` on the no-JavaScript page and lost it in the script, and no corpus
+  document is indented, so nothing was failing.
 - **The demo server binds to 127.0.0.1 by default.** A demo that listens on
   every interface out of the box is a demo somebody accidentally exposes.
 - **The walkthrough's expected output is generated from real runs and then

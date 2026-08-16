@@ -45,6 +45,7 @@ ANCHORS = (
     "One known colloquial-recall failure",
     "One wrong-paragraph case",
     "Cross-language fallback needs shared words",
+    "No committed evidence item reaches the cross-language path",
     "No manual screen-reader pass",
     "No generative mode",
 )
@@ -136,6 +137,28 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
                 self.assertEqual(result.answer.kind, "refusal")
                 self.assertFalse(result.cross_language)
                 self.assertEqual(result.answer.lang, lang or "ar")
+
+    def test_no_recorded_item_reaches_the_cross_language_path(self):
+        # The evidence the gate grades never contains an answer quoted in a
+        # language the reader did not ask for, so no audit report says
+        # anything about that shape of answer. Asked of the committed question
+        # set through the real engine rather than of the bundle: adding an
+        # item is what closes this, not re-recording.
+        from cairn.record import load_questions
+
+        questions = load_questions(ROOT / "plumbline" / "questions.toml")
+        self.assertTrue(questions, "the question set is the population here")
+        crossed = [
+            question["id"]
+            for question in questions
+            if ask(question["prompt"], self.index, CFG,
+                   lang=question["lang"]).cross_language
+        ]
+        self.assertEqual(
+            crossed, [],
+            "an item now reaches the cross-language path; the open item above "
+            "is fixed and should be deleted with the diff that fixed it",
+        )
 
     def test_the_corrected_claim_is_the_one_the_design_makes(self):
         section = open_section()
