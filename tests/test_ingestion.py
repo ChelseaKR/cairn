@@ -117,19 +117,19 @@ class TestIndexing(unittest.TestCase):
             broken = dict(payload, languages={"en": payload["languages"]["en"]})
             path.write_text(json.dumps(broken), encoding="utf-8")
             with self.assertRaises(IndexError_) as caught:
-                read_index(path)
+                read_index(path, DEMO)
             self.assertIn("ar", str(caught.exception))
 
             duplicated = dict(payload, passages=payload["passages"][:1] * 2)
             path.write_text(json.dumps(duplicated), encoding="utf-8")
             with self.assertRaises(IndexError_):
-                read_index(path)
+                read_index(path, DEMO)
 
             emptied = json.loads(json.dumps(payload))
             emptied["passages"][0]["text"] = "   "
             path.write_text(json.dumps(emptied), encoding="utf-8")
             with self.assertRaises(IndexError_):
-                read_index(path)
+                read_index(path, DEMO)
 
     def test_a_malformed_index_says_to_reindex_rather_than_traceback(self):
         from cairn.index import IndexError_
@@ -140,7 +140,7 @@ class TestIndexing(unittest.TestCase):
                 with self.subTest(content=content[:24]):
                     path.write_text(content, encoding="utf-8")
                     with self.assertRaises(IndexError_):
-                        read_index(path)
+                        read_index(path, DEMO)
 
     def test_reindexing_unchanged_corpus_is_byte_identical(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -164,7 +164,7 @@ class TestIndexing(unittest.TestCase):
             index_path = Path(tmp) / "index.json"
             built = build_index(DEMO)
             write_index(built, index_path)
-            index = read_index(index_path)
+            index = read_index(index_path, DEMO)
             self.assertGreater(index.passage_count, 0)
             self.assertEqual(index.doc_count, built.doc_count)
             self.assertEqual(index.language_codes, built.language_codes)

@@ -22,7 +22,9 @@ a property of the code at all. For those two the check is that the claim is
 still made, in the documents, in the words that make it a claim.
 """
 
+import json
 import re
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -71,6 +73,13 @@ def open_section() -> str:
     text = DESIGN.read_text(encoding="utf-8")
     body = text.split(SECTION, 1)[1]
     return body.split("\n## ", 1)[0]
+
+
+def multilingual_baseline() -> dict:
+    baseline = json.loads(
+        (ROOT / "plumbline" / "baseline.json").read_text(encoding="utf-8")
+    )
+    return next(s for s in baseline["suites"] if s["suite"] == "multilingual")
 
 
 def bullets() -> list[str]:
@@ -188,14 +197,41 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
         # The open item above is a live measurement, not a worry. If the
         # baseline ever records `multilingual` at 1.0000 again, either the
         # harness learned to read a cross-language answer or the item left.
-        import json
-
-        baseline = json.loads(
-            (ROOT / "plumbline" / "baseline.json").read_text(encoding="utf-8")
-        )
-        entry = next(s for s in baseline["suites"] if s["suite"] == "multilingual")
+        entry = multilingual_baseline()
         self.assertLess(entry["score"], 1.0, "the open item above says it fails one item")
         self.assertEqual(round(entry["score"] * entry["n"]), entry["n"] - 1)
+
+    def test_the_headroom_the_item_publishes_is_the_baselines_arithmetic(self):
+        # The open item states what a *second* cross-language item would cost,
+        # and that sentence was wrong: 26 of 27 plus one more failing item is
+        # 26/28, and it was published as 25/28. Prose arithmetic about a
+        # measurement is arithmetic nothing recomputes, so this recomputes it —
+        # from the committed baseline, which is an artifact the sentence does
+        # not derive from and cannot bend to match.
+        entry = multilingual_baseline()
+        correct = round(entry["score"] * entry["n"])
+        predicted = correct / (entry["n"] + 1)
+        self.assertIn(
+            f"{correct}/{entry['n'] + 1} = {predicted:.4f}",
+            open_section(),
+            "the open item's arithmetic is not the baseline's",
+        )
+        # And the claim that sentence exists to make: it takes the gate red.
+        floor = tomllib.loads(
+            (ROOT / "plumbline" / "target.toml").read_text(encoding="utf-8")
+        )["suites"]["multilingual"]["floor"]
+        self.assertGreaterEqual(entry["score"], floor, "today it passes")
+        self.assertLess(predicted, floor, "and a second such item would not")
+
+    def test_the_resolution_of_the_three_ways_out_is_recorded(self):
+        # An open item that lists options and never says which one was taken
+        # reads, a milestone later, as an item nobody thought about. Each of
+        # the three carries its verdict in the text now, and the one that was
+        # taken has to be identifiable as taken.
+        section = open_section()
+        for verdict in ("Refused.", "not Cairn's to do.", "Taken."):
+            with self.subTest(verdict=verdict):
+                self.assertIn(verdict, section)
 
     def test_the_corrected_claim_is_the_one_the_design_makes(self):
         section = open_section()
@@ -228,8 +264,12 @@ class TestTheTwoThatCannotBeCheckedFromACheckout(unittest.TestCase):
         # Whether a check can block a merge lives on GitHub's side.
         # tests/test_rulesets.py holds the ruleset against the workflow; this
         # only records that the open list has not quietly dropped the item.
-        self.assertIn("advisory", open_section() + (ROOT / "README.md")
-                      .read_text(encoding="utf-8"))
+        # One assertion per document. Concatenating the two and searching the
+        # result meant the README's own sentence satisfied it permanently, so
+        # the item could be deleted from the open list — the one thing this
+        # check exists to notice — without anything failing.
+        self.assertIn("advisory", open_section())
+        self.assertIn("advisory", (ROOT / "README.md").read_text(encoding="utf-8"))
 
     def test_no_automated_check_is_offered_as_a_screen_reader_session(self):
         section = open_section()

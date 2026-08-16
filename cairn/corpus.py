@@ -22,6 +22,7 @@ as the document's paragraph structure is stable.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -151,12 +152,15 @@ def load_document(path: Path) -> Document:
     )
 
 
-def load_corpus(corpus_dir: str | Path) -> list[Document]:
-    """Load every ``*.md`` document under ``corpus_dir`` (non-recursive is
-    deliberate: a corpus directory is flat and auditable at a glance).
+def corpus_paths(corpus_dir: str | Path) -> list[Path]:
+    """The files the corpus is made of, in a fixed order.
 
-    Documents are returned sorted by doc id so every downstream artifact is
-    deterministic. Duplicate doc ids are an error, not a silent overwrite.
+    One definition, two callers: :func:`load_corpus` reads these and
+    :func:`fingerprint` hashes them. Written out separately because a
+    fingerprint over a *different* set of files than the loader reads is worse
+    than no fingerprint at all — it would report "unchanged" across an edit to
+    a document the index was built from, which is the exact failure the
+    fingerprint exists to catch, now with a check standing behind it.
     """
     root = Path(corpus_dir)
     if not root.is_dir():
@@ -164,7 +168,42 @@ def load_corpus(corpus_dir: str | Path) -> list[Document]:
     paths = sorted(p for p in root.glob("*.md") if p.name.lower() != "readme.md")
     if not paths:
         raise CorpusError(f"no corpus documents (*.md) found in {root}")
-    docs = [load_document(p) for p in paths]
+    return paths
+
+
+def fingerprint(corpus_dir: str | Path) -> str:
+    """A hash of exactly the bytes :func:`load_corpus` would read.
+
+    Hashed over raw bytes rather than over the parsed documents, deliberately.
+    A parsed fingerprint would call a whitespace edit "unchanged", which is
+    true of the index and false of the document — and every direction this can
+    be wrong in should be the direction that says *re-index*. Re-indexing is
+    cheap; quoting last week's text under this week's citation is not.
+
+    File *names* are hashed alongside their contents, so renaming a document
+    or adding one moves the fingerprint even when no byte of prose changed.
+    The directory's own path is not, so an index built here still verifies
+    against the same corpus unpacked somewhere else.
+    """
+    digest = hashlib.sha256()
+    for path in corpus_paths(corpus_dir):
+        raw = path.read_bytes()
+        # Length-prefixed, so no arrangement of names and contents can be
+        # rearranged into the same byte stream.
+        digest.update(f"{len(path.name)}:{len(raw)}:".encode())
+        digest.update(path.name.encode("utf-8"))
+        digest.update(raw)
+    return digest.hexdigest()
+
+
+def load_corpus(corpus_dir: str | Path) -> list[Document]:
+    """Load every ``*.md`` document under ``corpus_dir`` (non-recursive is
+    deliberate: a corpus directory is flat and auditable at a glance).
+
+    Documents are returned sorted by doc id so every downstream artifact is
+    deterministic. Duplicate doc ids are an error, not a silent overwrite.
+    """
+    docs = [load_document(p) for p in corpus_paths(corpus_dir)]
     seen: dict[str, str] = {}
     for doc in docs:
         if doc.doc_id in seen:

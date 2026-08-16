@@ -4,7 +4,9 @@ Scores are cosine similarity between TF-IDF vectors of the query and each
 passage, so every score is bounded [0, 1] and the configured threshold is a
 legible, corpus-independent knob (DESIGN.md, "Retrieval"). IDF is smoothed and
 computed **within the passage's language**: ``log((N_lang + 1) / (df_lang + 1))
-+ 1``. Ties break by passage id so ranking is fully deterministic.
++ 1``, zero for a term the document-frequency floor suppressed
+(:attr:`cairn.index.LanguageStats.suppressed`, which owns the floor and its
+one exemption). Ties break by passage id so ranking is fully deterministic.
 
 A retrieval may be restricted to one language. Restriction happens before
 scoring, not after, so the reported candidate list is exactly what was
@@ -72,18 +74,19 @@ class RetrievalTrace:
         return tuple(t for t in self.query_terms if t not in set(self.ignored))
 
 
-# Terms appearing in more than this fraction of a language's passages carry no
-# signal ("the", "de", "من") and are ignored entirely. Document-frequency
-# stopword suppression needs no per-language word lists and stays
-# deterministic — but the fraction has to be measured per language, or a
-# multilingual corpus dilutes every language's function words below the bar.
-MAX_DF_RATIO = 0.5
-
-
 def _idf(term: str, stats: LanguageStats) -> float:
-    df = stats.doc_freq.get(term, 0)
-    if df > MAX_DF_RATIO * stats.passage_count:
+    """Smoothed IDF within one language, zero for a suppressed term.
+
+    Which terms are suppressed is `LanguageStats.suppressed` — the
+    document-frequency floor and its one exemption, kept next to the table it
+    reads. The exemption exists because the floor is a statement about a
+    document-frequency distribution, and a language Cairn holds one passage of
+    does not have one: every term in it appears in every passage, so the floor
+    zeroes the entire language and no question can reach it.
+    """
+    if term in stats.suppressed:
         return 0.0
+    df = stats.doc_freq.get(term, 0)
     return math.log((stats.passage_count + 1) / (df + 1)) + 1.0
 
 

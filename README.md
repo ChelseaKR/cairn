@@ -12,14 +12,15 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 313 tests plus 63 browser behaviour checks, standard library only,
+server. 336 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command in a ```console
 fence on that page is executed by the test suite, so its output is what you
-will get. The three sections that cannot be executed (`serve`, and the audit,
-which needs the network the first time) are fenced as ```text and say so.
+will get. What cannot be executed is fenced as ```text and says so: `serve`,
+which never returns; the audit, which needs the network the first time; and
+the stale-index refusal, which needs a corpus document edited underneath it.
 
 ## Provenance
 
@@ -42,6 +43,7 @@ directly:
 ```console
 $ python3 -m cairn index
 Indexed 40 passages from 10 documents (10 marked synthetic) in 3 languages [ar, en, es] -> .cairn/index.json
+Corpus fingerprint: 5bfa70e8cad4 (corpus/demo)
 
 $ python3 -m cairn ask "How much unpaid rent does the housing relief grant cover?"
 ## How much the grant covers

@@ -12,6 +12,11 @@ fetch the pinned harness. Their transcripts are elided with `...` and are
 illustrations rather than recordings — which is why this page says which fence
 you are looking at rather than claiming every line on it is checked.
 
+One more ```text fence sits in section 1, for a different reason: producing
+that output means editing a corpus document, and a page executed against the
+shipped corpus must not. It is a recording rather than an illustration — it
+says how it was captured — and the behaviour it shows has its own tests.
+
 Requires Python 3.11 or newer. Nothing else.
 
 ## 1. Build the index
@@ -24,6 +29,7 @@ $ cd cairn
 ```console
 $ python3 -m cairn index
 Indexed 40 passages from 10 documents (10 marked synthetic) in 3 languages [ar, en, es] -> .cairn/index.json
+Corpus fingerprint: 5bfa70e8cad4 (corpus/demo)
 ```
 
 The count of synthetic documents is not decoration. Every file in the bundled
@@ -34,6 +40,28 @@ Re-running `index` on an unchanged corpus rewrites the same bytes: the index is
 serialized with sorted keys, a fixed layout, and no timestamps, so idempotency
 is checkable with a file hash rather than argued for. The test suite checks it
 that way.
+
+The fingerprint on the second line is a hash of the corpus files this index was
+built from, stored inside the index. `ask`, `serve` and `record` all recompute
+it before they answer anything, and refuse if it has moved:
+
+```text
+$ python3 -m cairn ask "How much is the monthly grocery allowance for one person?"
+cairn: error: the corpus at corpus/demo has changed since the index was built
+(corpus 918154360e3e, index 5bfa70e8cad4). Answering now would quote the text
+the index holds and cite a document that no longer says it. Re-run `cairn index`.
+```
+
+That is real output, captured by appending one paragraph to
+`corpus/demo/grocery-allowance.en.md` and reverting it. It is hard-wrapped and
+fenced as `text` rather than `console` because reproducing it means editing a
+corpus document, which the executed walkthrough must not do;
+`tests/test_ingestion.py` and `tests/test_cli.py` make the edit in a temporary
+copy and hold every subcommand to the refusal. Edit a document without
+re-indexing and the alternative is worse than an error: Cairn goes on quoting
+the paragraph as it was and citing the document as it is, and every surface
+downstream of the index — the inline marker, the sources list, the recorded
+evidence bundle — agrees with it.
 
 ## 2. Ask something the corpus covers
 

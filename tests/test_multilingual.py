@@ -169,6 +169,7 @@ class TestCrossLanguageFallback(MultilingualHarness):
     def test_the_quoted_source_is_not_translated(self):
         answer = self.ask(ENGLISH_ONLY_QUESTION, lang="es").answer
         passages = {p.passage_id: p for p in self.index.passages}
+        self.assertTrue(answer.sources, "a refusal here would empty this check")
         for source in answer.sources:
             self.assertIn(passages[source.source_id].text, answer.text)
 
@@ -258,6 +259,7 @@ class TestLocalizedVoice(MultilingualHarness):
         payload = self.ask(QUESTIONS["ar"]).answer.to_payload()
         self.assertEqual(payload["lang"], "ar")
         self.assertEqual(payload["dir"], "rtl")
+        self.assertTrue(payload["sources"], "a refusal here would empty this check")
         for source in payload["sources"]:
             self.assertEqual(source["dir"], "rtl")
 
@@ -366,6 +368,107 @@ class TestTheNoticeDescribesWhatIsActuallyQuoted(MultilingualHarness):
                     answer = ask(question, self.index, CFG, lang=lang).answer
                     foreign = any(s.lang != answer.lang for s in answer.sources)
                     self.assertEqual(foreign, answer.notice is not None)
+
+
+class TestASmallLanguageIsStillARetrievableLanguage(unittest.TestCase):
+    """The document-frequency floor used to delete a whole language.
+
+    Every term in a language Cairn holds one passage of has
+    ``df == passage_count``, so all of them clear ``df > 0.5 * N`` and the
+    passage scores exactly 0.0 against every question in every language —
+    including one that quotes it word for word. An agency that publishes one
+    short translated notice, which is the realistic shape of a small language
+    community's coverage, gets a document that is indexed, listed in
+    `cairn index`'s language count, and unreachable.
+
+    This was written up and left alone for a milestone on the grounds that no
+    evidence item crossed languages. One does now (`ck-027`), which makes the
+    cross-language fallback a path this repository publishes measurements
+    about — and the fallback cannot rescue this case either, because it scores
+    each passage against its own language's statistics.
+    """
+
+    ONE_PASSAGE = (
+        "---\nid: flood-relief-vi\ntitle: Ho tro lu lut\nlang: vi\nsynthetic: true\n"
+        "---\n\nChuong trinh ho tro lu lut tra toi da 4500 do la cho moi ho gia dinh.\n"
+    )
+    ASKED = "Chuong trinh ho tro lu lut tra bao nhieu tien?"
+
+    def index_with(self, *documents: tuple[str, str]):
+        import shutil
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        corpus = Path(tmp.name) / "corpus"
+        shutil.copytree(DEMO, corpus)
+        for name, body in documents:
+            (corpus / name).write_text(body, encoding="utf-8")
+        return build_index(corpus)
+
+    def test_a_one_passage_language_can_be_reached(self):
+        index = self.index_with(("flood-relief.vi.md", self.ONE_PASSAGE))
+        self.assertEqual(index.stats_for("vi").passage_count, 1)
+        result = ask(self.ASKED, index, Config())
+        self.assertEqual(result.answer.kind, "grounded")
+        self.assertEqual([s.source_id for s in result.answer.sources], ["flood-relief-vi#1"])
+        self.assertEqual(result.answer.lang, "vi")
+
+    def test_the_exemption_is_exactly_all_or_nothing(self):
+        # The narrow claim. The floor is not softened for small languages; it
+        # is skipped only where it would leave no term standing, which is the
+        # case where it has stopped being a statistic and started being a
+        # delete.
+        index = self.index_with(("flood-relief.vi.md", self.ONE_PASSAGE))
+        self.assertEqual(index.stats_for("vi").suppressed, frozenset())
+        for code in ("en", "es", "ar"):
+            with self.subTest(lang=code):
+                stats = index.stats_for(code)
+                suppressed = stats.suppressed
+                self.assertTrue(suppressed, "the floor still does its job at scale")
+                self.assertLess(len(suppressed), len(stats.doc_freq))
+                for term in suppressed:
+                    self.assertGreater(stats.doc_freq[term], 0.5 * stats.passage_count)
+                for term, df in stats.doc_freq.items():
+                    if term not in suppressed:
+                        self.assertLessEqual(df, 0.5 * stats.passage_count)
+
+    def test_it_does_not_pretend_to_fix_document_frequency_on_a_small_corpus(self):
+        # The limitation as it actually is, so nobody reads the exemption as
+        # more than it is: at two passages the floor bites again, and a term
+        # in both of them — the program's own name, typically — is suppressed.
+        two = self.ONE_PASSAGE + "\nDon xin phai duoc nop trong vong 30 ngay lu lut.\n"
+        index = self.index_with(("flood-relief.vi.md", two))
+        stats = index.stats_for("vi")
+        self.assertEqual(stats.passage_count, 2)
+        self.assertIn("lut", stats.suppressed, "in both passages, so suppressed")
+        self.assertNotIn("4500", stats.suppressed, "in one, so it still scores")
+
+    # Measured on the committed corpus after the exemption landed, and
+    # identical to what the floor suppressed before it. Literals rather than
+    # `{t for t, df in doc_freq.items() if df > cut}`, which is what stood
+    # here for one draft: both sides of that comparison read `doc_freq` and
+    # `passage_count` off the same object the implementation used, so an
+    # off-by-one in document counting or a tokenizer change that merged two
+    # terms moved both sides together and the check held while every
+    # retrieval score in the corpus moved.
+    SUPPRESSED = {
+        "ar": ("هاربر",),
+        "en": ("and", "harbo", "the"),
+        "es": ("del", "harbo", "hogar", "los", "por", "que", "una"),
+    }
+
+    def test_the_demo_corpus_suppresses_exactly_what_it_did(self):
+        # The exemption must be invisible to every language that has enough
+        # passages for the floor to mean something, or it would have moved the
+        # committed evidence. It did not: `cairn record` writes a
+        # byte-identical bundle, and this is the same statement one level down,
+        # where a term-by-term difference names itself.
+        index = build_index(DEMO)
+        self.assertEqual(set(index.language_codes), set(self.SUPPRESSED))
+        for code, expected in self.SUPPRESSED.items():
+            with self.subTest(lang=code):
+                self.assertEqual(index.stats_for(code).suppressed, frozenset(expected))
 
 
 if __name__ == "__main__":

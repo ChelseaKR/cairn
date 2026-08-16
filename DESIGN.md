@@ -422,6 +422,79 @@ Scores are computed at query time from stored term counts. For corpora that fit 
 laptop demo this is milliseconds; precomputed vectors are an optimization the
 reference implementation does not need.
 
+### The index carries a fingerprint of the corpus it was built from
+
+Edit a document, forget to re-index, ask a question. Cairn answers out of the
+index, so it quotes the paragraph as it **was** and cites the document as it
+**is** — a fluent, confident, correctly-formatted answer that the cited source
+does not support. It is the failure this project's own machinery is
+structurally blind to, because everything downstream of the index agrees with
+the index: the inline marker, the sources list, the served page, and the
+evidence bundle `cairn record` writes for the audit to grade.
+
+So `cairn index` hashes the corpus files it read and stores the digest in the
+index, and `read_index` **requires** the caller to name the corpus the index is
+supposed to describe. There is no default for that argument, deliberately: an
+optional check is a check a caller forgets, and in a reference implementation
+"a caller" is an agency's deployment. `ask`, `serve` and `record` all pass it,
+and a test runs every subcommand the parser registers against a stale corpus
+and requires each one to refuse — enumerated from the parser rather than from a
+list in the test file, so a fourth subcommand is covered on the day it is
+added.
+
+Three decisions inside that:
+
+- **Raw bytes, not parsed documents.** A parsed fingerprint would call a
+  whitespace-only edit "unchanged", which is true of the index and false of the
+  document. Every direction this can be wrong in should be the direction that
+  says re-index; re-indexing is cheap and quoting last week's text under this
+  week's citation is not.
+- **File names are hashed, the directory path is not.** Renaming or adding a
+  document moves the fingerprint even when no prose changed; unpacking the same
+  corpus somewhere else does not, because an operator who moved a directory has
+  not changed a corpus.
+- **A missing corpus is a refusal, not a pass.** An index whose corpus is not on
+  disk cannot be shown to be current, and "cannot be shown to be current" is
+  exactly the state that produces a confident wrong quotation. The cost is
+  real and is stated in the error: shipping an index without its corpus is not
+  a supported deployment. `read_index(path, corpus_dir=None)` is the explicit
+  opt-out for anyone importing this who wants it anyway, and nothing in Cairn
+  uses it.
+
+The index format version moved from 2 to 3 with the fingerprint. A version-2
+index is refused rather than trusted, because it cannot say what it was built
+from.
+
+### The document-frequency floor has one exemption, and it is narrow
+
+`MAX_DF_RATIO = 0.5` suppresses a term that appears in more than half of a
+language's passages: it is how Cairn gets stopword behaviour without shipping
+per-language word lists. In a language Cairn holds **one** passage of, every
+term appears in every passage, so every term is suppressed and the passage
+scores exactly 0.0 against every question in every language — including a
+question that quotes it word for word. Measured, with a single Vietnamese
+paragraph added to the demo corpus: unreachable in Vietnamese, and unreachable
+through the cross-language fallback too, because the fallback scores each
+passage against its own language's statistics. An agency that publishes one
+short translated notice — the realistic shape of a small language community's
+coverage — would have a document that is indexed, counted in `cairn index`'s
+language list, and invisible.
+
+`LanguageStats.suppressed` is empty when the floor would suppress everything.
+The rule is all-or-nothing on purpose, and the claim is only that a language
+stays *reachable*: at two passages the floor bites again, and a term in both of
+them (the program's own name, typically) is suppressed. That is `ck-022`'s
+limitation at another scale, and the answer to it is a bigger corpus rather
+than a cleverer floor.
+
+This was written up and left alone for a milestone on the grounds that no
+evidence item crossed languages. One does now — `ck-027` — which is what
+changed the call: the fallback is a path this repository publishes measurements
+about, and a document no question in any language can reach is a worse thing to
+leave in it. The change is provably neutral on the demo corpus: every language
+in it has surviving terms, `cairn record` re-records a byte-identical bundle,
+and the dataset id, run id and baseline are unmoved.
+
 ### Refusal is a first-class outcome
 
 `answer.py` returns exactly one of two result kinds: `grounded` or `refusal`.
@@ -703,14 +776,40 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   right too, because translating the source would produce an unsourced policy
   statement. Two correct positions, one number, and the number is zero. The
   suite score is 0.9630, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 25/28 = 0.8929 and the gate to red.
-  So the evidence set cannot grow this kind of coverage without something
-  giving, and the three things that could give are all somebody's decision
-  rather than a tuning knob — lower the floor and say why, teach the harness
-  that a response carrying a cross-language notice is answered *in* the
-  notice's language, or accept that the path is audited by exactly one item
-  forever. Cairn consumes Plumbline at a pin and pushes nothing to it, so the
-  second one is a report to file, not a change to make here.
+  a second cross-language item takes it to 26/28 = 0.9286 and the gate to red.
+  (That arithmetic was published as 25/28 = 0.8929, which is not what adding
+  one failing item to 26-of-27 gives. The conclusion held and the number did
+  not, which is why it is computed from the committed baseline now — see
+  `tests/test_open_items.py`.) So the evidence set cannot grow this kind of
+  coverage without something giving, and the three things that could give are
+  all somebody's decision rather than a tuning knob. Evaluated on 2026-08-16,
+  and the resolution is the third:
+
+  - *Lower the floor and say why.* Refused. The floor would have to reach
+    0.9286 to admit a second item and lower still for a third, and what it
+    would be buying is permission for a **genuine** wrong-language answer to
+    hide underneath. `multilingual` is the suite that catches a system
+    silently serving English to a Spanish speaker, which is the failure mode
+    that makes a multilingual deployment worthless; trading its sensitivity
+    for coverage of a path Cairn is confident about is the wrong side of that
+    trade. The floor stays at the harness's own default, which is also the
+    only reason it needs no `floor_reason` in `plumbline/target.toml`.
+  - *Teach the harness that a response carrying a cross-language notice is
+    answered in the notice's language.* Correct, and not Cairn's to do. Cairn
+    consumes Plumbline at a pin and pushes nothing to it; a suite that reads a
+    target's own notice convention is also a worse suite for every other
+    target, so the version worth filing upstream is narrower than the sentence
+    above — an item-level declaration that a response is *expected* to be
+    answered in a different language from the one it was asked in, with the
+    reason recorded, so the suite scores the declaration rather than guessing.
+    That is a report to file, not a change to make here.
+  - *Accept that the path is audited by exactly one item.* Taken. One item is
+    the difference between a published measurement of this path and none, and
+    the milestone it replaced — three paragraphs of README about behaviour no
+    audit report had ever seen — is what "none" costs. The cost of the choice
+    is real and bounded: the audit can say the path works for `ck-027` and
+    cannot say it works in general, and adding a second item is a gate failure
+    rather than a silent dilution, which is the right way for this to bite.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays

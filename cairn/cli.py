@@ -46,6 +46,11 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
         f"documents{synthetic_note} in {len(report.languages)} languages "
         f"[{', '.join(report.languages)}] -> {report.index_path}"
     )
+    # The receipt. This index answers for exactly the corpus that hashes to
+    # this, and every later command checks it before quoting anything; a
+    # changed line here after an edit is the whole point of the fingerprint
+    # being visible rather than only internal.
+    print(f"Corpus fingerprint: {report.corpus_fingerprint[:12]} ({cfg.corpus_path})")
     return 0
 
 
@@ -66,7 +71,7 @@ def _render_answer(result: AskResult) -> str:
 
 
 def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
-    index = read_index(cfg.index_path)
+    index = read_index(cfg.index_path, cfg.corpus_path)
     result = ask(args.question, index, cfg, lang=args.lang)
     answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
@@ -96,7 +101,7 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
-    index = read_index(cfg.index_path)
+    index = read_index(cfg.index_path, cfg.corpus_path)
     httpd = serve(cfg, index, host=args.host, port=args.port, quiet=args.quiet)
     host, port = httpd.server_address[0], httpd.server_address[1]
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
@@ -114,7 +119,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def _cmd_record(args: argparse.Namespace, cfg: Config) -> int:
-    index = read_index(cfg.index_path)
+    index = read_index(cfg.index_path, cfg.corpus_path)
     report = record(index, cfg, questions_path=args.questions, out_dir=args.out)
     print(
         f"Recorded {report.item_count} items "
