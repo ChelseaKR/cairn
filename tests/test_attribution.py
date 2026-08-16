@@ -93,6 +93,7 @@ class TestTheAuthoredGroundTruth(unittest.TestCase):
         # passage does not contain the amount the item expects is either the
         # wrong passage or the wrong expectation.
         passages = {p.passage_id: p.text for p in build_index(DEMO).passages}
+        exercised = []
         for question in self.questions:
             declared = question.get("answering_sources") or []
             expected = question.get("expected") or ""
@@ -100,11 +101,20 @@ class TestTheAuthoredGroundTruth(unittest.TestCase):
                        if word.startswith("$")]
             if not declared or not numbers:
                 continue
+            exercised.append(question["id"])
             text = "".join(passages[passage_id(s)].replace(",", "")
                            for s in declared)
             for number in numbers:
                 with self.subTest(item=question["id"], number=number):
                     self.assertIn(number.rstrip(".").rstrip("،"), text)
+        # The loop above skips items with no declaration or no amount in their
+        # expected answer. Change how amounts are written and it skips
+        # everything, reports a pass, and stops checking the one field here
+        # that no measurement can catch being wrong.
+        self.assertGreaterEqual(
+            len(exercised), 15,
+            f"only {len(exercised)} of {len(self.questions)} items were checked",
+        )
 
     def test_the_declarations_are_recorded_into_the_bundle(self):
         recorded = {item["id"]: item.get("answering_sources") for item in items()}
