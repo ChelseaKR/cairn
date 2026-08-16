@@ -682,14 +682,16 @@ Not a wish list — the things a reader could reasonably expect and will not fin
 - **No committed evidence item reaches the cross-language path**, so no audit
   report this repository publishes says anything about it. The corpus
   asymmetry above is what makes the path reachable, and `tests/` and the
-  browser checks both drive it — but all 26 items in
-  `plumbline/questions.toml` are answered from sources in the language they
-  were asked in, and `tests/test_open_items.py` asserts that, so the claim
-  cannot rot quietly. The suite with the most to say would be `multilingual`,
-  which scores a response by the language it came back in and would score such
-  an item zero: correct, and a cost worth paying rather than avoiding. Adding
-  one moves the dataset hash, the baseline and several published figures in a
-  single reviewed diff, and that diff has not been made.
+  browser checks both drive it — but of the 26 items in
+  `plumbline/questions.toml`, the twenty that answer all cite sources in the
+  language they were asked in and the six that refuse cite nothing, so not one
+  of them widens the search. `tests/test_open_items.py` asserts exactly that,
+  so the claim cannot rot quietly. The suite with the most to say would be
+  `multilingual`, which scores a response by the language it came back in and
+  would score such an item zero: correct, and a cost worth paying rather than
+  avoiding. Adding one moves the dataset hash, the baseline and several
+  published figures in a single reviewed diff, and that diff has not been
+  made.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
