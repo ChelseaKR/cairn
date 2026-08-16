@@ -496,3 +496,125 @@ One line per implementation session: date, what was built, from what input.
   quotes the old text under a citation that now resolves to different content.
   That one is named rather than fixed: a fingerprint changes the index format
   and the line the walkthrough prints, and it deserves its own diff.
+
+- 2026-08-16 — Session 9 (AI implementation session, clean-room implementation
+  side). Input: the same specification and hygiene rules, this repository's own
+  state, and the pinned Plumbline checkout in `.plumbline-cache/`, read the way
+  a dependency's source is read. Nothing pushed anywhere. Session 8 named three
+  things and left them; this session did all three, then kept hunting the same
+  two defect classes, then took on a published evidence page and the metadata a
+  reference implementation needs to be cited at all.
+
+  **The index knows what corpus it was built from.** The largest item session 8
+  left. Edit a document, forget to re-index, ask a question: Cairn quotes the
+  paragraph as it was and cites the document as it is, and nothing anywhere can
+  tell, because everything downstream of the index agrees with the index —
+  including `cairn record`, so the audit grades the same stale answers. The
+  index now carries a SHA-256 of the corpus files it read, the format version
+  moves 2 → 3 so an index that cannot say what it was built from is refused
+  rather than trusted, and `read_index` takes the corpus directory as an
+  argument **with no default**: an optional check is a check a caller forgets,
+  and here a caller is an agency's deployment. A missing corpus is a refusal
+  too, and that is the arguable half — an index whose corpus is not on disk
+  cannot be shown to be current, and this project does not answer from a state
+  it cannot check. The walkthrough prints the fingerprint, and the refusal
+  transcript on it was captured by editing a document and reverting it rather
+  than typed.
+
+  Written so it can fail, and shown failing. Deleting the check makes four
+  tests red, one of them by timing `cairn serve` out rather than hanging.
+  Two versions of the fingerprint were written and both were caught by the
+  tests before they were caught by review: one that dropped file names passed
+  everything until a rename that kept its sort position and its length, and one
+  that hashed only `*.en.md` passed until the edit case was applied to every
+  document rather than to one.
+
+  **A one-passage language is retrievable again.** `MAX_DF_RATIO` suppresses a
+  term in more than half a language's passages. With one passage every term
+  qualifies, so the language scores 0.0000 against every question in every
+  language, including one that quotes it verbatim — measured with a single
+  Vietnamese paragraph. The cross-language fallback cannot rescue it either,
+  because the fallback scores each passage against its own language's
+  statistics. Documented and left alone last milestone on the grounds that
+  nothing crossed languages; `ck-027` exists now, so it was reconsidered and
+  changed. The floor is skipped only where it would leave no term standing,
+  which is where it has stopped being a statistic; at two passages it bites
+  again and the docstring says so rather than claiming more. Provably neutral:
+  `cairn record` re-records byte-identical, dataset `81ca3d7003f0`, run
+  `f03f61f1b9bbb3e8` and baseline `38cd1ce582a57150` all unmoved.
+
+  **`ck-027`'s zero: the third way out, taken.** Lowering the `multilingual`
+  floor is refused — it would buy coverage of a path Cairn is confident about
+  by spending the sensitivity that catches a system silently answering a
+  Spanish speaker in English. Teaching the harness is correct and is not
+  Cairn's to do at a pin, and the version worth filing is narrower than the
+  sentence that was written down. So the path is audited by exactly one item,
+  and a second one is a gate failure rather than a silent dilution. The
+  arithmetic published for that second item was wrong — 26 of 27 plus one
+  failing item is 26/28, not the 25/28 in the document — and it is computed
+  from the committed baseline now instead of typed.
+
+  **Nine more checks that could not fail**, found by an audit of the suite
+  rather than by working on the code. The two that mattered: the corpus-heading
+  check built its expected value by running `ATX_MARKER` over the input, which
+  is the third instance of a defect this repository has twice written up as
+  fixed — widen the pattern by one character and every heading renders with its
+  first letter deleted, so a grounded answer no longer says what the cited
+  passage says, and the test passed. And `axeScan` reported "clean" for a scan
+  that graded nothing: `withTags` filters axe's rule set, and a major version
+  that renamed a tag would have left all six scans green with zero rules run,
+  the pinned check count intact and the conformance claim resting on air. Also:
+  a contrast check whose population came from the list it was auditing, so a
+  failing pair could be fixed by deleting it; the CLI's refusal trace asserted
+  with `all([])`; three loops a refusal would empty; `[] == []` over the
+  evidence bundle; a README block that shows no output and is therefore checked
+  against nothing; the "the gate is advisory" check satisfied by the wrong
+  document, so the item could be deleted from the open list without failing;
+  and the guard's gap-declaration check, which iterates nothing today and would
+  iterate nothing just the same if the helper had stopped finding gaps — it has
+  a positive control now.
+
+  **A test that skipped every time in CI while saying it did not.** The one
+  check holding `plumbline/target.toml`'s floors against the pinned harness's
+  own defaults skips without a resolved harness — and the only job running the
+  unit suite is `core`, which *fails if the harness cache exists at all*. So it
+  ran on a laptop and nowhere else, under a docstring saying otherwise. The
+  `audit` job runs that module explicitly now, after the step that resolves the
+  harness, and a test holds the workflow to it.
+
+  **A published evidence page, and the check that keeps it honest.**
+  `site/index.html` is committed, rendered by `site_build.py` from the evidence
+  bundle and the baseline, and served by GitHub Pages once somebody enables it
+  in settings. It leads with a refusal, then `ck-027` — the answer Cairn's own
+  auditor scores as a failure — then the baseline table. Two checks, and the
+  distinction is the point: re-render-and-diff catches a hand edit and a
+  rebuild that never happened, and cannot catch a generator that invents,
+  because it asks the generator; a parse of the committed HTML held against the
+  JSONL catches that. Demonstrated by making the generator print a friendlier
+  refusal: the diff check passed and the parse check failed, which is the whole
+  argument for having both. The deploy uploads the file and never builds it,
+  every action is pinned to a commit, and both checks also run offline in
+  `core`, so a drift fails the pull request before it can reach a deploy.
+
+  **Citable.** `CITATION.cff`, a changelog, and the version bumped
+  `0.1.0.dev0` → `0.1.0` so the tag a reader cites means something. The tag is
+  **not cut** — tagging is a push. Four records of the version now, held
+  together by a test, on this repository's own argument that a version recorded
+  in two places will disagree with itself. The version appears nowhere in the
+  evidence bundle, so the bump moves no hash.
+
+  356 tests plus 63 browser checks; 14 suites, none disabled; gate PASS
+  (dataset `81ca3d7003f0`, run `f03f61f1b9bbb3e8`), guard PASS against baseline
+  `38cd1ce582a57150`, live check byte-identical over the socket for all 27
+  answers, and the recorded bundle byte-identical to the committed one after
+  every change in this session.
+
+  Corrected here: session 8's own summary line said "309 tests" while the
+  README it had already updated said 313, and 313 is what the suite discovered.
+  The README figure has a test under it and the worklog line did not, which is
+  the whole reason the discrepancy is in this direction.
+
+  Not done, still: the branch-protection ruleset is committed and **not
+  applied**, GitHub Pages is **not enabled** so the evidence page's URL is a
+  404, no `v0.1.0` tag exists, the screen-reader pass has not happened, and
+  `ck-015` and `ck-022` behave exactly as recorded.

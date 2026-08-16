@@ -1,0 +1,44 @@
+# How to cite Cairn.
+#
+# Citation File Format 1.2.0 (https://citation-file-format.github.io), which
+# GitHub reads directly to render a "Cite this repository" panel. There is no
+# sibling convention in this project's other repositories to follow, so this
+# uses the format's own.
+#
+# `version` here is `cairn.__version__` and `pyproject.toml`'s, and a test
+# holds all three together — tests/test_cli.py, TestTheVersionIsRecordedOnce.
+# A version recorded in three places is a version that will disagree with
+# itself, which is the argument this repository makes about plumbline.pin.
+cff-version: 1.2.0
+message: >-
+  If you refer to this work, please cite it using the metadata below. It is a
+  reference implementation rather than a service: the citable thing is the
+  design and the evidence, both of which live in the repository at a commit.
+title: "Cairn: a grounded-or-silent reference assistant for public agencies"
+abstract: >-
+  Cairn answers questions only from a corpus an operator supplies, quotes its
+  sources verbatim rather than paraphrasing them, and refuses plainly when no
+  passage clears its relevance threshold. It is built as a reference
+  implementation of that behaviour and of the machinery for proving it: an
+  operator explain mode that attributes a bad answer to the stage that caused
+  it, three languages including a right-to-left one, an accessible interface,
+  and a fail-closed continuous-integration gate that grades a committed
+  evidence bundle with an external auditor pinned to an exact commit. The
+  runtime has no dependencies and no model.
+type: software
+authors:
+  - family-names: Kelly-Reif
+    given-names: Chelsea
+repository-code: "https://github.com/ChelseaKR/cairn"
+url: "https://github.com/ChelseaKR/cairn"
+license: Apache-2.0
+version: 0.1.0
+keywords:
+  - retrieval-augmented generation
+  - grounded question answering
+  - citations
+  - refusal
+  - public sector
+  - civic technology
+  - evaluation
+  - accessibility

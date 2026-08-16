@@ -104,6 +104,10 @@ class TestCli(CliHarness):
         self.assertEqual(payload["kind"], "refusal")
         explain = payload["explain"]
         self.assertEqual(explain["threshold"], 0.165)
+        self.assertTrue(
+            explain["candidates"],
+            "a refusal still shows what was considered and rejected; all([]) is True",
+        )
         self.assertTrue(all(not c["accepted"] for c in explain["candidates"]))
         self.assertEqual(explain["diagnosis"]["blame"], "retrieval")
         self.assertFalse(explain["diagnosis"]["grounded"])
@@ -174,6 +178,13 @@ class TestTheVersionIsRecordedOnce(unittest.TestCase):
     is recorded in two places — `cairn/__init__.py` and `pyproject.toml` —
     and nothing was holding them together, or checking that `--version`
     reports either of them.
+
+    Four places now. `CITATION.cff` names a version, and it is the one a
+    stranger reads: the panel GitHub renders from it is how a reference
+    implementation gets referred to at all, so a version that drifted there
+    would be a wrong number in somebody else's bibliography. `CHANGELOG.md`
+    names one too, and a changelog whose newest section is not the current
+    version is a changelog describing a release that does not exist.
     """
 
     def test_the_package_and_the_packaging_agree(self):
@@ -183,6 +194,24 @@ class TestTheVersionIsRecordedOnce(unittest.TestCase):
         )
         self.assertIsNotNone(declared, "pyproject.toml declares no version")
         self.assertEqual(declared.group(1), __version__)
+
+    def test_the_citation_metadata_agrees(self):
+        # A one-line parse rather than a YAML dependency, for the same reason
+        # tests/test_rulesets.py parses the workflow itself: the core path of
+        # this repository is standard library only.
+        cited = re.search(
+            r"(?m)^version:\s*(\S+)\s*$",
+            (ROOT / "CITATION.cff").read_text(encoding="utf-8"),
+        )
+        self.assertIsNotNone(cited, "CITATION.cff declares no version")
+        self.assertEqual(cited.group(1).strip("\"'"), __version__)
+
+    def test_the_changelog_describes_this_version(self):
+        headings = re.findall(
+            r"(?m)^## (\S+)", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        )
+        self.assertTrue(headings, "the changelog has no version sections")
+        self.assertEqual(headings[0], __version__, "the newest section is not this version")
 
     def test_the_cli_reports_it(self):
         out = io.StringIO()

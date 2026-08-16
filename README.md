@@ -12,9 +12,27 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 338 tests plus 63 browser behaviour checks, standard library only,
+server. 356 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
+
+## One thing, before the feature list
+
+The claim is that Cairn cannot produce an answer with no source behind it. That
+claim was false for one configuration. `Config(max_passages=0)` — a plausible
+reading of "no limit" — returned an answer whose `kind` was `"grounded"` and
+whose `to_payload()["grounded"]` was `true`, with no sources and no text:
+composition sliced the accepted passages away while the trace still said
+passages had been accepted, so the refusal branch never ran. `cairn.toml` could
+not reach it, because the bounds were checked when loading a file and not when
+building the object — and this is a reference implementation, so the caller who
+skips the file is the whole audience. Fixed in
+[`abd54ab`](../../commit/abd54ab) by moving the bounds onto the type;
+`TestNoConfigurationCanEmitAnUnsourcedAnswer` in
+[tests/test_answering.py](tests/test_answering.py) fails without it.
+
+That is the kind of thing this repository is for. The
+[worklog](WORKLOG.md) is a list of others.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command in a ```console
 fence on that page is executed by the test suite, so its output is what you
@@ -398,6 +416,33 @@ deliberately cannot resolve the harness — it uses the checkout the gate
 verified, so grading a running server is never the act that installs its own
 auditor — and the drift check itself runs in the core test suite against a
 loopback server with no harness and no network at all.
+
+## The evidence page
+
+[`site/index.html`](site/index.html) is a committed static page holding a
+refusal, the cross-language answer the audit scores as a failure, and the
+committed baseline. It is served by GitHub Pages at
+**https://chelseakr.github.io/cairn/** once Pages is enabled in repository
+settings — it is not enabled as of 2026-08-16, so that URL is a 404 until
+somebody with admin rights turns it on.
+
+Nothing on it is written by hand. `site_build.py` renders it from
+`plumbline/bundle` and `plumbline/baseline.json`, and
+[tests/test_site.py](tests/test_site.py) holds it to them two ways: it
+re-renders and diffs, which catches a hand edit and a rebuild that never
+happened, and separately it parses the committed HTML and compares the text it
+finds to the JSONL, which is the half that catches a generator printing
+something friendlier than Cairn said. The deploy workflow uploads the file and
+refuses to publish if the first check fails; both checks also run offline in
+`core`, so a drift fails the pull request before it can reach a deploy.
+
+## Citing this
+
+[`CITATION.cff`](CITATION.cff), which GitHub renders as a "Cite this
+repository" panel. The version in it, in `pyproject.toml`, in
+`cairn.__version__` and in [CHANGELOG.md](CHANGELOG.md) are held together by a
+test, because a version recorded in four places is a version that will
+disagree with itself.
 
 ## License
 
