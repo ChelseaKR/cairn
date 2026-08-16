@@ -206,11 +206,18 @@ async function checkAnnouncement(page, base) {
     "the answer arrived with its sources"
   );
 
-  // A second question accumulates rather than replacing.
+  // A second question accumulates rather than replacing. Asserted on the
+  // *first* question still being there: waiting for two turns proves a second
+  // one arrived, which is not the same claim.
   await page.locator("#question").fill("Who can apply for the grocery allowance?");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelectorAll(".turn-asked").length === 2);
-  ok(true, "the transcript accumulates across turns");
+  const asked = await page.locator(".turn-asked .asked").allTextContents();
+  ok(
+    asked.length === 2 && asked[0].includes("How much is the monthly grocery allowance?"),
+    "the transcript accumulates: the first question is still in it",
+    JSON.stringify(asked)
+  );
 }
 
 async function checkErrorChannel(page, base) {
@@ -223,7 +230,8 @@ async function checkErrorChannel(page, base) {
     () => document.getElementById("errors").textContent.trim().length > 0
   );
 
-  ok(true, "a failed request speaks on the assertive channel");
+  const spoken = (await page.locator("#errors").textContent()).trim();
+  ok(spoken.length > 0, "a failed request speaks on the assertive channel", spoken);
   ok(
     (await page.locator("#status").textContent()).trim() === "",
     "the polite channel does not also report the failure"
@@ -239,14 +247,27 @@ async function checkErrorChannel(page, base) {
   await page.unroute("**/ask");
 
   // An empty question is a user error, not a server one, and uses the same
-  // channel — but must not clear the transcript or reach the network.
+  // channel — but must not reach the network. The second half of that used to
+  // be in the description of a check that asserted nothing, so count the
+  // requests and say it for real: the browser must not post the form either,
+  // which is what a missing preventDefault would do.
   await page.goto(base);
+  let posted = 0;
+  const countAsk = (request) => {
+    if (request.url().endsWith("/ask")) posted += 1;
+  };
+  page.on("request", countAsk);
   await page.locator("#question").fill("   ");
   await page.keyboard.press("Enter");
   await page.waitForFunction(
     () => document.getElementById("errors").textContent.trim().length > 0
   );
-  ok(true, "an empty question is reported without a request");
+  page.off("request", countAsk);
+  ok(
+    (await page.locator("#errors").textContent()).trim().length > 0,
+    "an empty question is reported on the assertive channel"
+  );
+  ok(posted === 0, "…and nothing was sent to /ask", `${posted} request(s)`);
 }
 
 async function checkRightToLeft(page, base) {
@@ -328,7 +349,10 @@ async function checkVoiceWithoutTheFetch(page, base) {
   await page.waitForFunction(
     () => document.getElementById("errors").textContent.trim().length > 0
   );
-  ok(true, "a failure is still spoken on the assertive channel");
+  ok(
+    (await page.locator("#errors").textContent()).trim().length > 0,
+    "a failure is still spoken on the assertive channel"
+  );
   await page.unroute("**/ask");
   await page.unroute("**/strings.json");
 }
