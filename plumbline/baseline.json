@@ -1,8 +1,9 @@
 {
   "format": "plumbline-baseline",
-  "format_version": 2,
-  "source_run_id": "b40d38c6b16d4118",
+  "format_version": 3,
+  "source_run_id": "c7a6cc3bfe92ff40",
   "harness_version": "0.1.0.dev0",
+  "harness_source_sha256": "a5db22ec55a26e830b27145019dd9aec12da2195d13facf80695436312bc9c10",
   "seed": 1729,
   "dataset_sha256": "5a311a90d16e626aa3637ed6cc5f538d7c93070ecfe0278192ae1a8fb0be7486",
   "dataset_id": "5a311a90d16e",

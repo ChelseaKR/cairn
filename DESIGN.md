@@ -741,6 +741,18 @@ The merge gate hands Cairn's own recorded answers to a separate project,
   the format version, the run id, and two new fields naming the judge that set
   the bar. Every score was identical.
 
+  `d45ca40` did the same thing again, for `format_version` 2 to 3, and the
+  new field is the one worth having: `harness_source_sha256`. A pre-release
+  version string does not move between commits, so it cannot tell a reviewer
+  whether the instrument changed; a digest of the harness's own source can,
+  and the comparison now says so as a caveat when it differs. The review that
+  mattered was of `src/`: four commits touched it — a subprocess recording
+  adapter Cairn does not use, the harness applying its suites to itself, an
+  item field declaring which passage answers a question, and the
+  `passage_attribution` suite that reads it. The last two are the reason for
+  this bump; see "The wrong-paragraph gap" below. All thirteen previously
+  scored suites came back identical to four decimals.
+
   The harness also now offers an optional model-based judge and a live-target
   recorder. The judge stays `lexical`, because a gate that reaches the network
   is not a gate. The recorder is used, but never by the gate — see "Grading
