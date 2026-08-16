@@ -305,7 +305,7 @@ One line per implementation session: date, what was built, from what input.
   recorded in it, session 6 has the number it earned, and nothing is erased —
   the original wording of both is in the commits that wrote them.
 
-  277 tests plus 62 browser checks; 14 suites, none disabled; gate and guard
+  278 tests plus 62 browser checks; 14 suites, none disabled; gate and guard
   green on the same run id as before, and the live check still byte-identical
   over the socket. Nothing in this session moved a score, which is the point:
   every fix here was either outside the measured path or provably neutral on

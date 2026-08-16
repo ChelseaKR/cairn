@@ -373,6 +373,26 @@ class TestRunningIt(unittest.TestCase):
             (tmp / "target.toml").write_text("")
             self.assertEqual(self.invoke(tmp), EXIT_CANNOT_RUN)
 
+    def test_it_never_writes_the_baseline_in_either_direction(self):
+        # DESIGN.md says "a test pins that the guard never writes to the
+        # baseline", in the paragraph arguing that both a fall and a rise stop
+        # the build and hand a person the same decision. There was no such
+        # test. The behaviour was right — nothing in audit_guard.py opens the
+        # baseline for writing — and an unpinned claim about a gate is the
+        # thing this repository says it does not accept from anybody else.
+        for label, score in (("a fall", 0.5), ("a rise", 0.9)):
+            with self.subTest(direction=label), tempfile.TemporaryDirectory() as name:
+                tmp = Path(name)
+                self.write(tmp, report_doc(suite("accuracy", score)),
+                           baseline_doc(suite("accuracy", 0.7)),
+                           "[suites.accuracy]\nenabled = true\n")
+                before = (tmp / "baseline.json").read_bytes()
+                self.assertEqual(self.invoke(tmp), EXIT_FINDINGS)
+                self.assertEqual(
+                    (tmp / "baseline.json").read_bytes(), before,
+                    "the guard adopted the new number instead of reporting it",
+                )
+
     def test_it_runs_as_a_script_and_says_which_report_it_read(self):
         result = subprocess.run(
             ["python3", str(GUARD), "--help"],
