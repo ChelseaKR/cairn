@@ -387,6 +387,12 @@ def uncovered(report: dict) -> list[str]:
     a suite that ran and scored a fraction of what it was handed. The harness
     reports it per suite; the guard repeats it beside the verdict so that
     "13 suites passed" is never read as "everything was checked".
+
+    An empty result is reported by the callers as a sentence rather than as
+    nothing on the page. This reads one key out of somebody else's report
+    format, and a pin bump that renamed it would turn every coverage line off
+    at once — which, printed as an absence, is indistinguishable from a run in
+    which every suite really did score everything.
     """
     lines = []
     for suite in report.get("suites", []):
@@ -433,6 +439,14 @@ def render_terminal(
     if partial:
         lines.append("suites that could not check everything they were handed:")
         lines += partial
+    else:
+        # Said out loud rather than left as an absence. "No coverage lines"
+        # and "the harness stopped reporting coverage" print identically
+        # otherwise, and one of those is a claim while the other is silence.
+        lines.append(
+            "every suite scored everything it was handed — no suite reported "
+            "holding items out."
+        )
     if findings:
         for finding in findings:
             mark = finding.label if finding.blocking else "note"
@@ -477,6 +491,8 @@ def render_markdown(
         lines += ["Suites that could not check everything they were handed:", ""]
         lines += [line.strip() and f"- {line.strip()}" for line in partial]
         lines.append("")
+    else:
+        lines += ["Every suite scored everything it was handed.", ""]
     if findings:
         lines += ["| | Suite | Finding |", "|---|---|---|"]
         for finding in findings:

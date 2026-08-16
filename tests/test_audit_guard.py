@@ -473,6 +473,40 @@ class TestCoverage(unittest.TestCase):
     def test_a_suite_that_checked_everything_says_nothing(self):
         self.assertEqual(audit_guard.uncovered(report_doc(suite("refusal", 1.0))), [])
 
+    def test_full_coverage_is_stated_rather_than_left_as_an_absence(self):
+        # `uncovered()` reads one key out of somebody else's report format. A
+        # pin bump that renamed it would switch every coverage line off at
+        # once, and printed as nothing at all that is indistinguishable from a
+        # run where every suite really did score everything it was handed. So
+        # the empty case is a sentence, in both renderers.
+        report = report_doc(suite("refusal", 1.0))
+        terminal = audit_guard.render_terminal(
+            report_path=Path("report.json"), report=report,
+            baseline=baseline_doc(suite("refusal", 1.0)), gaps=[], findings=[],
+        )
+        self.assertIn(
+            "every suite scored everything it was handed",
+            "\n".join(terminal),
+        )
+        markdown = audit_guard.render_markdown(report=report, gaps=[], findings=[])
+        self.assertIn("Every suite scored everything it was handed", "\n".join(markdown))
+
+    def test_partial_coverage_replaces_that_sentence_rather_than_joining_it(self):
+        report = report_doc(suite("passage_attribution", 0.9375, n=16))
+        report["suites"][0]["details"] = {
+            "unverifiable": {
+                "count": 3, "eligible": 19, "scored": 16,
+                "reasons": {"no_distractor": ["ck-002", "ck-012", "ck-014"]},
+            }
+        }
+        terminal = "\n".join(audit_guard.render_terminal(
+            report_path=Path("report.json"), report=report,
+            baseline=baseline_doc(suite("passage_attribution", 0.9375, n=16)),
+            gaps=[], findings=[],
+        ))
+        self.assertIn("scored 16 of 19 eligible", terminal)
+        self.assertNotIn("every suite scored everything", terminal)
+
     def test_the_committed_run_reports_its_own_coverage(self):
         # Not a fixture: the real report the gate last wrote, if there is one.
         # `passage_attribution` holds items out by design, and the guard has to
