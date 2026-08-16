@@ -33,6 +33,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from cairn.answer import citation_marker
 from cairn.config import Config
 from cairn.engine import ask
 from cairn.index import Index
@@ -52,11 +53,11 @@ CONTRAST_ELEMENT_ID = "plumbline-contrast"
 # a dot for interchange only; the mapping is one character and stated in the
 # bundle's own DATASET.md so a reader can go from an audit finding back to a
 # passage. Cairn's own identifiers are untouched.
-CITATION_SEPARATOR = "."
-
-
-def source_id(passage_id: str) -> str:
-    return passage_id.replace("#", CITATION_SEPARATOR)
+#
+# The mapping itself lives in `cairn.answer` with the answer it marks up,
+# because the served interface has to be able to produce the same string:
+# see `Answer.cited_text`.
+source_id = citation_marker
 
 DEFAULT_QUESTIONS = "plumbline/questions.toml"
 DEFAULT_BUNDLE = "plumbline/bundle"
@@ -115,15 +116,6 @@ def load_questions(path: str | Path) -> list[dict]:
     return questions
 
 
-def _cited_response(answer) -> str:
-    """The recorded response: what the system said, with the sources it cited
-    marked inline the way the bundle format expects."""
-    if not answer.sources:
-        return answer.text
-    marks = " ".join(f"[{source_id(source.source_id)}]" for source in answer.sources)
-    return f"{answer.text}\n{marks}"
-
-
 def _jsonl(path: Path, rows: list[dict]) -> None:
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         for row in rows:
@@ -136,13 +128,19 @@ def _json(path: Path, payload: dict) -> None:
         handle.write("\n")
 
 
-def interface_snapshot() -> str:
+def interface_snapshot(page: str | None = None) -> str:
     """The real page, plus the colour pairs it uses, for an auditor to check.
 
     The declaration is generated from the stylesheet's own custom properties,
     in both presentations. It is not served to anyone: adding an auditor's
     data block to the live page would be scaffolding shipped to users, and the
     thing being audited should be the thing that ships.
+
+    ``page`` is the markup to wrap, and defaults to rendering it in process.
+    The live check passes the bytes it fetched from the running server, so
+    that "is the audited snapshot the page that is actually served?" is one
+    byte comparison against a snapshot built the same way, rather than a
+    second, drifting idea of what the wrapping looks like.
     """
     palette = declarations("light") + declarations("dark")
     block = (
@@ -161,7 +159,7 @@ def interface_snapshot() -> str:
         "  the answers were.\n"
         "-->\n"
     )
-    page = render_page("en")
+    page = render_page("en") if page is None else page
     return note + page.replace("</head>", block + "</head>", 1)
 
 
@@ -274,7 +272,7 @@ def record(
                 item[field] = question[field]
         item["sources"] = [source_id(source.source_id) for source in answer.sources]
         items.append(item)
-        responses.append({"id": question["id"], "response": _cited_response(answer)})
+        responses.append({"id": question["id"], "response": answer.cited_text})
 
     sources = [
         {

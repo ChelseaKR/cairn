@@ -97,7 +97,7 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path)
-    httpd = serve(cfg, index, host=args.host, port=args.port)
+    httpd = serve(cfg, index, host=args.host, port=args.port, quiet=args.quiet)
     host, port = httpd.server_address[0], httpd.server_address[1]
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
     print(
@@ -179,6 +179,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=8765,
         help="port to bind (default: 8765; 0 picks a free one)",
+    )
+    p_serve.add_argument(
+        "--quiet",
+        action="store_true",
+        help=(
+            "do not write a line per request. Nothing about a question is ever "
+            "logged either way; this silences the request lines so an automated "
+            "run against the server reads as its own output."
+        ),
     )
     p_serve.set_defaults(func=_cmd_serve)
 

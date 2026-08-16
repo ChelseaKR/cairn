@@ -271,5 +271,42 @@ class TestTraceSubstrate(EngineHarness):
         self.assertEqual(trace.accepted, ())
 
 
+class TestTheCitedTextForm(EngineHarness):
+    """One definition of "the answer, with its citations in it".
+
+    It used to live inside the recorder, which meant the audit graded a string
+    no client of the served interface could obtain. Now the answer owns it and
+    both produce it; `tests/test_live.py` checks the server against the
+    recording over a real socket.
+    """
+
+    def test_every_source_gets_one_marker_and_the_words_are_untouched(self):
+        answer = self.answer(IN_CORPUS[0][0])
+        head, _, marks = answer.cited_text.rpartition("\n")
+        self.assertEqual(head, answer.text, "markers are appended, nothing is rewritten")
+        self.assertEqual(
+            marks.split(), [f"[{s.source_id.replace('#', '.')}]" for s in answer.sources]
+        )
+
+    def test_a_marker_is_never_a_passage_id_verbatim(self):
+        # The inline grammar has no "#" in it, so a marker carrying one would
+        # not be read as a citation at all — it would read as an answer that
+        # cited nothing.
+        answer = self.answer(IN_CORPUS[0][0])
+        marks = answer.cited_text.rsplit("\n", 1)[1]
+        self.assertNotIn("#", marks)
+        self.assertIn("#", answer.sources[0].source_id)
+
+    def test_a_refusal_is_returned_unchanged(self):
+        answer = self.answer(OFF_TOPIC[0])
+        self.assertEqual(answer.cited_text, answer.text)
+        self.assertEqual(answer.to_payload()["cited_text"], answer.text)
+
+    def test_the_served_payload_carries_it(self):
+        payload = self.answer(IN_CORPUS[0][0]).to_payload()
+        self.assertEqual(payload["cited_text"], self.answer(IN_CORPUS[0][0]).cited_text)
+        self.assertTrue(payload["cited_text"].startswith(payload["text"]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -25,6 +25,18 @@ from typing import Literal
 from cairn.language import Direction, direction_of
 from cairn.retrieve import RetrievalTrace
 
+# Cairn names a passage `<doc-id>#<ordinal>`. An inline citation marker is a
+# different, narrower grammar — square brackets around an identifier with no
+# "#" in it — so a marker writes the ordinal separator as a dot. The canonical
+# identifier is unchanged and is what `Source.source_id` and the sources list
+# carry; this affects the marker text and nothing else.
+CITATION_SEPARATOR = "."
+
+
+def citation_marker(source_id: str) -> str:
+    """The inline marker form of a passage id."""
+    return source_id.replace("#", CITATION_SEPARATOR)
+
 
 @dataclass(frozen=True)
 class Source:
@@ -72,12 +84,34 @@ class Answer:
     def direction(self) -> Direction:
         return direction_of(self.lang)
 
+    @property
+    def cited_text(self) -> str:
+        """The answer as one block of plain text with its citations in it.
+
+        The structured form above is richer, and any client that can render a
+        sources list should use it. This is for the clients that cannot: a
+        terminal, a transcript, a text channel — and the evidence bundle,
+        whose inline-citation grammar is exactly this. It lives here rather
+        than in the recorder because it used to live in the recorder, and a
+        text shape only the recorder could produce is a text shape the audit
+        graded and no user of the served interface could ever obtain. That
+        gap was invisible until the audit was pointed at the running server.
+
+        A refusal cites nothing and is returned unchanged: appending an empty
+        marker line to a refusal would be an answer shape on a non-answer.
+        """
+        if not self.sources:
+            return self.text
+        marks = " ".join(f"[{citation_marker(s.source_id)}]" for s in self.sources)
+        return f"{self.text}\n{marks}"
+
     def to_payload(self) -> dict:
         """Machine-readable record (CLI --json, the web interface, and the
         audit interlock's input)."""
         return {
             "kind": self.kind,
             "text": self.text,
+            "cited_text": self.cited_text,
             "sources": [s.to_payload() for s in self.sources],
             "grounded": self.kind == "grounded",
             "lang": self.lang,

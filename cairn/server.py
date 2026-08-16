@@ -153,6 +153,7 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
     return CairnHandler
 
 
-def serve(cfg: Config, index: Index, *, host: str = "127.0.0.1", port: int = 8765):
+def serve(cfg: Config, index: Index, *, host: str = "127.0.0.1", port: int = 8765,
+          quiet: bool = False):
     """Build a server. The caller decides when to start serving."""
-    return ThreadingHTTPServer((host, port), build_handler(cfg, index))
+    return ThreadingHTTPServer((host, port), build_handler(cfg, index, quiet=quiet))
