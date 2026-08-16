@@ -80,11 +80,17 @@ One line per implementation session: date, what was built, from what input.
   second bump touched no `src/` at all (demo data, tooling and docs only) and
   the gate returned the identical run id, which is the proof rather than the
   claim that it changed nothing. What to check in a pin review is now written
-  in `plumbline.pin`. The bump closed the
-  declared `multilingual` gap — upstream shipped Arabic by script, which is a
-  better answer than the word list this repository asked for — and the new
-  UNPINNED rule caught the newly enabled suite on its first outing, blocking
-  until the baseline was adopted deliberately. Thirteen suites, none disabled.
+  in `plumbline.pin`. The first bump closed the declared `multilingual` gap —
+  upstream shipped Arabic by script, which is a better answer than the word
+  list this repository had asked for — and the new UNPINNED rule caught the
+  newly enabled suite on its first outing, blocking until the baseline was
+  adopted deliberately. Thirteen suites, none disabled.
+
+  Found along the way, by the instrument built earlier in the session: a second
+  wrong-paragraph case, `ck-022`, where the right document is chosen and the
+  ranking among its four passages turns entirely on the word "out". Kept and
+  named rather than tuned away, including the uncomfortable part — the audit
+  passes that item, because no suite it runs can say "wrong paragraph".
 
   One correction to the record: the commit message on `db1b0c0` says 188 tests;
   the count at that commit was 187. Left in place rather than rewritten,
