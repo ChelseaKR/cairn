@@ -26,7 +26,7 @@ JOB_NAME = re.compile(r"^    name: (.+?)\s*$")
 MATRIX_LIST = re.compile(r"^        \w+: \[(.+)\]\s*$")
 
 
-def expected_check_names() -> set[str]:
+def expected_check_names(source: str | None = None) -> set[str]:
     """The names GitHub will give this workflow's check runs.
 
     A tiny, deliberate parser rather than a YAML dependency: the core dev path
@@ -37,6 +37,14 @@ def expected_check_names() -> set[str]:
     matrix: list[str] = []
 
     def flush():
+        # `current` is the job id until a `name:` overrides it, which is what
+        # GitHub does: a job with no `name:` gets a check run named after its
+        # id. This used to start at None and only be set by `name:`, so a job
+        # without one fell out of the expected set entirely — and a job that
+        # is not in the expected set need not be in the ruleset, so the
+        # equality below held while an unrequired job sat in the workflow.
+        # "A job nobody required is a check that cannot block" is what this
+        # file exists to prevent, and it was the one shape it could not see.
         if current is None:
             return
         if matrix:
@@ -44,10 +52,21 @@ def expected_check_names() -> set[str]:
         else:
             names.add(current)
 
-    for line in WORKFLOW.read_text(encoding="utf-8").splitlines():
-        if JOB_ID.match(line):
+    text = WORKFLOW.read_text(encoding="utf-8") if source is None else source
+    # Only what is under `jobs:`. `on:` has two-space keys of its own (`push`,
+    # `pull_request`) and they are not jobs; the parser never noticed because
+    # it only ever recorded a block that went on to declare a `name:`.
+    in_jobs = False
+    for line in text.splitlines():
+        if line.rstrip() == "jobs:":
+            in_jobs = True
+            continue
+        if not in_jobs:
+            continue
+        found = JOB_ID.match(line)
+        if found:
             flush()
-            current, matrix = None, []
+            current, matrix = found.group(1), []
             continue
         found = JOB_NAME.match(line)
         if found:
@@ -81,7 +100,21 @@ class TestTheRulesetMatchesTheWorkflow(unittest.TestCase):
     def test_the_audit_job_is_named_exactly(self):
         audit = [name for name in self.contexts if name.startswith("audit")]
         self.assertEqual(len(audit), 1, "the merge gate must be required, once")
-        self.assertIn("audit", audit[0])
+        # Not `assertIn("audit", audit[0])`, which the comprehension's own
+        # predicate already guaranteed. The claim worth holding is that the
+        # required context is the workflow's audit job and not a context
+        # someone typed by hand that no job will ever report.
+        self.assertIn(audit[0], expected_check_names())
+
+    def test_a_job_without_an_explicit_name_is_still_required(self):
+        # GitHub names a check run after the job id when the job has no
+        # `name:`. The parser above used to drop such a job, and a dropped job
+        # is a job the ruleset need not require — the exact hole this file is
+        # about, hidden inside the thing measuring it.
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertNotIn("release", expected_check_names(source))
+        with_extra = source + "\n  release:\n    runs-on: ubuntu-latest\n"
+        self.assertIn("release", expected_check_names(with_extra))
 
     def test_a_merge_cannot_pass_a_check_against_a_stale_base(self):
         parameters = self.rules["required_status_checks"]["parameters"]

@@ -97,18 +97,22 @@ class TestPinFile(unittest.TestCase):
             ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
         ).stdout.split()
         elsewhere = []
+        scanned = 0
         for name in tracked:
             path = ROOT / name
             if path == PIN or not path.is_file():
                 continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
-                continue
-            for found in re.findall(r"\b[0-9a-f]{40}\b", text):
-                if found != pin_ref:
+            # Bytes, not decoded text. A file the scan could not decode used
+            # to be skipped, and a skipped file is indistinguishable from a
+            # clean one — the population quietly shrinking is how a scan comes
+            # to report "no findings" because it looked at nothing. A commit
+            # hash is ASCII hex, so it is findable without decoding anything.
+            scanned += 1
+            for found in re.findall(rb"\b[0-9a-f]{40}\b", path.read_bytes()):
+                if found.decode("ascii") != pin_ref:
                     continue
                 elsewhere.append(name)
+        self.assertGreater(scanned, 10, "the scan ran on almost nothing; it proves nothing")
         self.assertEqual(elsewhere, [], "the pinned commit is repeated outside the pin file")
 
 

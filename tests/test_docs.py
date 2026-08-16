@@ -211,6 +211,39 @@ class TestTheAuditFiguresInTheDocuments(unittest.TestCase):
                     )
         self.assertGreaterEqual(seen, 2, "no document shows a dataset id any more")
 
+    def test_the_published_test_count_is_the_count(self):
+        # "307 tests plus 63 browser behaviour checks" is a claim about
+        # coverage, sitting in the second paragraph of the README, and nothing
+        # held it. It was updated by hand each time somebody remembered, which
+        # means a commit that deletes forty tests can leave the sentence
+        # standing and read as a commit that deleted nothing.
+        #
+        # Discovered, not run: `countTestCases` walks the suite the loader
+        # built and never executes it, so this does not recurse.
+        import unittest as ut
+
+        discovered = ut.defaultTestLoader.discover(str(ROOT / "tests"), top_level_dir=str(ROOT))
+        self.assertEqual(discovered.countTestCases(), self.published_count("tests"))
+
+    def test_the_published_browser_check_count_is_the_one_a11y_pins(self):
+        # The browser checks do not run in this path — no Node, no Chromium,
+        # by design — so what is checkable here is that the README and
+        # a11y.mjs agree. a11y.mjs holds itself to the number at run time and
+        # exits non-zero if fewer checks ran, which is the half of the claim
+        # that needs a browser.
+        script = (ROOT / "tests" / "browser" / "a11y.mjs").read_text(encoding="utf-8")
+        pinned = re.search(r"const EXPECTED_CHECKS = (\d+);", script)
+        self.assertIsNotNone(pinned, "a11y.mjs no longer pins how many checks it runs")
+        self.assertEqual(int(pinned.group(1)), self.published_count("browser behaviour checks"))
+        self.assertIn(f"{pinned.group(1)}/{pinned.group(1)} behaviour checks passed",
+                      (ROOT / "README.md").read_text(encoding="utf-8"))
+
+    def published_count(self, phrase: str) -> int:
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        found = re.search(rf"(\d+) {re.escape(phrase)}", text)
+        self.assertIsNotNone(found, f"the README no longer publishes a {phrase} count")
+        return int(found.group(1))
+
     def test_no_document_publishes_a_run_id_nothing_can_check(self):
         # A run id is derived from four inputs and cannot be recomputed without
         # the harness, so a literal one here is a number with no check under it

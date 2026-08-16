@@ -153,9 +153,16 @@ class TestCli(CliHarness):
         args = build_parser().parse_args(["serve"])
         self.assertEqual(args.host, "127.0.0.1")
         self.assertEqual(args.port, 8765)
-        self.assertIs(
-            args.func.__wrapped__ if hasattr(args.func, "__wrapped__") else args.func, args.func
-        )
+        # The default is loopback, and it is loopback because the parser says
+        # so and not because something downstream rewrites it. What stood here
+        # was `assertIs(x if not hasattr(x, "__wrapped__") else x.__wrapped__, x)`,
+        # which is `assertIs(f, f)` for any unwrapped function and false for
+        # any wrapped one: there is no input under which it carries
+        # information. Explicit host still wins, which is the behaviour a
+        # default is only meaningful against.
+        self.assertEqual(build_parser().parse_args(["serve", "--host", "0.0.0.0"]).host,
+                         "0.0.0.0")
+        self.assertNotIn("0.0.0.0", (args.host, ""))
 
 
 class TestTheVersionIsRecordedOnce(unittest.TestCase):
