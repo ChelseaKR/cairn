@@ -3,7 +3,7 @@
   "format_version": 3,
   "source_run_id": "123b2569cb8a46ba",
   "harness_version": "0.1.0.dev0",
-  "harness_source_sha256": "a5db22ec55a26e830b27145019dd9aec12da2195d13facf80695436312bc9c10",
+  "harness_source_sha256": "56c4b5851d689eb33b61631df334a6245719221877839c1e5e73b1fc10907b0d",
   "seed": 1729,
   "dataset_sha256": "3222a88492612bc6f283779d8d1616b9914e1a74355df993da412ad2df228bdb",
   "dataset_id": "3222a8849261",
