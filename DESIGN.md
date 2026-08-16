@@ -344,9 +344,10 @@ things.
 
 Not a wish list — the things a reader could reasonably expect and will not find.
 
-- **The `audit` job is not yet marked required in branch protection.** That is
-  a repository setting, not a file, and until it is set the gate is a report
-  rather than a gate. Nothing in this repository can do it.
+- **The `audit` job is not marked required in branch protection**, so the gate
+  is advisory: it reports, it does not block. The exact ruleset is written out
+  and committed at `.github/rulesets/main.json`; applying it needs admin
+  rights on the repository and is nobody's decision but the maintainer's.
 - **The `multilingual` audit suite is not scored**, because the pinned harness
   ships language profiles for English and Spanish only. The fix is a data
   change in Plumbline, which Cairn consumes at a pin and cannot push to; it is
@@ -461,9 +462,38 @@ repository, absent commit, moving ref, missing pin file, no target — exits 4
 before scoring, and the CI core job runs that drill deliberately so a
 regression in the failure path is caught by the job that is not the gate.
 
-One thing this repository cannot do for itself: the `audit` job has to be
-marked **required** in branch protection. A gate nobody made blocking is a
-report.
+### One thing this repository cannot do for itself
+
+The `audit` job has to be marked **required** in branch protection, and it is
+not. A gate nobody made blocking is a report, so today it is a report: the job
+runs on every pull request and writes a verdict, and nothing stops a merge
+while that verdict is red. **The gate is advisory until the ruleset is
+applied.**
+
+That is a repository setting held on GitHub's side, changeable only by an
+admin. No file can grant itself the power to block a merge, and the tempting
+move — writing as though the setting were already on — is the exact failure
+this project exists to demonstrate: a check that could have blocked a merge,
+did not, and looked like it had.
+
+What a file *can* do, and now does:
+
+- `.github/rulesets/main.json` is the ruleset in full, committed, reviewable,
+  and **not applied**. It requires the four CI check runs (named exactly as
+  GitHub names them, read off a real run rather than guessed), requires a pull
+  request so there is a merge for them to gate, forbids deletion and
+  force-push, and has an empty bypass list.
+- `.github/rulesets/README.md` says how to apply it, what each rule costs —
+  including that direct pushes to `main` stop working, which ends this
+  repository's own commit style — and which number in it is a placeholder
+  (`required_approving_review_count`, 0 only because a solo maintainer cannot
+  approve their own pull request).
+- `tests/test_rulesets.py` fails if the workflow's job names and the
+  ruleset's required contexts drift apart, because a context that matches no
+  check is a rule that never fires and reads exactly like a rule that passes.
+  It also fails if this document or the README stops saying the gate is
+  advisory — which is the right thing to have to update on the day it stops
+  being true.
 
 ### The baseline, and the guard that gives it teeth
 

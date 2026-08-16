@@ -212,6 +212,18 @@ declared gaps (1 suite not scored at all):
 no suite moved against the committed baseline.
 ```
 
+**The gate is advisory today, and this is the sentence that says so.** The
+`audit` job runs on every pull request and writes a verdict; nothing yet stops
+a pull request being merged while that verdict is red, because whether a check
+can block a merge is a repository setting on GitHub's side and no file can
+grant itself that power. The exact ruleset needed is written out and committed
+at [`.github/rulesets/main.json`](.github/rulesets/main.json), deliberately not
+applied, with what it costs and how to apply it in
+[its README](.github/rulesets/README.md). Until someone with admin rights
+applies it, a green tick here means the checks ran, not that they had to pass.
+A check that could have blocked a merge and did not is the failure this whole
+project is about; it would be a poor joke to hide one in it.
+
 The harness is resolved at run time and verified to be at the pinned commit.
 It is in no import and no dependency list, so Cairn's install, lint and test
 path works with it completely unreachable — and CI proves that on every run,
