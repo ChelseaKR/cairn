@@ -204,10 +204,21 @@ class TestTheCommittedArtifacts(unittest.TestCase):
             cls.target = tomllib.load(handle)
 
     def test_the_baseline_is_a_harness_record_not_something_hand_written(self):
+        # Deliberately not pinned to one format_version: the harness owns that
+        # number and bumping the pin can move it, which is a thing to notice
+        # in the diff rather than a test to update mechanically. What is
+        # asserted is what a hand-written file would not have.
         self.assertEqual(self.baseline["format"], "plumbline-baseline")
-        self.assertEqual(self.baseline["format_version"], 1)
+        self.assertIsInstance(self.baseline["format_version"], int)
         for key in ("source_run_id", "dataset_sha256", "judge_config_sha256", "suites"):
             self.assertIn(key, self.baseline)
+        for key in ("dataset_sha256", "judge_config_sha256"):
+            self.assertRegex(self.baseline[key], r"^[0-9a-f]{64}$")
+        self.assertTrue(self.baseline["suites"])
+        for entry in self.baseline["suites"]:
+            self.assertEqual(
+                sorted(entry), ["floor", "n", "score", "suite", "verdict"]
+            )
 
     def test_the_pin_points_at_the_committed_baseline(self):
         pin = PIN.read_text(encoding="utf-8")

@@ -498,18 +498,36 @@ The merge gate hands Cairn's own recorded answers to a separate project,
   appears in no import and no dependency list, and tests assert all three.
   The thing auditing this repository must not be movable by this repository's
   own dependency resolution.
-- **Bumping the pin is a reviewed diff.** The move to
-  `7071783` was read the way a dependency upgrade should be: the runner,
-  the judge, the lexicons and every suite were untouched, the harness version
-  did not move, and the changes were additive — a live-target recording path,
-  a bounded network module, and a `recording` block in the report for bundles
-  that declare one. Cairn's scores came back identical to four decimal places
-  and the run id was unchanged, which is what "behaviour-neutral upgrade"
-  should look like when both sides are deterministic. The harness now offers
-  to record answers from a live target itself; Cairn keeps writing its own
-  bundle, because producing evidence must not require the thing that audits
-  it. Cairn's bundle declares no `recording` block: these answers came from
-  the engine in this repository, at this commit, not from a service somewhere.
+- **Bumping the pin is a reviewed diff, and the second bump proved it.** Both
+  moves were read the way a dependency upgrade should be. `7071783` added a
+  live-target recording path, a bounded network module, and a `recording`
+  block in the report — additive, with the runner, the judge, the lexicons and
+  every suite untouched; Cairn's scores came back identical to four decimals
+  and even the run id was unchanged, which is what a behaviour-neutral upgrade
+  looks like when both sides are deterministic.
+
+  `c75654d` was not neutral, and the interlock said so before anything was
+  scored:
+
+  ```
+  CONFIGURATION ERROR: plumbline/baseline.json: unsupported baseline
+  format_version 1 (supported: 2)          (exit 4)
+  ```
+
+  The harness had bumped its baseline format. Nothing about Cairn's answers
+  changed, and the gate still refused to run — correctly. A committed bar it
+  cannot read is a bar it cannot hold anyone to, and the alternative, carrying
+  on without the comparison, is the silent-skip this whole design exists to
+  refuse. Regenerating the baseline against the new harness moved four lines:
+  the format version, the run id, and two new fields naming the judge that set
+  the bar. Every score was identical.
+
+  The harness also now offers an optional model-based judge and a live-target
+  recorder. Cairn uses neither: the judge stays `lexical` because a gate that
+  reaches the network is not a gate, and Cairn keeps writing its own bundle
+  because producing evidence must not require the thing that audits it.
+  Cairn's bundle declares no `recording` block — these answers came from the
+  engine in this repository, at this commit, not from a service somewhere.
 - **`cairn record` produces the evidence.** The questions are authored; the
   answers, the retrieved passage ids, and the interface snapshot are recorded
   from the running engine. Cairn writes the bundle's checksums itself, because

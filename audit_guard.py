@@ -88,10 +88,14 @@ TOLERANCE = 1e-9
 REGENERATE = (
     "regenerate deliberately, in the commit that changes the behavior:\n"
     "    python3 -m cairn index && python3 -m cairn record\n"
-    "    ./plumbline-gate.sh\n"
+    "    PYTHONPATH=.plumbline-cache/<pinned-ref>/src python3 -m plumbline \\\n"
+    "        audit --config plumbline/target.toml --out plumbline/audits\n"
     "    PYTHONPATH=.plumbline-cache/<pinned-ref>/src python3 -m plumbline \\\n"
     "        baseline --from plumbline/audits/<run-id>/report.json \\\n"
-    "        --out plumbline/baseline.json"
+    "        --out plumbline/baseline.json\n"
+    "`audit` rather than the gate, because the gate loads the baseline you are\n"
+    "about to replace and will refuse if it cannot — which is the right\n"
+    "behaviour and the wrong step to be stuck on."
 )
 
 # Keys Cairn requires on a disabled suite. The harness never reads a disabled
