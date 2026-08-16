@@ -257,8 +257,13 @@ Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbl
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
 GATE: PASS — target cairn-demo, dataset ..., run ...
-all 12 suites passed:
+all 13 suites passed:
   ...
+
+$ python3 audit_guard.py             # the check the gate cannot make on itself
+GUARD: PASS — cairn-demo, run ..., against baseline ...
+declared gaps: none — every implemented suite is enabled.
+no suite moved against the committed baseline.
 ```
 
 This one needs the network the first time, to fetch the pinned harness. It is
@@ -281,6 +286,13 @@ The second one is the property the whole interlock rests on. A skipped check
 and a passed check are the same green tick on a pull request, so an
 unresolvable auditor has to be red. `tests/test_interlock.py` runs that drill
 on every test run, and so does CI.
+
+`audit_guard.py` is the other half. The gate checks floors; the guard checks
+the committed baseline, and fails on a score that no longer matches it **in
+either direction** — a fall is a regression, a rise is an improvement nobody
+recorded, and an unrecorded improvement leaves the bar low enough for a later
+change to give the whole thing back unnoticed. It never edits the baseline
+itself: both directions stop and hand a person the decision.
 
 ## The dev path
 

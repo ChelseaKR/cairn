@@ -11,7 +11,7 @@ ingest with idempotent indexing, grounded answers with citations, refusal as a
 first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor.
-190 tests plus 49 browser behaviour checks, standard library only, offline.
+191 tests plus 49 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
