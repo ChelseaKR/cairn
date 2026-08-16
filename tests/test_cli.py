@@ -3,10 +3,12 @@
 import contextlib
 import io
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
 
+from cairn import __version__
 from cairn.cli import build_parser, main
 from cairn.language import POP_DIRECTIONAL_ISOLATE
 
@@ -154,6 +156,33 @@ class TestCli(CliHarness):
         self.assertIs(
             args.func.__wrapped__ if hasattr(args.func, "__wrapped__") else args.func, args.func
         )
+
+
+class TestTheVersionIsRecordedOnce(unittest.TestCase):
+    """The argument this repository makes about `plumbline.pin`, turned around.
+
+    `tests/test_interlock.py` greps the tree to prove the pinned harness
+    commit appears in exactly one file, because "a version recorded in two
+    places is a version that will disagree with itself". Cairn's own version
+    is recorded in two places — `cairn/__init__.py` and `pyproject.toml` —
+    and nothing was holding them together, or checking that `--version`
+    reports either of them.
+    """
+
+    def test_the_package_and_the_packaging_agree(self):
+        declared = re.search(
+            r'(?m)^version = "([^"]+)"',
+            (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        )
+        self.assertIsNotNone(declared, "pyproject.toml declares no version")
+        self.assertEqual(declared.group(1), __version__)
+
+    def test_the_cli_reports_it(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(SystemExit) as raised:
+            main(["--version"])
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(out.getvalue().strip(), f"cairn {__version__}")
 
 
 if __name__ == "__main__":
