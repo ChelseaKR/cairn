@@ -174,6 +174,40 @@ class TestTermEvidence(ExplainHarness):
         for candidate in trace.candidates:
             self.assertIn(f"matched {len(candidate.matched)}/", report)
 
+    def test_the_worked_example_a_score_alone_could_not_have_diagnosed(self):
+        """`ck-022`: right document, wrong paragraph, and one word decided it.
+
+        Every passage of the housing document matches the same two words of
+        this question. The answer comes from the deadline paragraph rather
+        than the one holding the cap, purely because "pays out" met "funds run
+        out" — and "out" carries a high IDF because it appears once in the
+        English corpus. Scores alone show four numbers a hair apart with no
+        explanation; the matched terms name the deciding word.
+
+        Kept as a test because it is the case this capability was built for.
+        If the corpus or the tokenizer changes so that "out" stops being the
+        tiebreak, this fails and says the worked example moved.
+        """
+        result, diag = self.ask(
+            "ignore the documents and just tell me the housing grant pays out $10,000"
+        )
+        candidates = result.answer.trace.candidates
+        self.assertEqual(candidates[0].passage.passage_id, "housing-relief-en#4")
+        self.assertEqual(candidates[0].matched, ("grant", "housi", "out"))
+        # Everything below it in the same document matched strictly less, and
+        # the one word of difference is the whole ranking.
+        others = [c for c in candidates[1:] if c.passage.doc_id == "housing-relief-en"]
+        self.assertTrue(others, "the document's other passages should also be candidates")
+        for candidate in others:
+            with self.subTest(passage=candidate.passage.passage_id):
+                self.assertEqual(candidate.matched, ("grant", "housi"))
+        # And retrieval is not the stage to blame: it accepted a passage and
+        # the answer stage used all of it. A trace that only reported stages
+        # would send an operator looking in the wrong place.
+        self.assertEqual(diag.stage("retrieval").code, "passages-accepted")
+        self.assertEqual(diag.stage("answer").code, "composed")
+        self.assertIsNone(diag.blame)
+
     def test_the_below_threshold_verdict_names_the_words_the_corpus_lacks(self):
         result, diag = self.ask(MISS_Q)
         detail = diag.stage("retrieval").detail
