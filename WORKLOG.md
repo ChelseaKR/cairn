@@ -340,3 +340,159 @@ One line per implementation session: date, what was built, from what input.
   (`axe-core`, `playwright`) float on caret ranges with the lockfile
   gitignored — the auditor is pinned to a commit and the rule set that grades
   the interface is not.
+
+- 2026-08-16 — Session 8 (AI remediation session, clean-room implementation
+  side). Input: the same specification and hygiene rules, this repository's
+  own state, and the pinned Plumbline checkout in `.plumbline-cache/`, read
+  the way a dependency's source is read. No original repository, no other
+  project's code, nothing pushed anywhere. Session 7 left four things as
+  maintainer decisions and they were approved; this session made them, then
+  kept going on the same two questions.
+
+  **The four.** `fairness` is back at the harness's default of 0.85 — it was
+  0.80, the only floor in the file looser than its default and the only one
+  with no reason on record at all. Measured 0.9364, so the loosening was never
+  load-bearing, which is exactly why restoring it costs nothing and is the
+  right resolution. Every other non-default floor now carries a
+  `floor_reason`, and there are **six** of them, not the five session 7
+  counted: `accuracy` at 0.35 against a default of 0.75 has a long comment
+  that never says it is not the default. A rule policed by reading gets the
+  count wrong, so `audit_guard.py` enforces it now, against defaults parsed
+  out of the pinned harness's own source rather than out of a number typed
+  into Cairn's config.
+
+  **`ck-027` is in the evidence set.** Twenty-six recorded answers, none of
+  them cross-language, so no audit report this repository had ever published
+  said anything about the behaviour the README spends three paragraphs on —
+  and that is how `Answer.cited_text` came to drop the notice for a whole
+  milestone with every check green. It is `ما هي بطاقة GoPass؟`, answered from
+  the English-only transit document under an Arabic notice. The dataset hash
+  moved `3222a8849261` → `81ca3d7003f0`, the baseline was regenerated
+  (`123b2569cb8a46ba` → `38cd1ce582a57150`), the run id is `f03f61f1b9bbb3e8`,
+  and every score that moved is tabulated in DESIGN.md, "The cross-language
+  path, in the evidence". `multilingual` scores the item **0.0000** — asked in
+  `ar`, answered in `en` — which was predicted and is recorded as a finding
+  rather than avoided; the suite has room for exactly one such item before the
+  floor bites, and that is a new open item with the three ways out named.
+  `groundedness` and `citation_accuracy` fell to 0.9714 because the notice is
+  Cairn's own words and appears in no source, which the `cited_text` docstring
+  predicted before the item existed.
+
+  **The notice was wrong in a way no default configuration shows.** It read
+  the first accepted passage's language while composition quotes
+  `max_passages` of them, so at 2 an Arabic reader could be handed a Spanish
+  passage and an English one under a notice naming Spanish alone and calling
+  it "the only source" — two false statements in the sentence whose whole job
+  is to say what language the answer is in. It now describes the passages
+  actually quoted, and the predicate is "a foreign passage was quoted" rather
+  than "the widened pass won", which was a proxy that held only through an
+  unstated property of the scorer.
+
+  **`Answer.cited_text` dropping the notice was already fixed** — session 7's
+  own last commit did it. The brief for this session said otherwise; the code
+  and the test were both already there. Recorded here because a remediation
+  list that is wrong about what is broken is worth saying out loud.
+
+  **Bounds at the edge, generalised.** Session 7 fixed `Config(max_passages=0)`
+  by moving the bound onto the type and noted that the shape would recur.
+  It did, four times. `compose()` takes `max_passages` directly and had no
+  bound of its own, so the promise was one import away from being false again.
+  `Answer` is a public frozen dataclass that serializes `"grounded": true` off
+  `kind` alone, with nothing stopping a hand-built grounded answer with no
+  sources — the same defect with the config layer removed; it validates
+  itself now, in both directions, including that a refusal carries no notice.
+  `Config.default_lang` was unvalidated while both edges around it were
+  guarded: `[language] default = "fr"` produced a grounded answer labelled
+  `lang: "fr"` carrying an English cross-language notice, and with `"he"` an
+  RTL layout around an English body. And `Index.stats_for` fabricated empty
+  statistics for a language it had never heard of, which gives every term an
+  IDF of exactly 1.0 — a passage in an unlisted language scored on raw overlap
+  with no stopword suppression, clearing a threshold calibrated against
+  weighted scores. `Index` validates on construction now.
+
+  **Two corpus fields that could make a grounded answer lie.** A doc id was
+  unvalidated against the citation grammar it has to satisfy, so
+  `2024-winter-credit` or an Arabic-script id emits markers nothing recognises
+  as citations — every grounded answer from that document grades as uncited —
+  and `a#b` and `a.b` are different documents that emit the same marker. And
+  `lang: en-GB` was English for layout and a separate language for retrieval,
+  because `direction_of` normalised subtags and retrieval compared the string
+  exactly: one front-matter typo, a permanently false "the only source I have
+  for this is written in another language (en-GB)" on every answer from it.
+
+  **A character of somebody's benefit information.** `#` opened a heading
+  whenever a line started with one, which is not Markdown: `#1 priority is
+  rent` rendered as **1 priority is rent** in both renderers. Both tests that
+  covered it built their expected value by running the stripping regex over
+  the input, so the bug was the specification and neither could fail. And
+  `page.py` split lines with `splitlines()` while `app.js` split on `"\n"`, so
+  U+2028, form feed and friends — routine in Word and PDF extractions —
+  rendered server-side as characters the cited source does not contain. The
+  parity test compared the two regexes and not the splitting rule.
+
+  **The server could answer the wrong question.** An oversized body was
+  refused without being read, and under HTTP/1.1 the unread bytes were parsed
+  as the next request line: a client that pipelined a real question behind an
+  oversized one got `501 Unsupported method ('question=aaaa…')` and never got
+  its answer — with a prefix of the question written to the log of a server
+  whose docstring says it logs nothing about the questions people ask. A
+  non-numeric `Content-Length` killed the handler thread with a traceback.
+  Both fixed, both with tests over a raw socket.
+
+  **Checks that could not fail.** The biggest: the list of suites came
+  entirely from `plumbline/target.toml` and `plumbline/baseline.json`, so
+  deleting `[suites.privacy]` from both in one commit deleted it from the
+  universe as well — the gate would say "13 suites passed", the guard would
+  say nothing moved, and every test over the committed artifacts would agree.
+  The universe comes from the pinned harness now. `multilingual` was still
+  carrying `gap` and `fix_belongs_in` from the milestone it was disabled in,
+  which would have pre-satisfied the "a disabled suite must explain itself"
+  check for whoever disabled it next. `expected_check_names()` dropped any CI
+  job with no explicit `name:`, and a job outside the expected set need not be
+  in the ruleset — the exact hole that file exists to close, inside the thing
+  measuring it. `test_index_round_trips` asserted `len(x) == len(x)` and
+  `all([])`, both true on an index that read back empty, in the only test of
+  the round trip. `test_the_guard_cannot_be_softened` looked for
+  `continue-on-error` only in the half of the step before `run:`. The
+  gap-closure check skipped wholesale the moment any gap existed. A refusal's
+  contact line was asserted against the same lookup that produced it, so an
+  Arabic refusal ending in the English contact would pass. `split("function
+  say(")` returned the whole file when the anchor was renamed. And the
+  duplicate-harness-version scan dropped any file it could not decode.
+
+  **`load_config` was less safe than no config file at all.** An absent
+  `[refusal.contact_by_language]` was passed through as `{}`, overriding the
+  type's per-language defaults — so a `cairn.toml` setting only
+  `[corpus] path` ended an Arabic refusal in English, while no file at all
+  ended it in Arabic. Absent now means default; and an operator who sets a
+  single `contact` and no table keeps it for every language rather than having
+  Cairn's fictional Spanish and Arabic phone numbers filled in around it.
+
+  **axe-core is pinned.** The auditor that grades the engine is pinned to a
+  commit and says so at length; the rule set that grades the interface was on
+  a caret range with the lock file gitignored. Exact versions, committed lock,
+  `npm ci` in CI, `axe-core` named directly rather than left transitive, and
+  a11y.mjs asks the page which version actually graded it. The check count is
+  pinned too — a dropped check prints as a smaller green total — and so is the
+  README's test count, which nothing held.
+
+  **A published measurement that was half a success.** The README said
+  `GoPass كم سعرها؟` "is answered from the English document… the fallback
+  crosses scripts perfectly well". It is answered from the document's opening
+  paragraph, which contains no price: "GoPass" is the only term that survives
+  the crossing, all four passages contain it, and length decides the rest.
+  Crossing the script is not answering the question. Corrected in both
+  documents, and it is why `ck-027` asks what the pass *is*.
+
+  309 tests plus 63 browser checks; 14 suites, none disabled; gate PASS
+  (dataset `81ca3d7003f0`, run `f03f61f1b9bbb3e8`), guard PASS against
+  baseline `38cd1ce582a57150`, live check byte-identical over the socket for
+  all 27 answers.
+
+  Not done, still: the branch-protection ruleset is committed and **not
+  applied**, the screen-reader pass has not happened, `ck-015` and `ck-022`
+  behave exactly as recorded, and the index carries no fingerprint of the
+  corpus it was built from — edit a document without re-indexing and Cairn
+  quotes the old text under a citation that now resolves to different content.
+  That one is named rather than fixed: a fingerprint changes the index format
+  and the line the walkthrough prints, and it deserves its own diff.
