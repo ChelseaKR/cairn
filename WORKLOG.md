@@ -158,6 +158,6 @@ One line per implementation session: date, what was built, from what input.
   **not applied**, and every document still says the gate is advisory. The
   screen-reader pass and generative mode remain declared gaps.
 
-  Pin: `a565b21` → `d45ca40` → `f4b285e`. 254 tests plus 49 browser checks; 14
-  suites, none
-  disabled.
+  Pin: `a565b21` → `d45ca40` → `f4b285e`, both bumps read as dependency
+  upgrades and both behaviour-neutral here. 254 tests plus 49 browser checks;
+  14 suites, none disabled.
