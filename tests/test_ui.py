@@ -418,6 +418,28 @@ class TestStylesheet(unittest.TestCase):
         self.assertTrue(palette("light"))
         self.assertNotEqual(palette("light"), palette("dark"))
 
+    def test_no_pair_is_graded_as_dark_while_still_holding_a_light_colour(self):
+        # The dark palette is the light one with the dark block's overrides
+        # applied on top, so a token with no override silently keeps its light
+        # value — and the contrast check below then grades a light colour and
+        # reports it as dark. That check cannot notice: the light pair already
+        # passes, which is why it is in the stylesheet. The pair above cannot
+        # notice either, because one missing override out of twelve still
+        # leaves the two palettes unequal.
+        #
+        # Add `--warning-bg` to `:root` and to PAIRS, forget the dark block,
+        # and "every colour pair passes contrast in both presentations" is
+        # true of eleven pairs and vacuous for the twelfth. So require what
+        # this stylesheet already does: every colour a pair uses is re-themed.
+        light, dark = palette("light"), palette("dark")
+        used = {token for _, fg, bg, _ in PAIRS for token in (fg, bg)}
+        unchanged = sorted(t for t in used if light[t] == dark.get(t))
+        self.assertEqual(
+            unchanged, [],
+            "these tokens have no dark override, so the dark half of the "
+            "contrast check is grading their light values",
+        )
+
     def test_every_colour_pair_passes_contrast_in_both_presentations(self):
         # The same list of pairs an evidence bundle's interface snapshot
         # declares, so the auditor and this suite cannot disagree about which
