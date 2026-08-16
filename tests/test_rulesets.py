@@ -112,7 +112,12 @@ class TestTheRepositoryDoesNotClaimTheGateIsBlocking(unittest.TestCase):
     stops being true — deliberately, by whoever applies it."""
 
     def documents(self):
-        for name in ("README.md", "DESIGN.md", ".github/rulesets/README.md"):
+        for name in (
+            "README.md",
+            "DESIGN.md",
+            ".github/rulesets/README.md",
+            ".github/workflows/ci.yml",
+        ):
             yield name, (ROOT / name).read_text(encoding="utf-8")
 
     def test_each_one_says_the_gate_is_not_yet_required(self):
