@@ -3,11 +3,13 @@
   "private": true,
   "description": "Accessibility behaviours that only exist in a running browser. Not part of Cairn's demo path or its core dev path, which stay standard-library-only and offline.",
   "type": "module",
+  "comment-on-pinning": "Exact versions, no caret, and package-lock.json is committed beside this file. The auditor that grades the engine is pinned to a commit in plumbline.pin for a reason; the rule set that grades the interface is the same kind of judgement and was floating on a range. axe-core is named here rather than left as a transitive dependency of @axe-core/playwright, because it IS the rule set: a minor bump adds rules, and a check that got stricter overnight and a check that regressed overnight look identical in a log. Bumping any of these is a reviewed diff, and a11y.mjs fails if the version that actually ran in the browser is not the one named here.",
   "scripts": {
     "check": "node a11y.mjs"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.0",
-    "playwright": "^1.62.0"
+    "@axe-core/playwright": "4.13.0",
+    "axe-core": "4.13.0",
+    "playwright": "1.62.1"
   }
 }

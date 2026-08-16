@@ -133,10 +133,18 @@ jobs:
         with:
           node-version: "20"
 
+      # `npm ci`, never `npm install`. The lock file is committed and the
+      # manifest names exact versions; `ci` installs precisely that and exits
+      # non-zero if the two disagree, where `install` would quietly resolve
+      # something newer and rewrite the lock. The rule set grading this page
+      # is axe-core, and a floating rule set means "62/62 passed" is a
+      # statement about whatever npm picked this morning. a11y.mjs then checks
+      # the version that actually reached the browser, because an install can
+      # be right and a stale node_modules still wrong.
       - name: Install browser checks
         working-directory: tests/browser
         run: |
-          npm install
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: Index

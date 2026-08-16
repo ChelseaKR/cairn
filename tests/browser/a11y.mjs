@@ -19,13 +19,38 @@
  */
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, "..", "..");
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+/* The rule set is a judgement, so it is pinned like one.
+ *
+ * package.json names an exact axe-core version and package-lock.json is
+ * committed, which fixes what `npm ci` installs. This reads the pin back and
+ * compares it to the version that was actually injected into the page, which
+ * is a different claim: a stale node_modules, an `npm install` that resolved
+ * something else, or a hoisted copy at another version all satisfy the first
+ * and break the second. axe-core reports what ran in `testEngine.version`,
+ * and a rule set that got stricter overnight and a page that regressed
+ * overnight are the same red tick unless somebody knows which version spoke.
+ */
+const PINNED_AXE = JSON.parse(
+  readFileSync(path.join(HERE, "package.json"), "utf8")
+).devDependencies["axe-core"];
+
+/* Every check this file is expected to run. A dropped check does not fail:
+ * `ok` is never reached, so `checks` is smaller and the final line reads
+ * "31/31 behaviour checks passed" in exactly the green the full run prints.
+ * The count is the only thing that can tell those apart, so it is pinned, and
+ * moving it is a reviewed diff like any other bar in this repository.
+ */
+const EXPECTED_CHECKS = 63;
 
 let failures = 0;
 let checks = 0;
@@ -101,6 +126,18 @@ async function axeScan(page, label) {
     .map((v) => `${v.id} (${v.nodes.length}) — ${v.help}`)
     .join("; ");
   ok(result.violations.length === 0, `axe WCAG 2.2 AA clean: ${label}`, summary);
+  return result;
+}
+
+/* Which rule set graded the page — asked of the page, not of the manifest. */
+async function checkRuleSetVersion(page) {
+  section("the rule set that graded this run");
+  const ran = (await new AxeBuilder({ page }).withTags(WCAG).analyze()).testEngine;
+  ok(
+    ran !== undefined && ran.version === PINNED_AXE,
+    `axe-core ${PINNED_AXE} is what ran in the browser`,
+    `package.json pins ${PINNED_AXE}; the page was graded by ${JSON.stringify(ran)}`
+  );
 }
 
 /* --- the checks ------------------------------------------------------- */
@@ -424,6 +461,7 @@ async function main() {
     const context = await browser.newContext({ colorScheme: "light" });
     const page = await context.newPage();
     await page.goto(base);
+    await checkRuleSetVersion(page);
     await checkKeyboardPath(page, base);
     await checkSkipLink(page, base);
     await checkAnnouncement(page, base);
@@ -440,6 +478,17 @@ async function main() {
   console.log(`\n${checks - failures}/${checks} behaviour checks passed`);
   if (failures) {
     console.log(`${failures} failed`);
+    process.exit(1);
+  }
+  if (checks !== EXPECTED_CHECKS) {
+    console.log(
+      `\nFAIL  ${checks} checks ran and this file pins ${EXPECTED_CHECKS}. ` +
+        (checks < EXPECTED_CHECKS
+          ? "Checks that stop running report as a smaller green total, which is " +
+            "why the total is pinned."
+          : "Adopt the new count here in the same commit that added them, and " +
+            "in the README, or the next one to go missing has room to hide.")
+    );
     process.exit(1);
   }
 }

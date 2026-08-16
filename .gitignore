@@ -9,9 +9,18 @@ build/
 dist/
 .venv/
 
-# browser check tooling (installed on demand, never by the demo path)
+# browser check tooling (installed on demand, never by the demo path).
+#
+# node_modules is ignored; package-lock.json is NOT, and used to be. Ignoring
+# the lock file while the manifest carried carets meant the rule set grading
+# the interface — axe-core — was resolved fresh on every machine and every CI
+# run, so "62/62 passed" was a statement about whatever version npm happened
+# to pick that morning. This repository pins the auditor that grades the
+# engine to an exact commit and says at length why; the auditor that grades
+# the page deserves the same treatment. The lock is committed, the manifest
+# names exact versions, and CI installs with `npm ci`, which fails rather than
+# silently resolving something else.
 tests/browser/node_modules/
-tests/browser/package-lock.json
 
 # the auditor, resolved at run time from plumbline.pin — never committed,
 # never a dependency of this project
