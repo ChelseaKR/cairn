@@ -1,10 +1,12 @@
 """Languages, writing direction, and language detection.
 
 Direction is derived from the language code and nothing else. There is no
-``dir`` key in corpus front matter and no direction column in the index: a
+``dir`` key in corpus front matter, no direction column in the index, and
+deliberately **no configuration key** either (DESIGN.md, "Configuration"): a
 second place to state the direction of Arabic is a second place for it to be
-wrong. Operators whose corpus language is right-to-left but not in the table
-below add its code to ``[language] rtl`` in configuration.
+wrong. :data:`RTL_CODES` below is the one table, and a corpus language missing
+from it is a change to that table — a pull request against this module, not a
+setting an operator can get wrong in their own deployment.
 
 Detection is corpus-driven and deterministic — no model, no language-detection
 dependency, no shipped word lists. It asks two questions in order: what script
@@ -58,13 +60,12 @@ RTL_CODES = frozenset(
 )
 
 
-def direction_of(code: str, *, extra_rtl: frozenset[str] | None = None) -> Direction:
+def direction_of(code: str) -> Direction:
     """Writing direction for a language code. Subtags are ignored (``ar-EG``
-    is as right-to-left as ``ar``)."""
-    base = code.split("-", 1)[0].casefold()
-    if extra_rtl and base in extra_rtl:
-        return "rtl"
-    return "rtl" if base in RTL_CODES else "ltr"
+    is as right-to-left as ``ar``). One table, no override parameter: an
+    override is the second place for the direction of Arabic to be stated, and
+    a caller that forgot to pass it would silently lay the page out backwards."""
+    return "rtl" if code.split("-", 1)[0].casefold() in RTL_CODES else "ltr"
 
 
 def endonym_of(code: str) -> str:
