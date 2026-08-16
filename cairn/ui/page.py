@@ -24,6 +24,7 @@ voice on the first; a browser stops reordering punctuation on the second.
 from __future__ import annotations
 
 import json
+import re
 from html import escape
 
 from cairn.answer import Answer
@@ -44,18 +45,34 @@ def _attrs(lang: str) -> str:
     return f'lang="{escape(lang)}" dir="{direction_of(lang)}"'
 
 
+# A Markdown ATX heading line, and the marker to take off the front of it.
+# These two patterns are the whole rule, and ``cairn/ui/static/app.js`` spells
+# them character for character: the script rebuilds this markup client-side,
+# and a renderer that disagreed with itself about what a heading is would put
+# a literal ``##`` on one of the two paths and not the other.
+# ``tests/test_ui.py`` fails if the two files stop matching.
+ATX_LINE = re.compile(r"^\s*#")
+ATX_MARKER = re.compile(r"^\s*#+\s*")
+
+
 def _quoted_block(body: str) -> str:
     """Corpus text, rendered.
 
     Markdown ATX markers are dropped and the heading line is emphasized
-    instead. That removes markup, never words: every character of the passage
-    that is not a leading ``#`` marker survives into the page, which is what
-    "the answer is the source, verbatim" has to mean on screen.
+    instead. That removes markup, never words: every word of the passage
+    survives into the page, which is what "the answer is the source, verbatim"
+    has to mean on screen. What does not survive is the marker itself and the
+    whitespace around it — including the indentation in front of it, which the
+    older rule kept, and which made an indented heading render its own ``##``
+    on the page while the script next door dropped it.
+
+    A line that is only markers has nothing to emphasize, so it is left alone
+    and printed as it stands.
     """
     out = []
     for line in body.splitlines():
-        stripped = line.lstrip("#").strip()
-        if line.lstrip().startswith("#") and stripped:
+        stripped = ATX_MARKER.sub("", line)
+        if ATX_LINE.match(line) and stripped:
             out.append(f"<strong>{escape(stripped)}</strong>")
         else:
             out.append(escape(line))

@@ -19,15 +19,18 @@ import unittest
 import urllib.error
 import urllib.parse
 import urllib.request
+from html import escape
 from html.parser import HTMLParser
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from cairn.config import Config
+from cairn.corpus import load_corpus
 from cairn.index import build_index
 from cairn.language import direction_of
 from cairn.messages import CATALOGUE
 from cairn.server import CSP, STATIC, build_handler
+from cairn.ui import page
 from cairn.ui.contrast import PAIRS, palette
 from cairn.ui.page import SELECTABLE
 
@@ -372,6 +375,72 @@ class TestWithoutJavaScript(ServerHarness):
                 self.assertIn(words, rendered, "only markup is dropped, never words")
 
 
+class TestQuotedCorpusText(unittest.TestCase):
+    """Markup is removed, words are not — and both renderers agree on which.
+
+    The page is built twice: by `cairn/ui/page.py` for the no-JavaScript POST,
+    and by `cairn/ui/static/app.js` for the live transcript. They have to
+    produce the same thing, and for one shape they did not. `_quoted_block`
+    stripped `#` from the front of the raw line, so a heading with any
+    indentation in front of it kept its `##` and rendered the marker as text,
+    while the script — which strips the whitespace first — dropped it. No
+    document in the demo corpus is indented, so nothing caught it; the claim
+    in the docstring was that markup is removed, and for that line it was not.
+    """
+
+    CASES = (
+        ("## How much the grant covers", "<strong>How much the grant covers</strong>"),
+        ("  ## Indented heading", "<strong>Indented heading</strong>"),
+        ("\t# Tab-indented", "<strong>Tab-indented</strong>"),
+        ("### Trailing hashes ###", "<strong>Trailing hashes ###</strong>"),
+        # Trailing whitespace is not a marker, so it survives — in both
+        # renderers. The old rule dropped it, which was the smaller half of
+        # the same disagreement.
+        ("## Padded   ", "<strong>Padded   </strong>"),
+        ("A sentence with a # in it", "A sentence with a # in it"),
+        ("###", "###"),
+        ("  ", "  "),
+        ("", ""),
+    )
+
+    def test_the_marker_is_dropped_and_the_words_are_not(self):
+        for line, expected in self.CASES:
+            with self.subTest(line=line):
+                self.assertEqual(page._quoted_block(line), expected)
+
+    def test_no_rendered_heading_still_carries_its_marker(self):
+        rendered = page._quoted_block("\n".join(line for line, _ in self.CASES))
+        for fragment in re.findall(r"<strong>(.*?)</strong>", rendered):
+            self.assertFalse(
+                fragment.lstrip().startswith("#"),
+                f"an emphasized heading kept its marker: {fragment!r}",
+            )
+
+    def test_the_client_script_spells_the_same_two_rules(self):
+        # Not "both look reasonable": the same two patterns, character for
+        # character. Change one and this names the other.
+        script = (STATIC / "app.js").read_text(encoding="utf-8")
+        for pattern in (page.ATX_LINE, page.ATX_MARKER):
+            with self.subTest(pattern=pattern.pattern):
+                self.assertIn(
+                    f"/{pattern.pattern}/", script,
+                    "app.js and page.py no longer agree on what a heading is",
+                )
+
+    def test_every_corpus_heading_survives_both_rules_the_same_way(self):
+        # The parity check above is on the rule; this is on the content the
+        # rule is actually applied to.
+        for document in load_corpus(DEMO):
+            for passage in document.passages:
+                with self.subTest(passage=passage.passage_id):
+                    rendered = page._quoted_block(passage.text)
+                    self.assertNotIn("<strong>#", rendered)
+                    for line in passage.text.splitlines():
+                        words = page.ATX_MARKER.sub("", line).strip()
+                        if words:
+                            self.assertIn(escape(words), rendered)
+
+
 class TestRightToLeftRendering(ServerHarness):
     def test_an_arabic_session_flips_the_document(self):
         markup = self.post_form({"question": "كم تحصل الأسرة شهريًا؟", "lang": "ar"})
@@ -391,8 +460,14 @@ class TestRightToLeftRendering(ServerHarness):
         self.assertNotIn('class="answer" lang="ar"', markup)
 
     def test_an_arabic_script_question_about_an_english_only_document_refuses(self):
-        # Cross-language fallback is lexical, so it cannot cross scripts. The
-        # honest outcome is a refusal, in Arabic, in a right-to-left page.
+        # This comment used to say the fallback "cannot cross scripts". It
+        # can: `tests/test_open_items.py` asks the same document in Arabic
+        # with the Latin program name in the question and gets the English
+        # passage back. What it cannot cross is a paraphrase — the fallback is
+        # lexical, and between languages the only words that survive are
+        # proper nouns and numbers. This question transliterates the name
+        # instead of writing it, so nothing is shared and the honest outcome
+        # is a refusal, in Arabic, in a right-to-left page.
         markup = self.post_form(
             {"question": "كم تكلفة بطاقة جوباس السنوية؟", "lang": "ar"}
         )
@@ -458,7 +533,14 @@ class TestStylesheet(unittest.TestCase):
         self.assertNotIn("outline:none", CSS)
 
     def test_controls_clear_the_minimum_target_size(self):
-        for rule in re.findall(r"min-height:\s*([\d.]+)rem", CSS):
+        # The population first. Written in `px`, or dropped, and the loop
+        # below iterates nothing and reports a pass — the stylesheet would
+        # have stopped declaring a minimum and this would have stopped
+        # noticing. tests/browser measures the rendered boxes; this is the
+        # cheap half, and the cheap half has to know when it is empty.
+        rules = re.findall(r"min-height:\s*([\d.]+)rem", CSS)
+        self.assertGreaterEqual(len(rules), 2, "no control declares a minimum height")
+        for rule in rules:
             self.assertGreaterEqual(float(rule) * 16, 24, "WCAG 2.2 target size minimum")
 
 
