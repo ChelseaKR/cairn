@@ -45,7 +45,7 @@ ANCHORS = (
     "One known colloquial-recall failure",
     "One wrong-paragraph case",
     "Cross-language fallback needs shared words",
-    "No committed evidence item reaches the cross-language path",
+    "The audit scores a correct cross-language answer as a failure",
     "No manual screen-reader pass",
     "No generative mode",
 )
@@ -63,6 +63,8 @@ PARAPHRASED_IN_SPANISH = "¿Cuánto cuesta el GoPass por año?"
 NAMED_IN_SPANISH = "¿El Harbor GoPass cuesta $20 al año?"
 PARAPHRASED_IN_ARABIC = "كم تكلفة بطاقة الحافلة المخفضة في السنة؟"
 NAMED_IN_ARABIC = "GoPass كم سعرها؟"
+# The one item in the committed question set that reaches the fallback.
+CROSS_LANGUAGE_ITEM = "ck-027"
 
 
 def open_section() -> str:
@@ -138,12 +140,18 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
                 self.assertFalse(result.cross_language)
                 self.assertEqual(result.answer.lang, lang or "ar")
 
-    def test_no_recorded_item_reaches_the_cross_language_path(self):
-        # The evidence the gate grades never contains an answer quoted in a
-        # language the reader did not ask for, so no audit report says
-        # anything about that shape of answer. Asked of the committed question
-        # set through the real engine rather than of the bundle: adding an
-        # item is what closes this, not re-recording.
+    def test_the_evidence_set_still_reaches_the_cross_language_path(self):
+        # The inverse of what stood here until 2026-08-16, which asserted that
+        # no item reached the path and was the anchor for an open item saying
+        # so. The coverage exists now, and coverage that arrived once can
+        # leave again: delete `ck-027` and every suite goes back to reporting
+        # a system whose cross-language behaviour no audit has ever seen, with
+        # nothing but a slightly smaller `n` to say so.
+        #
+        # Asked of the committed question set through the real engine rather
+        # than of the recorded bundle, because the bundle is downstream: an
+        # engine change that stopped widening the search would be caught here
+        # before `cairn record` was ever run.
         from cairn.record import load_questions
 
         questions = load_questions(ROOT / "plumbline" / "questions.toml")
@@ -154,11 +162,40 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
             if ask(question["prompt"], self.index, CFG,
                    lang=question["lang"]).cross_language
         ]
-        self.assertEqual(
-            crossed, [],
-            "an item now reaches the cross-language path; the open item above "
-            "is fixed and should be deleted with the diff that fixed it",
+        self.assertEqual(crossed, [CROSS_LANGUAGE_ITEM])
+
+    def test_the_cross_language_item_carries_a_notice_into_the_recording(self):
+        # The whole point of the item. `Answer.cited_text` is what the
+        # recorder writes and what a client with no sources list receives, and
+        # it dropped the notice for a full milestone with nothing able to
+        # notice, because no recorded response had one. If this ever comes
+        # back empty the evidence has stopped containing the shape it was
+        # added to contain, whatever the item count says.
+        import json
+
+        responses = {
+            json.loads(line)["id"]: json.loads(line)["response"]
+            for line in (ROOT / "plumbline" / "bundle" / "responses.jsonl")
+            .read_text(encoding="utf-8").splitlines()
+        }
+        recorded = responses[CROSS_LANGUAGE_ITEM]
+        answer = self.answer("ما هي بطاقة GoPass؟", lang="ar")
+        self.assertIsNotNone(answer.notice)
+        self.assertTrue(recorded.startswith(answer.notice))
+        self.assertEqual(recorded, answer.cited_text)
+
+    def test_the_multilingual_suite_still_scores_it_zero(self):
+        # The open item above is a live measurement, not a worry. If the
+        # baseline ever records `multilingual` at 1.0000 again, either the
+        # harness learned to read a cross-language answer or the item left.
+        import json
+
+        baseline = json.loads(
+            (ROOT / "plumbline" / "baseline.json").read_text(encoding="utf-8")
         )
+        entry = next(s for s in baseline["suites"] if s["suite"] == "multilingual")
+        self.assertLess(entry["score"], 1.0, "the open item above says it fails one item")
+        self.assertEqual(round(entry["score"] * entry["n"]), entry["n"] - 1)
 
     def test_the_corrected_claim_is_the_one_the_design_makes(self):
         section = open_section()

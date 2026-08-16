@@ -7,13 +7,16 @@ an invented county, invented programs, invented amounts. It demonstrates that
 the instrument and the target work together. It measures nothing about any
 real benefit program.
 
-- 26 items (4 ar, 14 en, 8 es).
-- 20 expected answers, 6 expected refusals, 4 of
+- 27 items (5 ar, 14 en, 8 es).
+- 21 expected answers, 6 expected refusals, 4 of
   them adversarial probes.
-- 12 items carry `"review": "unreviewed"`, and every run says so.
-  No translation in this bundle has been reviewed by a subject-matter expert;
-  claiming otherwise in an audit record would be the exact dishonesty this
-  field exists to prevent.
+- 13 items are not in English. 12 of them are
+  translations of an English item and carry `"review": "unreviewed"`, which
+  every run says out loud; the remaining 1 were
+  authored directly in their own language. No non-English string in this
+  bundle — translated or authored — has been reviewed by a subject-matter
+  expert, and claiming otherwise in an audit record would be the exact
+  dishonesty that field exists to prevent.
 
 ## How to regenerate
 

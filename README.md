@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 280 tests plus 62 browser behaviour checks, standard library only,
+server. 313 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -140,14 +140,31 @@ instead.
 **How far that reaches, measured rather than promised.** The fallback is
 lexical, so it fires only when the question contains words the document
 contains — and across languages the only words that survive are proper nouns
-and numbers. `GoPass كم سعرها؟` is answered from the English document, in
+and numbers. `ما هي بطاقة GoPass؟` is answered from the English document, in
 Arabic, with the English quoted untranslated: the fallback crosses scripts
 perfectly well. `¿Cuánto cuesta el GoPass por año?` refuses, in the same
 script. What decides it is whether the program is named, which puts the
 limitation on the person least likely to know its official name.
-[DESIGN.md](DESIGN.md#what-is-still-open) carries the four measurements and
-why the available bridge — letting a document declare its name in another
-language — is refused.
+
+There is a second edge behind the first, and this page used to state the
+measurement without it. `GoPass كم سعرها؟` — the same crossing, asking what
+the pass *costs* — is also answered, and the passage it is answered from is
+the document's opening sentence, which contains no price. "GoPass" is the only
+term that survives the crossing, all four passages of that document contain
+it, and the ranking among them is then decided by length. Crossing the script
+is not the same as answering the question, and calling the first one a success
+without saying so is the kind of thing this repository is supposed to catch.
+[DESIGN.md](DESIGN.md#what-is-still-open) carries the four measurements, this
+correction, and why the available bridge — letting a document declare its name
+in another language — is refused.
+
+That path is in the audited evidence now, as `ck-027`. It had never been:
+twenty-six recorded answers, none of them cross-language, so no audit report
+this repository has ever published said anything about the behaviour described
+above — which is how `Answer.cited_text` came to drop the notice for a whole
+milestone with every check green. The
+[write-up](DESIGN.md#the-cross-language-path-in-the-evidence) lists every score
+the one new item moved, including `multilingual` scoring it zero.
 
 ## The demo corpus is synthetic
 
@@ -191,8 +208,8 @@ only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in
 light, dark, and right-to-left.
 
 ```console
-$ cd tests/browser && npm install && npm run check
-62/62 behaviour checks passed
+$ cd tests/browser && npm ci && npm run check
+63/63 behaviour checks passed
 ```
 
 ## Configuration
@@ -238,20 +255,24 @@ a separate project, pinned to an exact commit in
 
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
-Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 3222a88492612bc6f283779d8d1616b9914e1a74355df993da412ad2df228bdb
+Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Bundle sha256: 81ca3d7003f072ea60885f6ea4adcc7706e0ebe43abef4aa250167fc3ca2734d
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 3222a8849261, run ...
+GATE: PASS — target cairn-demo, dataset 81ca3d7003f0, run ...
 all 14 suites passed:
   ...
-  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  ci 0.717-0.989  mde 0.240  3 unverifiable
+  multilingual           score 0.9630  floor 0.95  PASS  n=27  ci 0.817-0.993  mde 0.144
+  passage_attribution    score 0.9412  floor 0.90  PASS  n=17  ci 0.730-0.990  mde 0.226  3 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
-GUARD: PASS — cairn-demo, run ..., against baseline 123b2569cb8a46ba
+GUARD: PASS — cairn-demo, run ..., against baseline 38cd1ce582a57150
 declared gaps: none — every implemented suite is enabled.
+floors that are not the harness's own (6 suites, each with a recorded reason):
+  accuracy: 0.35, LOOSER than the default 0.75
+  ...
 suites that could not check everything they were handed:
-  passage_attribution: scored 16 of 19 eligible (no_distractor 3); unverifiable
+  passage_attribution: scored 17 of 20 eligible (no_distractor 3); unverifiable
   items are excluded, never passed
 no suite moved against the committed baseline.
 ```
@@ -289,14 +310,14 @@ detector read as an answer. They are written up in
 [DESIGN.md](DESIGN.md#what-the-first-audit-found), along with the two known
 limits that are named rather than tuned away.
 
-**A floor is a minimum, not a ratchet.** `accuracy` could fall from 0.3982 to
+**A floor is a minimum, not a ratchet.** `accuracy` could fall from 0.4123 to
 0.36 above a floor of 0.35 and the gate would be green the whole way down, so
 the pin also names a committed baseline — one line per suite, distilled by the
 harness from a run we were happy with — and `audit_guard.py` runs straight
 after the gate and fails on any suite whose score no longer matches it, any
 floor that was lowered, and any suite that stopped being scored. It can be
 silenced by regenerating the baseline, which is the point: a move then arrives
-as `"score": 0.9615` becoming `"score": 0.36` in a reviewed diff, rather than
+as `"score": 0.9630` becoming `"score": 0.36` in a reviewed diff, rather than
 as nothing at all.
 
 **A score that went *up* fails too, and the guard still will not adopt it.**
@@ -334,7 +355,7 @@ what a suite would need, and Plumbline built `passage_attribution`. The
 evidence side of it is authored: `plumbline/questions.toml` now declares which
 passage answers each question, because only a person who has read the question
 and the corpus can say that, and `cairn record` refuses a question set where
-an answer item does not. The suite scores 0.9375 over 16 items and fails
+an answer item does not. The suite scores 0.9412 over 17 items and fails
 `ck-022` by name — and is more precise than the write-up was, reporting it as
 a *retrieval* failure, because the right passage never cleared the threshold
 for composition to choose it. The behaviour has not changed; it is scored now
@@ -351,10 +372,10 @@ recorder:
 $ ./plumbline-gate.sh           # resolves the harness; the only thing that does
 $ ./plumbline-live.sh
 PLUMBLINE LIVE: serving cairn on 127.0.0.1:8766
-recorded:  26 responses
+recorded:  27 responses
 verdict: PASS
 LIVE: MATCH — http://127.0.0.1:8766/ask, recorded 2026-08-16T…
-  26 answers over HTTP, byte-identical to the recorded evidence the gate grades.
+  27 answers over HTTP, byte-identical to the recorded evidence the gate grades.
   the audited interface snapshot is the page being served.
 ```
 

@@ -646,8 +646,8 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   list, which this tokenizer exists to do without, and a corpus large enough
   for document frequency to work, which is not what a demo corpus is. What
   changed is that it is now scored rather than only documented: the floor sits
-  at 0.90 with one known failure out of sixteen, so a second one turns the
-  gate red, and the committed baseline pins 0.9375 so fixing this one is a
+  at 0.90 with one known failure out of seventeen, so a second one turns the
+  gate red, and the committed baseline pins 0.9412 so fixing this one is a
   reviewed diff too.
 - **Cross-language fallback needs shared words, and in practice that means
   the document's own name.** This item used to say the fallback "cannot cross
@@ -669,6 +669,20 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   words the document contains, and between languages the only words that
   survive are proper nouns and numbers.
 
+  Read the fourth row again, though, because "answered" is doing more work
+  there than it should. `GoPass كم سعرها؟` asks what the pass *costs*, and the
+  passage it is answered from is `transit-pass-en#1` — the document's opening
+  sentence, which contains no price. The fee is in `#2`. Nothing is wrong with
+  the retrieval given what it has to work with: "GoPass" is the only term that
+  survives the crossing, all four transit passages contain it, and the ranking
+  among them is then decided by length alone. But the person asking gets a
+  paragraph that does not answer them, under a notice explaining why it is in
+  English. The measurement above was recorded as a success and it is half of
+  one. This is why `ck-027` asks what the pass is rather than what it costs:
+  that question the opening sentence genuinely answers, so the evidence item
+  exercises the fallback without also asserting that a wrong paragraph is a
+  right answer.
+
   That is a worse limitation than the one previously written down, because it
   falls exactly on the person least likely to know the program's official
   name. Someone who can write "Harbor GoPass" gets an answer; someone asking
@@ -681,19 +695,22 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   metadata no reviewer has seen, added specifically to make an untranslated
   quote findable, and it is the alias mechanism whose measurement says it
   degrades passage choice.
-- **No committed evidence item reaches the cross-language path**, so no audit
-  report this repository publishes says anything about it. The corpus
-  asymmetry above is what makes the path reachable, and `tests/` and the
-  browser checks both drive it — but of the 26 items in
-  `plumbline/questions.toml`, the twenty that answer all cite sources in the
-  language they were asked in and the six that refuse cite nothing, so not one
-  of them widens the search. `tests/test_open_items.py` asserts exactly that,
-  so the claim cannot rot quietly. The suite with the most to say would be
-  `multilingual`, which scores a response by the language it came back in and
-  would score such an item zero: correct, and a cost worth paying rather than
-  avoiding. Adding one moves the dataset hash, the baseline and several
-  published figures in a single reviewed diff, and that diff has not been
-  made.
+- **The audit scores a correct cross-language answer as a failure, and there
+  is room for exactly one of them.** `ck-027` is in the evidence set now (see
+  "The cross-language path, in the evidence" below) and `multilingual` scores
+  it 0.0000: asked in Arabic, answered in English. The suite is right by its
+  own definition — the body of the response really is English — and Cairn is
+  right too, because translating the source would produce an unsourced policy
+  statement. Two correct positions, one number, and the number is zero. The
+  suite score is 0.9630, which clears its 0.95 floor by one item and no more:
+  a second cross-language item takes it to 25/28 = 0.8929 and the gate to red.
+  So the evidence set cannot grow this kind of coverage without something
+  giving, and the three things that could give are all somebody's decision
+  rather than a tuning knob — lower the floor and say why, teach the harness
+  that a response carrying a cross-language notice is answered *in* the
+  notice's language, or accept that the path is audited by exactly one item
+  forever. Cairn consumes Plumbline at a pin and pushes nothing to it, so the
+  second one is a report to file, not a change to make here.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
@@ -770,6 +787,30 @@ announcements actually firing, the assertive channel's silence on success,
 layout mirroring, target sizes, and axe-core's WCAG 2.2 AA rule set in light,
 dark, and right-to-left. The second layer needs Node and a browser and is
 deliberately outside the core dev path, which stays standard-library-only.
+
+**The rule set is a judgement, so it is pinned like one.** This repository
+pins the auditor that grades the *engine* to an exact commit and spends a page
+of `plumbline.pin` saying why a moving reference makes a green gate
+meaningless. The auditor that grades the *interface* is axe-core, and it was
+on a caret range with `package-lock.json` in `.gitignore` — resolved fresh on
+every machine and every CI run, so "62/62 passed" was a statement about
+whatever npm picked that morning. A minor bump adds rules, and a check that
+got stricter overnight and a page that regressed overnight are the same red
+tick unless somebody knows which version spoke. So: exact versions in
+`tests/browser/package.json`, a committed lock file, `npm ci` in CI (which
+fails rather than silently resolving something else), and `axe-core` named as
+a direct dependency rather than left transitive, because it *is* the rule set.
+a11y.mjs then asks the page which version actually graded it — an install can
+be correct and a stale `node_modules` still wrong — and fails if it is not the
+pinned one.
+
+**And the count is pinned too.** A dropped check does not fail: `ok()` is
+never reached, so the total is smaller and the last line reads
+"31/31 behaviour checks passed" in exactly the green a full run prints. The
+number is the only thing that can tell those apart, so a11y.mjs holds itself
+to it and exits non-zero if fewer ran, and `tests/test_docs.py` holds the
+README's figure to a11y.mjs's — and the README's test count to what the loader
+actually discovers, which nothing checked either.
 
 ## The audit interlock
 
@@ -961,8 +1002,8 @@ What a file *can* do, and now does:
 
 ### The baseline, and the guard that gives it teeth
 
-A floor is a minimum. `accuracy` can fall from 0.3982 to 0.36 above a floor of
-0.35, `refusal` from 0.9615 to 0.91 above 0.90, and the gate is green every
+A floor is a minimum. `accuracy` can fall from 0.4123 to 0.36 above a floor of
+0.35, `refusal` from 0.9630 to 0.91 above 0.90, and the gate is green every
 step of the way down. The pinned harness can compare a run against a committed
 baseline, and now does: `plumbline.pin` carries
 `baseline = plumbline/baseline.json`, a record the harness itself distils from
@@ -1007,7 +1048,7 @@ a different answer would be defensible.
   committed, so a score that moved, moved because the system changed.
 - **Regenerating the baseline makes any of it green, and that is the design.**
   The point was never that scores may not fall. It is that a fall has to be a
-  reviewed diff in a committed file — `"score": 0.9615` becoming `"score":
+  reviewed diff in a committed file — `"score": 0.9630` becoming `"score":
   0.36` in a pull request — instead of a number nobody was looking at. The
   regeneration command is printed with every finding. `plumbline.pin`
   deliberately does *not* set `require_comparable_baseline`: that would exit 4
@@ -1039,6 +1080,53 @@ a different answer would be defensible.
 Two enforcement points, on purpose. The guard catches this at gate time, with
 the network; `tests/test_audit_guard.py` catches an enabled suite missing from
 the baseline offline, before anyone waits on a fetch.
+
+**A floor that nobody explained, and the rule that now catches one.** Every
+suite the harness ships names a default floor, chosen by whoever wrote the
+metric. Cairn overrides six of them: four stricter, because composition is
+extractive and there is no fraction of an invented citation worth tolerating,
+and two looser, because `accuracy` measures token overlap against a
+paraphrase this system will never write and `passage_attribution`'s default
+sits above a known failure. All six are defensible. None of that was the
+problem.
+
+The problem was `fairness` at 0.80 against a default of 0.85, with nothing on
+record saying why. An unexplained loosening is the exact shape a red gate
+takes on its way to green, and it does not stop being that shape because the
+measurement happens to clear the stricter number anyway — which, at 0.9364, it
+did. It has been restored to 0.85. A floor nobody can justify goes back to the
+number chosen by the people who wrote the metric, rather than acquiring a
+justification written after the fact by whoever noticed it.
+
+And the rule moved out of the prose. `plumbline/target.toml` had stated for a
+milestone that a non-default floor explains itself; the write-up that found
+the violations counted five, and there were six — the `accuracy` floor of 0.35
+against a default of 0.75 has a long comment that never says it is not the
+default. A rule policed by reading gets the count wrong. So a floor that
+differs from the default must now carry `floor_reason`, and `audit_guard.py`
+decides what "the default" is by parsing it out of the pinned harness's own
+source rather than out of a number typed into Cairn's config — which could be
+wrong in the same commit that made it wrong. A pin bump that changes a default
+reopens the question at the next gate run.
+
+**The third way to switch a check off.** The guard caught `enabled = false`
+without a declared gap, and the baseline comparison caught a suite that
+stopped being scored. Both read the universe of suites out of
+`plumbline/target.toml` and `plumbline/baseline.json`. So a diff that deleted
+`[suites.privacy]` from the config *and* its line from the baseline deleted it
+from the universe as well: the gate would report "13 suites passed", the guard
+would print `no suite moved against the committed baseline`, every test over
+the committed artifacts would compare those two files to each other and agree,
+and the PII check would be gone with nothing anywhere saying so. Verified, not
+theorised. The universe comes from the harness now — a suite it implements is
+enabled here or disabled here with a gap, and absence is a finding.
+
+One more, smaller and the same species: `multilingual` was still carrying the
+`gap` and `fix_belongs_in` keys from the milestone in which it was disabled,
+nine days after it was switched back on. That is not stale documentation, it
+is a loaded declaration — the next person to write `enabled = false` would
+have been waved through by a sentence about a gap that had already closed. Gap
+keys on an enabled suite are a finding too.
 
 **The drill, run for real.** A claim that a check has teeth is worth nothing
 unless somebody watched it bite. Lowering `retrieval.threshold` from 0.165 to
@@ -1204,11 +1292,12 @@ item declares `answering_sources`, and two things followed on this side:
   `groundedness` — the one suite whose input genuinely grew, since it scores
   support against the union of an item's sources — stayed at 1.0000.
 
-**The measurement.** `passage_attribution` scores **0.9375 over 16 items**,
-with one failure:
+**The measurement.** `passage_attribution` scores **0.9412 over 17 items**,
+with one failure (it was 0.9375 over 16 until `ck-027` joined the evidence
+set and passed):
 
 ```
-passage_attribution    score 0.9375  floor 0.90  PASS  n=16  ci 0.717-0.989  mde 0.240  3 unverifiable
+passage_attribution    score 0.9412  floor 0.90  PASS  n=17  ci 0.730-0.990  mde 0.226  3 unverifiable
 ```
 
 with the item named in the report rather than on the gate's line —
@@ -1231,7 +1320,7 @@ from. They are excluded from the score and never counted as passes.
 measurement and would be red on the day it landed, which is a floor that says
 nothing about the system and only about the person who set it. 0.90 is one
 known wrong paragraph out of sixteen with margin; a second takes the score to
-0.8750 and the gate to red. The committed baseline pins 0.9375 as the real
+0.8824 and the gate to red. The committed baseline pins 0.9412 as the real
 bar, in both directions, so `ck-022` being fixed is a reviewed diff as much as
 a new failure would be.
 
@@ -1244,6 +1333,66 @@ now fails on a suite whose `n` moved against the baseline, in either
 direction, and prints the harness's unverifiable block beside the verdict. A
 perfect score over a population nobody was watching is the same defect class
 as a suite that stopped running.
+
+### The cross-language path, in the evidence
+
+For a full milestone the audit had nothing to say about the behaviour this
+project talks about most. Twenty-six recorded items, twenty of them answers,
+and not one widened its search: every answer cited a source in the language it
+was asked in, so `notice` was null in all twenty-six recorded responses and no
+audit report had ever seen the shape of a cross-language answer.
+
+What that cost is not hypothetical. `Answer.cited_text` — the plain-text form
+that *is* the whole answer for a client with no second channel to render a
+sources list into — dropped the notice entirely, so a Spanish speaker with a
+text-only client received an English passage with nothing saying why. That is
+the same defect as the missing inline citations one field over, it lived
+through a milestone, and no run of the gate could have found it, because the
+gate grades recorded responses and no recorded response had a notice to drop.
+It was fixed by reading the code. The next one will not be.
+
+So `ck-027` was added: `ما هي بطاقة GoPass؟`, asked in Arabic, answered from
+the English-only transit document, quoted untranslated under an Arabic notice.
+The question asks what the pass *is* rather than what it costs, for the reason
+set out under "What is still open" — the fallback lands on the document's
+opening paragraph, which answers the first question and not the second, and an
+evidence item should not assert that a wrong paragraph is a right answer.
+
+**What one item moved.** The dataset hash went from `3222a8849261` to
+`81ca3d7003f0`, which is the whole point of a hash, and the baseline was
+regenerated in the same commit. Everything that changed, changed for a reason
+worth reading:
+
+| Suite | Before | After | Why |
+| --- | --- | --- | --- |
+| `multilingual` | 1.0000 (26) | 0.9630 (27) | scores `ck-027` **0.0000**: asked in `ar`, detected `en` |
+| `groundedness` | 1.0000 (19) | 0.9714 (20) | token support 0.4286 — the notice is Cairn's words, in no source |
+| `citation_accuracy` | 1.0000 (19) | 0.9714 (20) | same measurement, same cause |
+| `accuracy` | 0.3982 (20) | 0.4123 (21) | the item scores 0.6923, above the pooled mean |
+| `fairness` | 0.9364 (26) | 0.9290 (27) | the `formal` group mean moves; the gap widens 0.0636 → 0.0710 |
+| `refusal` | 0.9615 (26) | 0.9630 (27) | one more correctly-answered item in the denominator |
+| `passage_attribution` | 0.9375 (16) | 0.9412 (17) | `ck-027` passes with margin 0.3214 over the next passage |
+| `citation_validity`, `cross_language`, `privacy`, `smoke`, `representational_harms`, `adversarial`, `accessibility` | 1.0000 | 1.0000 | unchanged; `cross_language` and `adversarial` do not even change `n`, because the item declares no `fact_id` and is not a probe |
+
+Two of those deserve to be read rather than skimmed.
+
+**`multilingual` scores it zero, and the suite is right.** It detects the
+language of the response and the response is mostly English — the Arabic
+notice is one sentence in front of an English paragraph, and the detector
+counts letters. Cairn's position is that quoting the source untranslated is
+the correct behaviour and translating a policy statement would make it
+unsourced. Both positions are defensible and they produce a zero. That
+disagreement was invisible while no item exercised the path; it is now a
+number in a committed baseline, and the open-items list carries what it would
+take to resolve it.
+
+**Groundedness fell because the answer got better.** The notice is Cairn
+speaking in its own voice, so its words appear in no cited source, so a
+lexical support metric marks them unsupported. The docstring on `cited_text`
+predicted exactly this before the item existed. The alternative — leaving the
+notice out to keep the number at 1.0000 — is grading a string no user of the
+served interface can obtain, which is the mistake that property was written to
+stop making.
 
 ### What the first audit found
 

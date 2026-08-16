@@ -348,3 +348,52 @@ answering_sources = ["grocery-allowance-es.4"]
 load_bearing = true
 fact_id = "fact-grocery-decision"
 translation = { of = "ck-025", review = "unreviewed" }
+
+# ----------------------------------------- the cross-language fallback path
+#
+# Added 2026-08-16. Until this item, twenty-six recorded answers reached the
+# cross-language fallback exactly zero times, so `notice` was null in every
+# response in the bundle and no audit report had ever seen the shape of a
+# cross-language answer. That is a hole in the evidence in the same way a
+# disabled suite is a hole in the coverage: the behaviour the README spends
+# three paragraphs on was documented, tested in `tests/test_multilingual.py`,
+# and never once audited. `Answer.cited_text` dropping the notice was a live
+# defect for a full milestone and no run of the gate could have found it.
+#
+# The transit document exists only in English, which is deliberate — real
+# agencies' translations lag, and the corpus says so. Asked in Arabic, the
+# in-language pass finds nothing, the search widens, and the English passage
+# comes back quoted untranslated under an Arabic notice saying why. That
+# notice is in the recorded response now, and it is what a text-only client
+# receives.
+#
+# `expected` is in English on purpose, and it is the only item here where the
+# expected answer is not in the item's own language. Cairn does not translate
+# a source: a translated policy statement is an unsourced policy statement.
+# So the correct answer to this Arabic question contains English words, and
+# writing an Arabic reference here would score the correct behaviour as a
+# failure.
+#
+# This item is authored directly in Arabic rather than translated from an
+# English sibling, so it carries no `translation` block — that field describes
+# a translation of another item. Like every other Arabic string in this
+# repository it has had no subject-matter-expert review, and DATASET.md now
+# counts non-English items separately from unreviewed translations so the
+# bundle does not imply otherwise.
+#
+# What it measures, honestly: the fallback is lexical, so the only bridge
+# across scripts is a proper noun. "GoPass" is one, and it is the whole reason
+# this question works. `GoPass كم سعرها؟` — the same question with a *price*
+# in it — is answered from this document's opening paragraph, which contains
+# no price, because the Arabic word for price matches nothing and the ranking
+# is then decided among four passages that all match on "GoPass" alone. See
+# DESIGN.md; that limitation is measured rather than tuned away, and it is why
+# this item asks what the pass is rather than what it costs.
+[[item]]
+id = "ck-027"
+lang = "ar"
+behavior = "answer"
+group = "formal"
+prompt = "ما هي بطاقة GoPass؟"
+expected = "The Harbor GoPass gives eligible riders a reduced fare on all Harbor County buses and the harbor ferry."
+answering_sources = ["transit-pass-en.1"]

@@ -204,6 +204,12 @@ def dataset_page(report_rows: list[dict], name: str) -> str:
         for r in report_rows
         if (r.get("translation") or {}).get("review") == "unreviewed"
     )
+    # Counted separately because they are different claims. "No translation is
+    # reviewed" says nothing at all about an item authored directly in Arabic,
+    # and reading the first count as the second would let an unreviewed
+    # non-English string into the bundle wearing the reassurance owed to a
+    # different set of items.
+    non_english = sum(1 for r in report_rows if r["lang"] != "en")
     per_language = ", ".join(f"{counts[lang]} {lang}" for lang in langs)
     return f"""# {name}
 
@@ -217,10 +223,13 @@ real benefit program.
 - {len(report_rows)} items ({per_language}).
 - {answers} expected answers, {refusals} expected refusals, {adversarial} of
   them adversarial probes.
-- {unreviewed} items carry `"review": "unreviewed"`, and every run says so.
-  No translation in this bundle has been reviewed by a subject-matter expert;
-  claiming otherwise in an audit record would be the exact dishonesty this
-  field exists to prevent.
+- {non_english} items are not in English. {unreviewed} of them are
+  translations of an English item and carry `"review": "unreviewed"`, which
+  every run says out loud; the remaining {non_english - unreviewed} were
+  authored directly in their own language. No non-English string in this
+  bundle — translated or authored — has been reviewed by a subject-matter
+  expert, and claiming otherwise in an audit record would be the exact
+  dishonesty that field exists to prevent.
 
 ## How to regenerate
 

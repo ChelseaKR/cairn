@@ -259,26 +259,26 @@ in [`plumbline.pin`](../plumbline.pin).
 
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
-Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 3222a88492612bc6f283779d8d1616b9914e1a74355df993da412ad2df228bdb
+Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Bundle sha256: 81ca3d7003f072ea60885f6ea4adcc7706e0ebe43abef4aa250167fc3ca2734d
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
-GATE: PASS — target cairn-demo, dataset 3222a8849261, run ...
+GATE: PASS — target cairn-demo, dataset 81ca3d7003f0, run ...
 all 14 suites passed:
   ...
-  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  ci 0.717-0.989  mde 0.240  3 unverifiable
+  passage_attribution    score 0.9412  floor 0.90  PASS  n=17  ci 0.730-0.990  mde 0.226  3 unverifiable
   ...
 
 $ python3 audit_guard.py             # the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline ...
 declared gaps: none — every implemented suite is enabled.
 suites that could not check everything they were handed:
-  passage_attribution: scored 16 of 19 eligible (no_distractor 3); ...
+  passage_attribution: scored 17 of 20 eligible (no_distractor 3); ...
 no suite moved against the committed baseline.
 ```
 
 `passage_attribution` is the suite that can say **right document, wrong
-paragraph**, and 0.9375 is one item failing it: `ck-022` is answered from the
+paragraph**, and 0.9412 is one item failing it: `ck-022` is answered from the
 housing document's deadline paragraph instead of the one with the amount in
 it. Every other suite passes that item, correctly — the answer is grounded,
 cited, and supported by the passage it points at. See
@@ -321,10 +321,10 @@ code that changes, so the same questions also get asked over HTTP:
 ```text
 $ ./plumbline-live.sh
 PLUMBLINE LIVE: serving cairn on 127.0.0.1:8766
-recorded:  26 responses
+recorded:  27 responses
 verdict: PASS
 LIVE: MATCH — http://127.0.0.1:8766/ask, recorded ...
-  26 answers over HTTP, byte-identical to the recorded evidence the gate grades.
+  27 answers over HTTP, byte-identical to the recorded evidence the gate grades.
   the audited interface snapshot is the page being served.
 ```
 
