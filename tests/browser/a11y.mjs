@@ -105,6 +105,49 @@ async function axeScan(page, label) {
 
 /* --- the checks ------------------------------------------------------- */
 
+/* Is the ring actually drawn, on every stop, in the presentation the reader
+ * is using?
+ *
+ * This used to live inside checkKeyboardPath, which runs once, in a light
+ * context — while the comment at the top of this file said focus visibility
+ * was checked "in both presentations". `--focus` does have a dark override
+ * (tests/test_ui.py requires every colour a contrast pair uses to be
+ * re-themed), so this is a claim being made true rather than a bug being
+ * caught. A ring drawn in a colour nobody re-themed is exactly the shape of
+ * defect that check found in the palette, one layer up.
+ */
+async function checkFocusVisibility(page, base, scheme) {
+  section(`focus visibility (${scheme})`);
+  await page.goto(base);
+  await page.evaluate(() => document.body.focus());
+
+  const stops = [];
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press("Tab");
+    const where = await focusedDescription(page);
+    if (where === "body") break;
+    stops.push(where);
+    const ring = await focusRing(page);
+    ok(
+      ring !== null && ring.width >= 2 && ring.style !== "none",
+      `focus is visible on "${where}" (${scheme})`,
+      JSON.stringify(ring)
+    );
+    ok(
+      ring !== null && ring.colour !== "rgba(0, 0, 0, 0)",
+      `focus indicator is not transparent on "${where}" (${scheme})`,
+      ring && ring.colour
+    );
+  }
+  // Without this the loop above is a check that passes by finding nothing:
+  // a page with no reachable control emits no assertions and no failures.
+  ok(
+    stops.length >= 4,
+    `there were controls to check the ring on (${scheme})`,
+    stops.join(" -> ")
+  );
+}
+
 async function checkKeyboardPath(page, base) {
   section("keyboard path");
   await page.goto(base);
@@ -113,20 +156,8 @@ async function checkKeyboardPath(page, base) {
   const visited = [];
   for (let step = 0; step < 8; step += 1) {
     await page.keyboard.press("Tab");
-    const where = await focusedDescription(page);
-    const ring = await focusRing(page);
-    visited.push(where);
-    if (where === "body") break;
-    ok(
-      ring !== null && ring.width >= 2 && ring.style !== "none",
-      `focus is visible on "${where}"`,
-      JSON.stringify(ring)
-    );
-    ok(
-      ring !== null && ring.colour !== "rgba(0, 0, 0, 0)",
-      `focus indicator is not transparent on "${where}"`,
-      ring && ring.colour
-    );
+    visited.push(await focusedDescription(page));
+    if (visited[visited.length - 1] === "body") break;
   }
 
   ok(visited[0] === "skip-link", "the first tab stop is the skip link", visited.join(" -> "));
@@ -386,6 +417,7 @@ async function main() {
       await axeScan(page, `${scheme}, English, with an answer`);
       await page.goto(`${base}?lang=ar`);
       await axeScan(page, `${scheme}, Arabic, right to left`);
+      await checkFocusVisibility(page, base, scheme);
       await context.close();
     }
 
