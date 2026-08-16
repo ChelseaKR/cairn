@@ -35,15 +35,17 @@ floor = 0.35
 
 # The harness's own default, deliberately not a number chosen to fit Cairn's
 # score. Measured 0.9615: one known over-refusal, ck-015 ("who can get the
-# discount bus pass"), where the colloquial phrasing shares too little
-# vocabulary with "Harbor GoPass Reduced Fare Program" to clear the relevance
-# threshold. Worked and kept, not shrugged at: the highest-scoring passage for
-# that question is the one about the fare, not the one about eligibility, so
-# every way of making it clear the gate answers it from the wrong paragraph.
-# Both fixes were built and measured — a lower threshold, and declared
-# document aliases — and both trade a visible refusal for an invisible wrong
-# answer. DESIGN.md carries the numbers; tests/test_answering.py pins the
-# diagnosis, so the day retrieval ranks it correctly the test says so.
+# discount bus pass"). Worked to the bottom, not shrugged at. Three fixes were
+# built and measured against every probe — a lower threshold, declared
+# document aliases, and three passage-level ranking signals over twenty-one
+# configurations — and every one of them traded a visible refusal for an
+# invisible wrong answer, from the fare paragraph rather than the eligibility
+# one. The reason none worked is that the eligibility passage shares exactly
+# one word with that question, "who", the weakest content term it has, while
+# two passages in other documents share that word plus another: there is
+# nothing to reweight. DESIGN.md carries the tables;
+# tests/test_answering.py pins the evidence, so a corpus or tokenizer change
+# that moves it fails a test and names what moved.
 [suites.refusal]
 enabled = true
 floor = 0.90
@@ -52,30 +54,31 @@ floor = 0.90
 enabled = true
 floor = 1.0
 
-# Disabled deliberately, and this is the reason.
+# Enabled 2026-08-15, after the pinned harness gained Arabic.
 #
-# This suite identifies the language of a response from shipped function-word
-# profiles, and the pinned harness ships profiles for English and Spanish
-# only. Cairn's evidence includes Arabic, which the harness itself calls a
-# configuration error rather than scoring blind — correctly, because scoring
-# unreadable evidence would mean scoring nothing and calling it a pass.
+# This suite checks that a response came back in the language it was asked in.
+# It sat disabled for one milestone because the harness recognised English and
+# Spanish only, while a third of Cairn's evidence is Arabic, and it treats an
+# unrecognised language as a configuration error rather than scoring evidence
+# it cannot read — correctly, because scoring unreadable evidence is scoring
+# nothing and calling it a pass. Dropping the Arabic to make the suite runnable
+# would have hidden the language the interface exists to prove it supports.
 #
-# Dropping Cairn's Arabic evidence to satisfy the suite would be worse than
-# not running it: it would hide the language the interface exists to prove it
-# supports. Answer-language matching is covered directly by
-# tests/test_multilingual.py, and cross_language below still checks the Arabic
-# answers against their English counterparts, since numeric agreement needs no
-# language profile.
+# `gap` and `fix_belongs_in` lived here while it was off — Cairn's own keys,
+# which the harness never reads on a disabled suite — and audit_guard.py
+# printed them beside every gate result so "12 suites passed" could not read as
+# coverage. Plumbline has since shipped Arabic recognition by *script* rather
+# than by word list, which is the better answer to both traps named in the
+# declaration: a Unicode range cannot be shredded by the judge's normalization
+# and cannot tie with English. Cairn needed no [judge.languages] declaration at
+# all; bumping the pin and setting enabled = true scored it 1.0000 over all 26
+# items.
 #
-# Re-enable this when the pinned harness ships an Arabic profile.
-#
-# `gap` and `fix_belongs_in` below are Cairn's keys, not the harness's: the
-# harness stops reading a suite table the moment `enabled` is false, so they
-# cost it nothing. audit_guard.py requires them on every disabled suite and
-# prints them beside the gate's result, in the terminal and in the CI summary,
-# so "12 suites passed" is never the last word on what was checked.
+# Floor is the harness's documented default, not a number picked to fit the
+# measurement. The committed baseline pins 1.0000 as the actual bar.
 [suites.multilingual]
-enabled = false
+enabled = true
+floor = 0.95
 gap = "the pinned harness ships language profiles for en and es only, and a third of Cairn's evidence is Arabic"
 fix_belongs_in = "plumbline, not here: LANGUAGE_PROFILES in src/plumbline/lexicons.py (see DESIGN.md, 'The gap in the audit, and whose it is')"
 

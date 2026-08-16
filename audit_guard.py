@@ -14,7 +14,7 @@ true at once with a green gate:
    is exactly the case that matters (a behavior change re-records the bundle,
    so every real regression arrives with a new dataset hash).
 2. **A suite is switched off.** A disabled suite does not appear in the gate's
-   output at all. "All 12 suites passed" reads like coverage; it is coverage
+   output at all. "All 13 suites passed" reads like coverage; it is coverage
    minus whatever somebody turned off, and the diff that turned it off is long
    since merged.
 

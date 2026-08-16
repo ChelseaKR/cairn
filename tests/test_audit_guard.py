@@ -277,6 +277,26 @@ class TestTheCommittedArtifacts(unittest.TestCase):
         for gap in gaps:
             self.assertIn("plumbline", gap["fix_belongs_in"] + gap["gap"])
 
+    def test_a_gap_that_closed_is_not_still_advertised(self):
+        # The mirror of the test below, and the same defect class. A document
+        # that still says a suite is unscored after it was switched on is
+        # drift, exactly as a document that never said so while it was off.
+        # Written as a claim about the present tense, so the historical
+        # account of how the gap closed is free to stay.
+        gaps, _ = declared_gaps(self.target)
+        if gaps:
+            self.skipTest("there are declared gaps; the test below is the one that applies")
+        scored = {entry["suite"] for entry in self.baseline["suites"]}
+        for name in ("README.md", "DESIGN.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for para in text.split("\n\n"):
+                for suite_id in scored:
+                    if suite_id in para and "is not scored" in para:
+                        self.fail(
+                            f"{name} still says the {suite_id} suite is not scored, "
+                            f"but it is in the committed baseline"
+                        )
+
     def test_the_declared_gaps_are_also_written_where_a_reader_will_see_them(self):
         # A gap declared only in a config file is a gap declared to nobody.
         # Both documents must carry a line that names the suite and says it is

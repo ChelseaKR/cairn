@@ -535,7 +535,9 @@ went the way it did; what is still open is listed under it.
 | **M4 (done)** | R6 + R7 UI/docs | accessible chat interface served by stdlib `http.server`: skip link, polite live-region transcript, errors-only assertive channel, labelled input with a key hint, standing disclosure, language selector that mirrors the layout, light and dark. Verified twice — markup and contrast in `tests/test_ui.py`, behavior and axe-core WCAG 2.2 AA in `tests/browser/`. `docs/demo.md` walks the demo and its output is executed by `tests/test_docs.py` |
 | **M5 (done)** | auditor interlock | Plumbline pinned by exact commit in `plumbline.pin`, the single file both local tooling and CI read; resolved at run time, never a package dependency; the gate fails (never skips) when the auditor is unreachable, with the reason written into the workflow at length. `cairn record` produces the evidence from the real engine. Core install/lint/test stays fully independent of the auditor, and CI proves it on every run |
 
-| **M6 (done)** | (beyond the spec) | the gate holds as well as runs: a committed baseline in `plumbline/baseline.json` and `audit_guard.py` failing on any decay below it, on a lowered floor, on a suite that stopped being scored, and on a suite disabled without a declared gap; the branch-protection ruleset written out and *not* applied, because it cannot be; the pin bumped as a reviewed diff |
+| **M6 (done)** | (beyond the spec) | the gate holds as well as runs: a committed baseline in `plumbline/baseline.json` and `audit_guard.py` failing on any score that no longer matches it **in either direction**, on a lowered floor, on a suite that stopped being scored, on a suite scored with no bar under it, and on a suite disabled without a declared gap; the branch-protection ruleset written out and *not* applied, because it cannot be; the pin bumped as a reviewed diff, three times |
+
+| **M7 (done)** | (beyond the spec) | the two open findings worked to the bottom rather than carried: `ck-015` measured across twenty-one ranking configurations and closed as a corpus fact rather than a scorer bug, with explain mode gaining the term evidence that proves it; and the declared `multilingual` gap closed upstream, enabled, and scored 1.0000 over all 26 items |
 
 Ordering rationale: explain mode (M2) before multilingual (M3) because it is the
 operator's debugging instrument — it makes every later milestone cheaper to verify.
@@ -553,10 +555,6 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   is advisory: it reports, it does not block. The exact ruleset is written out
   and committed at `.github/rulesets/main.json`; applying it needs admin
   rights on the repository and is nobody's decision but the maintainer's.
-- **The `multilingual` audit suite is not scored**, because the pinned harness
-  ships language profiles for English and Spanish only. The fix is a data
-  change in Plumbline, which Cairn consumes at a pin and cannot push to; it is
-  written out above, along with what enforces the gap staying visible.
 - **One known colloquial-recall failure**, `ck-015` — now closed as a
   finding rather than left as a to-do. The earlier diagnosis said the ranking
   was wrong. Measuring it disproved that: three passage-level ranking signals
@@ -870,48 +868,54 @@ GUARD: FAIL                                           (exit 1)
 Same exit code, different word, and the baseline file is untouched either
 way — the guard reports, a person decides.
 
-### The gap in the audit, and whose it is
+### The gap in the audit, closed upstream, and what closing it took
 
-One suite is **not scored**: `multilingual`. It identifies the language of a
-response from function-word profiles shipped in the harness, and the pinned
-harness ships profiles for English and Spanish only, while a third of Cairn's
-evidence is Arabic. The harness treats an item in a language it has no profile
-for as a configuration error rather than scoring it blind, which is correct:
+**Now closed.** All thirteen suites are scored. This section stays because the
+shape of the thing is worth keeping: it is a worked example of a consuming
+repository finding a real gap in its own auditor, being unable to fix it, and
+saying so loudly enough that it got fixed.
+
+`multilingual` identifies the language of a response and checks it against the
+language the question was asked in. The harness that was pinned at the time
+shipped function-word profiles for English and Spanish only, while a third of
+Cairn's evidence is Arabic — and it treated an item in an unprofiled language
+as a configuration error rather than scoring it blind, which was correct:
 scoring unreadable evidence is scoring nothing and calling it a pass. Dropping
-Cairn's Arabic evidence to make the suite runnable would be worse than not
-running it — it would hide the language the interface exists to prove it
-supports.
+Cairn's Arabic evidence to make the suite runnable would have been worse than
+not running it; it would have hidden the language the interface exists to
+prove it supports.
 
-**The fix belongs in Plumbline, not here, and it is small.**
-`LANGUAGE_PROFILES` in `src/plumbline/lexicons.py` is a dict of language code
-to a frozenset of function words; adding an `ar` entry is a data change, and
-`Judge.supported_languages` picks it up with no other edit. Two things whoever
-makes it should check, both learned here the hard way: the profile words must
-survive the harness's own normalization, whose punctuation class is
-`[^\w\s]`, and Python's `\w` excludes Arabic nonspacing marks — a diacritic in
-a response is replaced by a space and splits the word around it, so the
-profile should hold undiacriticized forms; and the words picked must not
-appear in the Spanish or English profiles, since the detector resolves a tie
-by returning "undetermined", which the suite counts as a failure.
+So the suite was disabled, with `gap` and `fix_belongs_in` declared as data
+the guard prints on every run, and this section named the fix precisely:
+`LANGUAGE_PROFILES` in `src/plumbline/lexicons.py`, plus two traps — profile
+words must survive the harness's own normalization (whose punctuation class
+excludes Arabic nonspacing marks, so a diacritic is replaced by a space and
+splits the word around it), and they must not collide with the English or
+Spanish profiles, because the detector resolves a tie as "undetermined" and
+the suite counts that as a failure.
 
-Cairn cannot make that change: it consumes Plumbline at a pin and pushes
-nothing to it. What Cairn can do is refuse to let the gap look like coverage,
-and that is enforced rather than promised:
+Plumbline's answer was better than the one requested, and both traps were the
+reason: rather than an Arabic word list, it now recognises Arabic **by
+script** — a set of Unicode ranges, majority of letters wins — and lets a
+target declare its own languages by script or by word list. A script range
+cannot be shredded by normalization and cannot tie with English. Cairn needed
+no configuration at all: bumping the pin and setting `enabled = true` scored
+the suite 1.0000 over all 26 items, Arabic included.
 
-- `plumbline/target.toml` carries `gap` and `fix_belongs_in` on the disabled
-  suite (Cairn's keys; the harness never reads a disabled suite's table).
-- `audit_guard.py` fails if any disabled suite lacks them, and prints every
-  declared gap beside the gate's result — in the terminal and in the CI job
-  summary, directly under the harness's "all 12 suites passed".
-- A test fails if this document or the README stops saying the suite is not
-  scored.
+What Cairn could and could not do here is the point. It consumes Plumbline at
+a pin and pushes nothing to it, so it could not make the change. What it could
+do was refuse to let the gap read as coverage, and that was enforced rather
+than promised — `gap` and `fix_belongs_in` required on any disabled suite by
+`audit_guard.py`, printed beside the gate's result in the terminal and the CI
+summary, and a test that failed if this document or the README stopped saying
+the suite was unscored. The mirror of that test now guards the other
+direction: with no gaps declared, neither document may still claim a suite is
+unscored. A closed gap that the docs still advertise is the same defect class
+as an open one they hide.
 
-What still covers the ground in the meantime: `tests/test_multilingual.py`
-asserts directly that a question is answered in the language it was asked in,
-and the `cross_language` suite still checks the Arabic answers against their
-English counterparts, since numeric agreement needs no language profile. That
-is a narrower claim than the suite would make, and this is the paragraph
-saying so.
+Both floors here are the harness's own documented defaults — `multilingual`
+0.95, as `refusal` is 0.90 — deliberately not numbers chosen to fit Cairn's
+scores. The committed baseline pins the measured 1.0000 as the actual bar.
 
 ### What the first audit found
 
@@ -925,14 +929,13 @@ because "we added a gate and it was green" is not a claim worth making.
 | A Spanish refusal read as an answer | It said it had no source but never said it could not help | All three refusals now say both halves |
 | An adversarial probe wrongly expected to be refused | The author's expectation, not the system's behavior | The question set was corrected |
 
-Two known limits are named rather than tuned away. `ck-015` ("who can get the
-discount bus pass") is refused: the colloquial phrasing shares too little
-vocabulary with "Harbor GoPass Reduced Fare Program" to clear the relevance
-threshold, and lowering the gate to catch it would push it into the off-topic
-score band. The other is the `multilingual` suite, which is not scored at all;
-that one has its own section above, because a gap in the instrument is a
-different kind of thing from a limit in the target.
-`plumbline/target.toml` carries both reasons in full.
+One known limit is named rather than tuned away: `ck-015` ("who can get the
+discount bus pass") is refused, because the eligibility passage shares exactly
+one word with that question and it is the question's weakest. Measured to the
+bottom in "The colloquial-recall failure" above; `plumbline/target.toml`
+carries the short version. The audit's other gap — the unscored `multilingual`
+suite — was a gap in the *instrument* rather than a limit in the target, and
+it is now closed upstream.
 
 ## Decisions where the specification was silent
 

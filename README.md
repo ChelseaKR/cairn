@@ -11,7 +11,7 @@ ingest with idempotent indexing, grounded answers with citations, refusal as a
 first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor.
-179 tests plus 49 browser behaviour checks, standard library only, offline.
+190 tests plus 49 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
@@ -73,11 +73,16 @@ $ python3 -m cairn ask --explain "What vaccinations does my dog need?"
 Threshold: 0.165 (retrieval.threshold)
 ...
 Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
+  question terms:      does, dog, need, vacci, what
+  in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+          matched 1/5: need
    ...
 Stage 1 - retrieval: FAILED (below-threshold)
   4 candidates were scored and none cleared the 0.165 threshold. The best,
-  grocery-allowance-en#3, scored 0.069 and was short by 0.096.
+  grocery-allowance-en#3, scored 0.069 and was short by 0.096 on 1 of 5
+  question terms (need). No passage searched contained does, dog, vacci —
+  that part of the question is a corpus coverage gap, not a threshold setting.
 Stage 2 - answer: NOT REACHED (no-evidence)
   The answer stage was handed no passages, so it refused. ...
 
@@ -88,8 +93,11 @@ Diagnose at: retrieval.
 The point is the last line. A wrong answer whose retrieval stage passed is a
 different bug from one whose retrieval stage failed, and the trace says which
 you have — including the case where the right passage cleared the threshold and
-was then dropped from the answer by `retrieval.max_passages`. Add `--json` for
-the same trace machine-readably. Explain mode never changes the answer.
+was then dropped from the answer by `retrieval.max_passages`. The term lines
+say *why* a score is what it is: which of the question's words each passage
+actually held, which the corpus has never seen (a coverage gap), and which
+were suppressed as too common (a scorer decision). Add `--json` for the same
+trace machine-readably. Explain mode never changes the answer.
 
 ## Three languages, one of them right to left
 
@@ -201,14 +209,12 @@ a separate project, pinned to an exact commit in
 ```console
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 5a311a90d16e, run 82e875d65ae28496
-all 12 suites passed:
+GATE: PASS — target cairn-demo, dataset 5a311a90d16e, run d4539f8fb183439e
+all 13 suites passed:
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
-GUARD: PASS — cairn-demo, run 82e875d65ae28496, against baseline cddd080004a9619e
-declared gaps (1 suite not scored at all):
-  multilingual: the pinned harness ships language profiles for en and es only,
-  and a third of Cairn's evidence is Arabic
+GUARD: PASS — cairn-demo, run d4539f8fb183439e, against baseline b40d38c6b16d4118
+declared gaps: none — every implemented suite is enabled.
 no suite moved against the committed baseline.
 ```
 
@@ -257,17 +263,21 @@ mean the same thing — and a person decides, in a commit, whether the better
 number becomes the new bar. Nothing here ratchets by itself in either
 direction, and a test pins that the guard never writes to the baseline.
 
-**One suite is not scored, and the gate will not let that read as coverage.**
-`multilingual` checks that a response came back in the language it was asked
-in; the pinned harness ships language profiles for English and Spanish only,
-and a third of Cairn's evidence is Arabic. The harness calls that a
-configuration error rather than scoring evidence it cannot read, which is
-right, and dropping the Arabic to make the suite runnable would hide the
-language the interface exists to prove it supports. The fix is a small data
-change in Plumbline — Cairn consumes it at a pin and pushes nothing to it —
-written out in [DESIGN.md](DESIGN.md#the-gap-in-the-audit-and-whose-it-is).
-Until then the gap is declared in `plumbline/target.toml`, printed by the
-guard beside every gate result, and held there by a test.
+**A suite that was not scored, and now is.** `multilingual` checks that a
+response came back in the language it was asked in. It sat disabled because
+the harness pinned at the time recognised English and Spanish only, while a
+third of Cairn's evidence is Arabic — and it called an unrecognised language a
+configuration error rather than scoring evidence it could not read, which is
+right. Dropping the Arabic to make the suite runnable would have hidden the
+language the interface exists to prove it supports. Cairn consumes Plumbline
+at a pin and pushes nothing to it, so all Cairn could do was refuse to let the
+gap read as coverage: declared in `plumbline/target.toml`, printed by the
+guard beside every gate result, held there by a test, and written out with the
+exact fix. Plumbline has since shipped Arabic recognition by script; bumping
+the pin and enabling the suite scored it 1.0000 across all 26 items. The story
+is kept in [DESIGN.md](DESIGN.md#the-gap-in-the-audit-closed-upstream-and-what-closing-it-took),
+because a consumer finding a real gap in its own auditor and saying so until
+it got fixed is the interlock working.
 
 ## License
 
