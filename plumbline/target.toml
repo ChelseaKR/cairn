@@ -113,3 +113,34 @@ floor = 1.0
 [suites.accessibility]
 enabled = true
 floor = 1.0
+
+# Enabled 2026-08-16, with the pin bumped to the commit that added the suite.
+#
+# The check no other suite can make: not "is the answer grounded" or "does the
+# citation resolve", but "did the answer come from the paragraph that answers
+# the question". Cairn reported the gap upstream with `ck-022` as the worked
+# case, and Plumbline built the suite; the evidence side of it is
+# `answering_sources` in plumbline/questions.toml, authored per item, because
+# only a person who has read the question and the corpus can say which passage
+# answers it.
+#
+# Measured 0.9375 over 16 scored items, and the one failure is ck-022 — the
+# answer composed from the housing document's deadline paragraph, which every
+# other suite passes because it is grounded, correctly cited, and genuinely
+# supported by the passage it points at. The suite also names it as a
+# retrieval failure rather than a composition one: the $3,500 passage was
+# never accepted, so composition never had it.
+#
+# The floor is NOT the harness's default of 0.95, which sits above the
+# measurement and would be red on the day it landed. 0.90 is one known wrong
+# paragraph out of sixteen with margin, and a second one takes the score to
+# 0.8750 and the gate to red. The committed baseline pins 0.9375 as the actual
+# bar, so ck-022 being fixed is a reviewed diff too.
+#
+# Three items are UNVERIFIABLE (ck-002, ck-012, ck-014): retrieval accepted
+# exactly one passage for each, so there was no wrong paragraph to answer
+# from. They are excluded from the score and never counted as passes, and
+# audit_guard.py prints the coverage line beside the verdict.
+[suites.passage_attribution]
+enabled = true
+floor = 0.90

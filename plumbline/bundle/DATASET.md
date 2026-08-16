@@ -30,8 +30,8 @@ trace that says so.
 
 | File | What it is |
 | --- | --- |
-| `items.jsonl` | The authored questions, plus the passage ids retrieval |
-| | actually returned for each |
+| `items.jsonl` | The authored questions — including which passage answers |
+| | each one — plus every passage retrieval accepted for it |
 | `responses.jsonl` | What the engine replied, with the sources it cited |
 | | marked inline |
 | `sources.jsonl` | Every passage in the corpus, so a citation to something |

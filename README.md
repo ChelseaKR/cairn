@@ -10,8 +10,10 @@ verified trail; where there are no stones, there is no trail.
 ingest with idempotent indexing, grounded answers with citations, refusal as a
 first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
-interface, and a fail-closed CI audit gate against a pinned external auditor.
-192 tests plus 49 browser behaviour checks, standard library only, offline.
+interface, and a fail-closed CI audit gate against a pinned external auditor —
+run against the committed evidence and, separately, against the running
+server. 244 tests plus 49 browser behaviour checks, standard library only,
+offline.
 This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
@@ -209,12 +211,17 @@ a separate project, pinned to an exact commit in
 ```console
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 5a311a90d16e, run d4539f8fb183439e
-all 13 suites passed:
+GATE: PASS — target cairn-demo, dataset 3222a8849261, run 958f5afdafd68ccb
+all 14 suites passed:
+  ...
+  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  3 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
-GUARD: PASS — cairn-demo, run d4539f8fb183439e, against baseline b40d38c6b16d4118
+GUARD: PASS — cairn-demo, run 958f5afdafd68ccb, against baseline 123b2569cb8a46ba
 declared gaps: none — every implemented suite is enabled.
+suites that could not check everything they were handed:
+  passage_attribution: scored 16 of 19 eligible (no_distractor 3); unverifiable
+  items are excluded, never passed
 no suite moved against the committed baseline.
 ```
 
@@ -278,6 +285,22 @@ the pin and enabling the suite scored it 1.0000 across all 26 items. The story
 is kept in [DESIGN.md](DESIGN.md#the-gap-in-the-audit-closed-upstream-and-what-closing-it-took),
 because a consumer finding a real gap in its own auditor and saying so until
 it got fixed is the interlock working.
+
+**And a second gap, the same way.** One item, `ck-022`, is answered from the
+housing document's *deadline* paragraph instead of the one with the amount in
+it — and thirteen suites passed it, each of them correctly. The answer is
+grounded, in a real passage; the citation resolves; the cited passage supports
+the answer completely, because that is where the answer came from. Nothing
+could say **right document, wrong paragraph**. Cairn wrote the case up, named
+what a suite would need, and Plumbline built `passage_attribution`. The
+evidence side of it is authored: `plumbline/questions.toml` now declares which
+passage answers each question, because only a person who has read the question
+and the corpus can say that, and `cairn record` refuses a question set where
+an answer item does not. The suite scores 0.9375 over 16 items and fails
+`ck-022` by name — and is more precise than the write-up was, reporting it as
+a *retrieval* failure, because the right passage never cleared the threshold
+for composition to choose it. The behaviour has not changed; it is scored now
+instead of only documented.
 
 ## Grading the server, not a recording of it
 

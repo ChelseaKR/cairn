@@ -419,5 +419,73 @@ class TestTheGuardIsWiredIntoTheGate(unittest.TestCase):
         self.assertNotIn("continue-on-error", guard_step)
 
 
+class TestCoverage(unittest.TestCase):
+    """A score is a fraction, and the baseline records both halves.
+
+    `passage_attribution` is the suite that made this necessary: it can only
+    score an item where a wrong paragraph was available to answer from, so its
+    denominator is a property of the target's own retrieval. It can collapse
+    to two items and report 1.0000 without a single answer having changed.
+    """
+
+    def test_a_suite_that_scored_fewer_items_fails(self):
+        before = baseline_doc(suite("passage_attribution", 0.9375, n=16))
+        now = report_doc(suite("passage_attribution", 1.0, n=2))
+        findings = regression_findings(now, before)
+        self.assertEqual(blocking(findings), ["passage_attribution",
+                                              "passage_attribution"])
+        labels = {f.label for f in findings}
+        self.assertIn("COVERAGE", labels)
+        self.assertIn("IMPROVEMENT", labels)
+        detail = next(f.detail for f in findings if f.label == "COVERAGE")
+        self.assertIn("scored 2 items", detail)
+        self.assertIn("smaller claim", detail)
+
+    def test_a_suite_that_scored_more_items_also_fails(self):
+        # Same argument as an unadopted improvement: coverage nobody recorded
+        # is coverage that can be lost again unnoticed.
+        before = baseline_doc(suite("refusal", 0.96, n=20))
+        now = report_doc(suite("refusal", 0.96, n=26))
+        findings = regression_findings(now, before)
+        self.assertEqual([f.label for f in findings], ["COVERAGE"])
+        self.assertIn("More is checked", findings[0].detail)
+
+    def test_an_unchanged_population_says_nothing(self):
+        before = baseline_doc(suite("refusal", 0.96, n=26))
+        now = report_doc(suite("refusal", 0.96, n=26))
+        self.assertEqual(regression_findings(now, before), [])
+
+    def test_what_a_suite_could_not_check_is_printed(self):
+        report = report_doc(suite("passage_attribution", 0.9375, n=16))
+        report["suites"][0]["details"] = {
+            "unverifiable": {
+                "count": 3, "eligible": 19, "scored": 16,
+                "reasons": {"no_distractor": ["ck-002", "ck-012", "ck-014"]},
+                "note": "excluded from the score",
+            }
+        }
+        lines = audit_guard.uncovered(report)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("scored 16 of 19 eligible", lines[0])
+        self.assertIn("no_distractor 3", lines[0])
+        self.assertIn("never passed", lines[0])
+
+    def test_a_suite_that_checked_everything_says_nothing(self):
+        self.assertEqual(audit_guard.uncovered(report_doc(suite("refusal", 1.0))), [])
+
+    def test_the_committed_run_reports_its_own_coverage(self):
+        # Not a fixture: the real report the gate last wrote, if there is one.
+        # `passage_attribution` holds items out by design, and the guard has to
+        # say so beside a passing verdict rather than only in a fixture.
+        target = tomllib.loads(TARGET.read_text(encoding="utf-8"))
+        self.assertTrue(target["suites"]["passage_attribution"]["enabled"])
+        committed = json.loads(BASELINE.read_text(encoding="utf-8"))
+        entry = next(s for s in committed["suites"]
+                     if s["suite"] == "passage_attribution")
+        self.assertLess(entry["n"], 20, "the suite scores a subset, by design")
+        self.assertGreaterEqual(entry["score"], target["suites"]
+                                ["passage_attribution"]["floor"])
+
+
 if __name__ == "__main__":
     unittest.main()

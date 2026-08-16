@@ -210,13 +210,16 @@ model (short plain-language passages) does not exercise that advantage.
   Not tuned away, for the same reason as the first hard case: the fix would be
   a stopword list, which this tokenizer exists to do without, or a corpus large
   enough for document frequency to work, which is not what a demo corpus is.
-  What is worth saying plainly is that **the audit passes this item.** The
-  adversarial suite checks that the planted `$10,000` is not repeated, and it
-  is not; the accuracy suite prices the missing fact into a pooled mean. Both
-  are working as designed, and neither says "you answered from the wrong
-  paragraph". A green audit is a floor on quality, not a description of it —
-  which is the argument for `audit_guard.py` in the first place, and it applies
-  to the auditor's own verdict too.
+
+  For one milestone the thing worth saying plainly was that **the audit passed
+  this item.** The adversarial suite checks that the planted `$10,000` is not
+  repeated, and it is not; the accuracy suite prices the missing fact into a
+  pooled mean. Both were working as designed, and neither could say "you
+  answered from the wrong paragraph". That is no longer true: the harness has
+  gained `passage_attribution`, the item declares which passage answers it,
+  and the audit now fails this one item by name. See "The wrong-paragraph gap,
+  closed upstream" below. The behavior is unchanged and still visible; what
+  changed is that the gate can see it too.
 - **Known limitation:** cross-language fallback is lexical, so it can only fire
   where the question shares vocabulary with the other language's passages — in
   practice, between languages in the same script. An Arabic question about an
@@ -576,6 +579,8 @@ went the way it did; what is still open is listed under it.
 
 | **M7 (done)** | (beyond the spec) | the two open findings worked to the bottom rather than carried: `ck-015` measured across twenty-one ranking configurations and closed as a corpus fact rather than a scorer bug, with explain mode gaining the term evidence that proves it; and the declared `multilingual` gap closed upstream, enabled, and scored 1.0000 over all 26 items |
 
+| **M8 (done)** | (beyond the spec) | the audit grades the running engine, not only a recording of it: `./plumbline-live.sh` drives `cairn serve` with the pinned harness's HTTP recorder and `live_check.py` compares the sealed evidence to the committed bundle byte for byte — which immediately found that the served interface could not produce the string the audit grades. And the second gap this repository found in its own auditor closed upstream: `passage_attribution` now fails `ck-022` by name, on authored `answering_sources`, at 0.9375 over 16 items |
+
 Ordering rationale: explain mode (M2) before multilingual (M3) because it is the
 operator's debugging instrument — it makes every later milestone cheaper to verify.
 It earned that: every retrieval bug the multilingual work exposed was found by
@@ -607,16 +612,18 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   and names what moved. **Still open** in one honest sense: a person asking in
   their own words gets a refusal, and the fix for that is a corpus a plain
   reader recognizes, not a scorer.
-- **Two wrong-paragraph cases the audit passes**, `ck-014`/`max_passages` and
-  `ck-022`, both written up under "Retrieval" with their term evidence. Named
-  here rather than only there because of what they say about the gate: the
-  suites that grade these items are working as designed and neither of them
-  can say "right document, wrong paragraph". A green audit is a floor on
-  quality, not a description of it. Both are artifacts of scoring a
-  ten-document corpus, and the fixes available — a stopword list, a bigger
-  corpus — are respectively against this tokenizer's whole design and not what
-  a demo corpus is. They stay visible instead: explain mode's term evidence
-  names the deciding word in one line, and each has a test.
+- **One wrong-paragraph case, `ck-022`** — no longer a case the audit passes.
+  It is written up under "Retrieval" with its term evidence, and the audit now
+  fails it by name in `passage_attribution` (see "The wrong-paragraph gap,
+  closed upstream"). **Still open** in the sense that matters: the behavior
+  has not changed. An answer about the housing grant's amount still comes back
+  from the deadline paragraph, and the two fixes available are a stopword
+  list, which this tokenizer exists to do without, and a corpus large enough
+  for document frequency to work, which is not what a demo corpus is. What
+  changed is that it is now scored rather than only documented: the floor sits
+  at 0.90 with one known failure out of sixteen, so a second one turns the
+  gate red, and the committed baseline pins 0.9375 so fixing this one is a
+  reviewed diff too.
 - **Cross-language fallback cannot cross scripts.** Lexical retrieval has no
   way to match an Arabic question to an English document, so those refuse.
   The one bridge that does not need translation or embeddings would be to let
@@ -911,6 +918,7 @@ the report the gate just wrote, and fails the build on:
 | a floor lowered since the baseline | moving the bar down is how a red gate goes green with nothing fixed |
 | a suite in the baseline that this run did not score | a suite that stopped running is a check that stopped checking |
 | a suite disabled without a declared `gap` and `fix_belongs_in` | the gate's output lists what ran and says nothing about what did not |
+| a suite whose scored population changed size | a score is a fraction and the baseline records both halves; a perfect score over four items nobody noticed shrinking is not a check |
 | no baseline compared, or a different one | the gate and the guard have to be holding the same bar |
 
 Three decisions inside it are worth stating, because each one is a place where
@@ -1051,6 +1059,86 @@ as an open one they hide.
 Both floors here are the harness's own documented defaults — `multilingual`
 0.95, as `refusal` is 0.90 — deliberately not numbers chosen to fit Cairn's
 scores. The committed baseline pins the measured 1.0000 as the actual bar.
+
+### The wrong-paragraph gap, closed upstream
+
+The second time this repository found a hole in its own auditor, and the
+second time saying so was the whole contribution.
+
+`ck-022` is answered from the housing document's *deadline* paragraph instead
+of the one holding the $3,500 cap. Every suite passed it, and each of them was
+right to: the answer **is** grounded, in a real passage; the citation **does**
+resolve; the cited passage **does** support the answer completely, because
+that is where the answer came from — `citation_accuracy` is strongest exactly
+where this defect is worst. `accuracy` saw one item's token overlap fall into
+a pooled mean, which is "less similar to the reference than average", not
+"wrong paragraph". Thirteen green ticks, and the answer was about deadlines.
+
+Cairn could not fix that: it consumes Plumbline at a pin and pushes nothing to
+it. What it could do was write the case down precisely — what the defect looks
+like, why each suite passes it, and what a suite would need in order to see
+it — and refuse to let a green audit read as a description of quality while it
+stood. Plumbline built `passage_attribution`.
+
+**What the harness needed from the evidence, and what it cost here.** The
+suite cannot infer which passage answers a question; a lexical judge can
+compare passages but cannot read a question, and guessing from the reference
+answer would have it grading answers against an expectation it invented. So an
+item declares `answering_sources`, and two things followed on this side:
+
+- **`plumbline/questions.toml` gained an authored `answering_sources` per
+  answer item**, and `cairn record` refuses a question set where an answer
+  item does not have one. An undeclared item is reported unverifiable rather
+  than passed, which is correct of the harness and useless as coverage — a
+  question set full of unverifiable items is a check that is not running.
+- **The recorded `sources` are now every passage retrieval *accepted*, not
+  only the ones composition quoted.** This is the change worth arguing about.
+  The suite asks which of the passages an item *had* best accounts for its
+  answer; with `max_passages = 1`, recording only the quoted passage means
+  every item had exactly one, and the question is unanswerable by
+  construction. Accepted candidates are what composition chose from, which is
+  also what the bundle format's field means ("source ids retrieved for this
+  item"). Measured against the full probe set, nothing else moved: all
+  thirteen previously scored suites came back identical to four decimals, and
+  `groundedness` — the one suite whose input genuinely grew, since it scores
+  support against the union of an item's sources — stayed at 1.0000.
+
+**The measurement.** `passage_attribution` scores **0.9375 over 16 items**,
+with one failure:
+
+```
+passage_attribution   score 0.9375  floor 0.90  PASS  n=16  3 unverifiable
+  misattributed: ck-022
+  answering_passage_not_available: ck-022
+```
+
+The second line is the suite being more precise than the write-up above was.
+`housing-relief-en#2` was never accepted at all, so this is a **retrieval**
+failure rather than a composition one — composition never had the right
+passage to choose. Those need different fixes, and a report that called both
+"wrong paragraph" would send someone to read the wrong module.
+
+Three items are UNVERIFIABLE: `ck-002`, `ck-012` and `ck-014` each accepted
+exactly one passage, so there was no wrong paragraph they could have come
+from. They are excluded from the score and never counted as passes.
+
+**The floor is 0.90, not the harness's default of 0.95.** 0.95 sits above the
+measurement and would be red on the day it landed, which is a floor that says
+nothing about the system and only about the person who set it. 0.90 is one
+known wrong paragraph out of sixteen with margin; a second takes the score to
+0.8750 and the gate to red. The committed baseline pins 0.9375 as the real
+bar, in both directions, so `ck-022` being fixed is a reviewed diff as much as
+a new failure would be.
+
+**And the guard learned to read a denominator.** This suite's population is a
+property of the target's own retrieval: it can only score an item where a
+wrong paragraph was available. If retrieval narrowed to one candidate
+everywhere, the suite would score 1.0000 over two items and every one of the
+other fourteen would vanish without an answer changing. So `audit_guard.py`
+now fails on a suite whose `n` moved against the baseline, in either
+direction, and prints the harness's unverifiable block beside the verdict. A
+perfect score over a population nobody was watching is the same defect class
+as a suite that stopped running.
 
 ### What the first audit found
 

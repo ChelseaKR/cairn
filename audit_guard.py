@@ -335,6 +335,35 @@ def regression_findings(report: dict, baseline: dict) -> list[Finding]:
                     ),
                 )
             )
+        if current.get("n") != previous.get("n"):
+            # A score is a fraction, and the baseline records both halves. A
+            # suite that quietly stopped being able to check most of its
+            # population reports a perfect score over what is left, and reads
+            # exactly like a suite that checked everything. `passage_attribution`
+            # is the live example: it scores only the items where a wrong
+            # paragraph was available to answer from, so its denominator is a
+            # property of the target's own retrieval and can collapse without
+            # a single answer getting worse.
+            fewer = (current.get("n") or 0) < (previous.get("n") or 0)
+            findings.append(
+                Finding(
+                    blocking=True,
+                    subject=suite_id,
+                    detail=(
+                        f"scored {current.get('n')} items, and the baseline "
+                        f"recorded {previous.get('n')}. "
+                        + (
+                            "A score over a smaller population is a smaller "
+                            "claim, whatever the number says."
+                            if fewer else
+                            "More is checked than the record admits; adopt it, "
+                            "or the extra coverage can be lost later without "
+                            "this check noticing."
+                        )
+                    ),
+                    label="COVERAGE",
+                )
+            )
         if previous["verdict"] == "PASS" and current["verdict"] != "PASS":
             findings.append(
                 Finding(
@@ -349,6 +378,29 @@ def regression_findings(report: dict, baseline: dict) -> list[Finding]:
 def assess(report: dict, baseline: dict, target: dict) -> tuple[list[dict], list[Finding]]:
     gaps, gap_findings = declared_gaps(target)
     return gaps, gap_findings + regression_findings(report, baseline)
+
+
+def uncovered(report: dict) -> list[str]:
+    """Per suite: how much of its own population it could not check.
+
+    A declared gap is a suite that did not run. This is the quieter cousin —
+    a suite that ran and scored a fraction of what it was handed. The harness
+    reports it per suite; the guard repeats it beside the verdict so that
+    "13 suites passed" is never read as "everything was checked".
+    """
+    lines = []
+    for suite in report.get("suites", []):
+        block = (suite.get("details") or {}).get("unverifiable") or {}
+        if not block.get("count"):
+            continue
+        reasons = ", ".join(
+            f"{reason} {len(ids)}" for reason, ids in sorted(block["reasons"].items())
+        )
+        lines.append(
+            f"  {suite['suite']}: scored {block['scored']} of {block['eligible']} "
+            f"eligible ({reasons}); unverifiable items are excluded, never passed"
+        )
+    return lines
 
 
 def render_terminal(
@@ -377,6 +429,10 @@ def render_terminal(
             lines.append(f"    the fix belongs in: {gap['fix_belongs_in']}")
     else:
         lines.append("declared gaps: none — every implemented suite is enabled.")
+    partial = uncovered(report)
+    if partial:
+        lines.append("suites that could not check everything they were handed:")
+        lines += partial
     if findings:
         for finding in findings:
             mark = finding.label if finding.blocking else "note"
@@ -416,6 +472,11 @@ def render_markdown(
         lines.append("")
     else:
         lines += ["Every implemented suite is enabled.", ""]
+    partial = uncovered(report)
+    if partial:
+        lines += ["Suites that could not check everything they were handed:", ""]
+        lines += [line.strip() and f"- {line.strip()}" for line in partial]
+        lines.append("")
     if findings:
         lines += ["| | Suite | Finding |", "|---|---|---|"]
         for finding in findings:

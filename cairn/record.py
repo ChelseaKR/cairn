@@ -20,9 +20,18 @@ harness; the harness's job is to verify, and if Cairn computed a checksum
 wrongly the audit refuses to score rather than passing quietly.
 
 **The questions are authored; everything else is measured.** ``questions.toml``
-holds what a person decided to ask and what a correct answer would say. Which
-passages were retrieved, what the system replied, and what the interface looks
-like are all recorded from the running system.
+holds what a person decided to ask, what a correct answer would say, and which
+passage answers it — that last one is ground truth only a reader of the corpus
+can supply, and it is what lets the audit tell "the right document" from "the
+right paragraph of it". Which passages were retrieved, what the system
+replied, and what the interface looks like are all recorded from the running
+system.
+
+An item's recorded ``sources`` are every passage retrieval **accepted**, not
+only the ones composition quoted. Those are the passages the answer could have
+been built from, which is what makes "it was built from the wrong one" a
+question with an answer; recording only the quoted passage makes every item
+trivially attributed to the one thing it had.
 """
 
 from __future__ import annotations
@@ -74,6 +83,10 @@ AUTHORED_FIELDS = (
     "adversarial",
     "forbidden",
     "translation",
+    # Which passage answers the question. Authored ground truth, and the only
+    # thing that lets the audit distinguish "answered from the right document"
+    # from "answered from the right paragraph of it".
+    "answering_sources",
 )
 
 
@@ -113,6 +126,21 @@ def load_questions(path: str | Path) -> list[dict]:
         if question["id"] in seen:
             raise RecordError(f"{file}: duplicate item id {question['id']!r}")
         seen.add(question["id"])
+        declared = question.get("answering_sources")
+        if question["behavior"] == "answer" and not declared:
+            raise RecordError(
+                f"{file}: item {question['id']} expects an answer but does not "
+                f"declare answering_sources. Only the question set can say "
+                f"which passage answers a question, and an item that does not "
+                f"say is reported unverifiable — a question set full of those "
+                f"is a check that is not running."
+            )
+        if question["behavior"] == "refuse" and declared:
+            raise RecordError(
+                f"{file}: item {question['id']} expects a refusal and declares "
+                f"answering_sources. Nothing answers a question that should "
+                f"not be answered."
+            )
     return questions
 
 
@@ -209,8 +237,8 @@ trace that says so.
 
 | File | What it is |
 | --- | --- |
-| `items.jsonl` | The authored questions, plus the passage ids retrieval |
-| | actually returned for each |
+| `items.jsonl` | The authored questions — including which passage answers |
+| | each one — plus every passage retrieval accepted for it |
 | `responses.jsonl` | What the engine replied, with the sources it cited |
 | | marked inline |
 | `sources.jsonl` | Every passage in the corpus, so a citation to something |
@@ -270,7 +298,10 @@ def record(
         for field in AUTHORED_FIELDS:
             if question.get(field) not in (None, [], {}):
                 item[field] = question[field]
-        item["sources"] = [source_id(source.source_id) for source in answer.sources]
+        item["sources"] = [
+            source_id(candidate.passage.passage_id)
+            for candidate in answer.trace.accepted
+        ]
         items.append(item)
         responses.append({"id": question["id"], "response": answer.cited_text})
 

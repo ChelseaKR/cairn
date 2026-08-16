@@ -257,14 +257,25 @@ Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbl
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
 GATE: PASS — target cairn-demo, dataset ..., run ...
-all 13 suites passed:
+all 14 suites passed:
+  ...
+  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  3 unverifiable
   ...
 
 $ python3 audit_guard.py             # the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline ...
 declared gaps: none — every implemented suite is enabled.
+suites that could not check everything they were handed:
+  passage_attribution: scored 16 of 19 eligible (no_distractor 3); ...
 no suite moved against the committed baseline.
 ```
+
+`passage_attribution` is the suite that can say **right document, wrong
+paragraph**, and 0.9375 is one item failing it: `ck-022` is answered from the
+housing document's deadline paragraph instead of the one with the amount in
+it. Every other suite passes that item, correctly — the answer is grounded,
+cited, and supported by the passage it points at. See
+[DESIGN.md](../DESIGN.md#the-wrong-paragraph-gap-closed-upstream).
 
 This one needs the network the first time, to fetch the pinned harness. It is
 the only part of this page that does.
@@ -293,6 +304,32 @@ either direction** — a fall is a regression, a rise is an improvement nobody
 recorded, and an unrecorded improvement leaves the bar low enough for a later
 change to give the whole thing back unnoticed. It never edits the baseline
 itself: both directions stop and hand a person the decision.
+
+## 10. Grade the server instead of the recording
+
+Everything above grades `plumbline/bundle`, which `cairn record` wrote by
+calling the engine in process. A bundle is bytes on disk and the server is
+code that changes, so the same questions also get asked over HTTP:
+
+```text
+$ ./plumbline-live.sh
+PLUMBLINE LIVE: serving cairn on 127.0.0.1:8766
+recorded:  26 responses
+verdict: PASS
+LIVE: MATCH — http://127.0.0.1:8766/ask, recorded ...
+  26 answers over HTTP, byte-identical to the recorded evidence the gate grades.
+  the audited interface snapshot is the page being served.
+```
+
+It starts the server, has the pinned harness's HTTP recorder seal what comes
+back, audits that bundle against the same floors, and then compares it to the
+committed evidence. Run `./plumbline-gate.sh` first: the live check
+deliberately cannot fetch the harness, only borrow the checkout the gate
+verified.
+
+This is an addition, not the gate. The gate stays offline and deterministic;
+`plumbline.pin` does not name the live config, and a run that needs a server
+to come up is not a run that can decide a merge.
 
 ## The dev path
 

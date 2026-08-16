@@ -1,12 +1,12 @@
 {
   "format": "plumbline-baseline",
   "format_version": 3,
-  "source_run_id": "c7a6cc3bfe92ff40",
+  "source_run_id": "123b2569cb8a46ba",
   "harness_version": "0.1.0.dev0",
   "harness_source_sha256": "a5db22ec55a26e830b27145019dd9aec12da2195d13facf80695436312bc9c10",
   "seed": 1729,
-  "dataset_sha256": "5a311a90d16e626aa3637ed6cc5f538d7c93070ecfe0278192ae1a8fb0be7486",
-  "dataset_id": "5a311a90d16e",
+  "dataset_sha256": "3222a88492612bc6f283779d8d1616b9914e1a74355df993da412ad2df228bdb",
+  "dataset_id": "3222a8849261",
   "judge_config_sha256": "23c0fd04690d804cfa662492e26d9ca4f015eedd3e56e9b0f1cde239e169d423",
   "judge_kind": "lexical",
   "judge_deterministic": true,
@@ -75,6 +75,13 @@
       "floor": 0.95,
       "verdict": "PASS",
       "n": 26
+    },
+    {
+      "suite": "passage_attribution",
+      "score": 0.9375,
+      "floor": 0.9,
+      "verdict": "PASS",
+      "n": 16
     },
     {
       "suite": "privacy",

@@ -129,6 +129,10 @@ floor = 1.0
 enabled = true
 floor = 1.0
 
+[suites.passage_attribution]
+enabled = true
+floor = 0.90
+
 # Scored against the interface snapshot carried over from the question set,
 # because the recorder replaces answers and nothing else. So this suite alone
 # is still grading a recording — which is exactly why live_check.py fetches
