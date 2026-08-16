@@ -44,6 +44,9 @@
           },
           {
             "context": "interface (accessibility behaviours in Chromium)"
+          },
+          {
+            "context": "live (the served interface, graded by the pinned harness)"
           }
         ]
       }

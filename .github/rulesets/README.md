@@ -47,7 +47,7 @@ with a failing `audit` job cannot be merged. Open one and try.
 
 | Rule | Effect | Cost |
 |---|---|---|
-| `required_status_checks` | The four CI checks must pass on the head commit before a merge. `strict_required_status_checks_policy` also requires the branch to be up to date with `main`, so a check cannot pass against a stale base. | A required check that stops reporting blocks every merge until the ruleset is edited. That is fail-closed, and it is the right direction, but it is a real cost: renaming a CI job silently breaks merges. `tests/test_rulesets.py` fails when the job names in the workflow and the contexts here drift apart, which is the warning you get before that happens. |
+| `required_status_checks` | The five CI checks must pass on the head commit before a merge. `strict_required_status_checks_policy` also requires the branch to be up to date with `main`, so a check cannot pass against a stale base. | A required check that stops reporting blocks every merge until the ruleset is edited. That is fail-closed, and it is the right direction, but it is a real cost: renaming a CI job silently breaks merges. `tests/test_rulesets.py` fails when the job names in the workflow and the contexts here drift apart, which is the warning you get before that happens. |
 | `pull_request` | Changes reach `main` through a pull request. Required status checks are evaluated on the merge; this is what makes them a gate rather than a decoration. | **Direct pushes to `main` stop working.** This repository's history is a build-in-public record of small direct commits, and applying this ends that style. That is a deliberate trade and it is the maintainer's to make. |
 | `deletion`, `non_fast_forward` | `main` cannot be deleted or force-pushed. | None worth the words. A rewritten history is a destroyed audit record. |
 
@@ -61,7 +61,7 @@ rather than a decision.
 skip the gate to the one person most likely to be in a hurry at 2am, and a gate
 with a bypass list is a gate that reports to people who are not using it.
 
-## The four contexts, and why they are spelled like that
+## The five contexts, and why they are spelled like that
 
 A required status check is matched by the **name of the check run**, which for
 GitHub Actions is the job's `name:` — with the matrix values appended in
@@ -75,3 +75,12 @@ gh api repos/ChelseaKR/cairn/commits/main/check-runs --jq '.check_runs[].name'
 They contain em dashes, because the job names do. Copy them exactly; a context
 that matches no check is a rule that never fires, and a rule that never fires
 looks exactly like a rule that passes.
+
+`live` is the newest of them, and it is required for the same reason the
+others are, not because it is the gate. The gate is `audit`: offline,
+deterministic, grading the committed evidence. `live` asks the same questions
+of a running server and fails when the answers differ from the ones the gate
+graded. A difference there means the merge gate is describing something other
+than what a user meets, which is not a thing to merge past — but it is also
+not the gate's own verdict, and `audit` neither waits on this job nor can be
+made green by it.

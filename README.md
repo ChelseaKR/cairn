@@ -279,6 +279,42 @@ is kept in [DESIGN.md](DESIGN.md#the-gap-in-the-audit-closed-upstream-and-what-c
 because a consumer finding a real gap in its own auditor and saying so until
 it got fixed is the interlock working.
 
+## Grading the server, not a recording of it
+
+Everything above grades a bundle. A bundle is bytes on disk; the thing it is a
+recording of is code that changes. So the same questions also get asked over
+HTTP, against a running `cairn serve`, by the pinned harness's own live-target
+recorder:
+
+```console
+$ ./plumbline-gate.sh           # resolves the harness; the only thing that does
+$ ./plumbline-live.sh
+PLUMBLINE LIVE: serving cairn on 127.0.0.1:8766
+recorded:  26 responses
+verdict: PASS
+LIVE: MATCH — http://127.0.0.1:8766/ask, recorded 2026-08-16T…
+  26 answers over HTTP, byte-identical to the recorded evidence the gate grades.
+  the audited interface snapshot is the page being served.
+```
+
+**Wiring it up found something on the first run.** Pointed at the served
+answer text, `citation_validity` scored 0.0000 — on a system the offline audit
+scores 1.0000. The inline citation markers existed only inside `cairn record`:
+`/ask` returned the sources as structured metadata and the answer text with
+none in it, so the audit's perfect citation score described a string no
+consumer of the served interface could get, and any plain-text client got an
+answer with no sources. `Answer.cited_text` is one definition of that shape
+now, used by the recorder and returned by the API. The bundle came out
+byte-identical; only who can produce it changed.
+
+**This is an addition, not the gate.** The merge gate stays `audit`: offline,
+deterministic, grading committed bytes, with no socket anywhere in it.
+`plumbline.pin` does not name the live config, `./plumbline-live.sh`
+deliberately cannot resolve the harness — it uses the checkout the gate
+verified, so grading a running server is never the act that installs its own
+auditor — and the drift check itself runs in the core test suite against a
+loopback server with no harness and no network at all.
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).

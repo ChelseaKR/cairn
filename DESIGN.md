@@ -742,16 +742,92 @@ The merge gate hands Cairn's own recorded answers to a separate project,
   the bar. Every score was identical.
 
   The harness also now offers an optional model-based judge and a live-target
-  recorder. Cairn uses neither: the judge stays `lexical` because a gate that
-  reaches the network is not a gate, and Cairn keeps writing its own bundle
-  because producing evidence must not require the thing that audits it.
-  Cairn's bundle declares no `recording` block — these answers came from the
-  engine in this repository, at this commit, not from a service somewhere.
+  recorder. The judge stays `lexical`, because a gate that reaches the network
+  is not a gate. The recorder is used, but never by the gate — see "Grading
+  the server, not a recording of it" below. The gate's evidence is still
+  written by Cairn, because producing evidence must not require the thing that
+  audits it, and the committed bundle declares no `recording` block: those
+  answers came from the engine in this repository, at this commit.
 - **`cairn record` produces the evidence.** The questions are authored; the
   answers, the retrieved passage ids, and the interface snapshot are recorded
   from the running engine. Cairn writes the bundle's checksums itself, because
   producing evidence must not require the thing that audits it — and if it got
   them wrong the audit would refuse to score rather than pass quietly.
+
+### Grading the server, not a recording of it
+
+Everything above grades `plumbline/bundle`. A bundle is bytes on disk, and the
+thing it is a recording *of* is code that changes. They agreed on the day
+`cairn record` wrote them, and nothing was checking that they still do — so
+every score this repository has ever published was a statement about the
+recording, and only an assumption about the interface a person meets.
+
+`./plumbline-live.sh` closes that. It starts `cairn serve`, has the pinned
+harness ask all 26 committed questions over HTTP with its `http_json` adapter
+and seal the answers into an evidence bundle, audits that bundle against the
+same suites and the same floors, and then compares it to the committed
+evidence with `live_check.py`.
+
+**What it found before it could report anything else.** Pointed at the served
+answer text, `citation_validity` scored **0.0000** — against a system the
+offline audit scores 1.0000 on. Nothing was wrong with the retrieval or the
+citing. The inline citation markers existed only inside `cairn record`, which
+appended them when writing the bundle; `/ask` returned the passages as
+structured metadata and the answer text with no citations in it at all. So the
+audit's perfect citation score described a string that no consumer of the
+served interface could obtain, and a plain-text client — a terminal, an SMS
+gateway, a transcript — got an answer with no sources in it, which is R2 not
+being met on the one channel that cannot render a sources list.
+
+The fix was to stop letting the recorder own that shape. `Answer.cited_text`
+is the definition now, in `cairn.answer` beside the answer it marks up; the
+recorder uses it and `to_payload` carries it. The bundle came out
+byte-identical, which is the point: the evidence did not change, only who can
+produce it. With that wired up, all thirteen suites score identically to four
+decimals over the socket and all 26 answers are byte-identical.
+
+**The four things the comparison checks**, each a different way "we graded the
+running server" could be false:
+
+| Check | Why it is not assumed |
+| --- | --- |
+| the manifest declares a live recording, by the HTTP adapter, against the endpoint the config names | otherwise the file is indistinguishable from a copy of the offline bundle |
+| the recording's question-set hash is the committed bundle's | two answer sets to two different question sets are not a comparison |
+| every answer matches byte for byte | not "scores similarly": same engine, same corpus, same question, over a socket instead of a function call |
+| the served page rebuilds into the audited interface snapshot | the recorder *copies* the snapshot across from the question set, so the accessibility suite is the one suite still grading a file, and this is what ties that score to the page |
+
+**It is not the gate, structurally rather than by convention.** The gate is
+`./plumbline-gate.sh` reading `plumbline.pin`: offline, deterministic,
+byte-reproducible. This grades a process that has to be running, over a
+socket, and stamps the moment into the evidence — a recording can never be
+byte-reproducible the way the committed bundle is, which is also why it is
+written outside the tree and not committed. Three things keep them apart, and
+each has a test:
+
+- `plumbline.pin` names `plumbline/target.toml`. Nothing the gate reads
+  mentions `plumbline/live.toml`, so the gate cannot acquire a socket by
+  configuration.
+- **`plumbline-live.sh` cannot resolve the harness.** It reads the pinned
+  commit and requires a checkout that already exists at it, and names
+  `./plumbline-gate.sh` when there is none. Resolution keeps exactly one
+  implementation — the runner vendored from Plumbline, unmodified — and a path
+  that grades a running server must never also be the path that installs the
+  thing doing the grading. It also means nothing can be graded live against a
+  harness the gate has not verified.
+- The `audit` job neither calls this script nor waits on the `live` job.
+
+**And the drift check does not need the harness at all.** `tests/test_live.py`
+posts every committed question to a real loopback server and requires the
+recorded bytes back — offline, in the core dev path, with no auditor. That is
+the layer that catches recorder-versus-server drift on every test run. What
+the `live` CI job adds is the harness *in the loop*: the evidence is sealed by
+the harness's own recorder, so what gets graded is what the harness saw rather
+than what Cairn says it would have seen.
+
+One honest limit: the live run cannot fetch the interface snapshot, because
+the recorder copies non-response files across unchanged and the HTTP adapter
+only POSTs questions. Comparing the served page to the snapshot is Cairn's
+own check, above, and it is a comparison rather than a re-recording.
 
 ### Why the gate fails rather than skipping
 
@@ -780,7 +856,7 @@ did not, and looked like it had.
 What a file *can* do, and now does:
 
 - `.github/rulesets/main.json` is the ruleset in full, committed, reviewable,
-  and **not applied**. It requires the four CI check runs (named exactly as
+  and **not applied**. It requires the five CI check runs (named exactly as
   GitHub names them, read off a real run rather than guessed), requires a pull
   request so there is a merge for them to gate, forbids deletion and
   force-push, and has an empty bypass list.

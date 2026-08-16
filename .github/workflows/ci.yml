@@ -1,6 +1,6 @@
 # Cairn CI.
 #
-# Three jobs, in deliberate order of dependency:
+# Four jobs, in deliberate order of dependency:
 #
 #   core       install, lint, test. Standard library only, no network needed,
 #              and no auditor: this is the path a contributor runs, and it
@@ -10,6 +10,10 @@
 #              recorded evidence, and then holds the result against the
 #              committed baseline — because a floor is a minimum and a score
 #              can decay a long way above one without breaching it.
+#   live       the same questions, asked over HTTP against a running server,
+#              and compared to the evidence the gate graded. Separate from
+#              `audit` on purpose: the gate must stay offline and
+#              deterministic, and nothing in this job can make it pass.
 #
 # `audit` is the job that must be marked required in branch protection, and it
 # is NOT. Until somebody with admin rights applies the ruleset committed at
@@ -175,4 +179,67 @@ jobs:
         with:
           name: audit-report
           path: plumbline/audits/
+          if-no-files-found: warn
+
+  # -------------------------------------------------------------------------
+  # The gate grades a recording. This grades the thing the recording is of.
+  #
+  # A bundle is bytes on disk; the server is code that changes. They agreed on
+  # the day `cairn record` wrote the bundle, and every audit report this
+  # repository publishes is a statement about the recording. Whether it is
+  # also a statement about the interface a person meets was an assumption
+  # until this job existed.
+  #
+  # It is deliberately NOT the gate, and the separation is structural rather
+  # than a convention:
+  #
+  #   - `plumbline.pin` names plumbline/target.toml. Nothing in the gate's
+  #     path reads plumbline/live.toml, so the gate cannot acquire a socket by
+  #     configuration.
+  #   - ./plumbline-live.sh cannot resolve the harness. It requires a checkout
+  #     the gate already fetched and verified, so a run against a live server
+  #     is never the act that installs the thing grading it.
+  #   - the `audit` job does not need this job and does not call this script;
+  #     tests/test_live.py fails if it ever does.
+  #
+  # The drift check itself does not need this job either — tests/test_live.py
+  # posts every committed question to a real loopback server in the core path,
+  # offline, with no harness. What this job adds is the harness in the loop:
+  # it is the harness's own HTTP recorder that seals the evidence, so what is
+  # graded is what the harness saw, not what Cairn says the harness would have
+  # seen.
+  # -------------------------------------------------------------------------
+  live:
+    name: live (the served interface, graded by the pinned harness)
+    runs-on: ubuntu-latest
+    needs: [core]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache the pinned harness
+        uses: actions/cache@v4
+        with:
+          path: .plumbline-cache
+          key: plumbline-${{ hashFiles('plumbline.pin') }}
+
+      # ./plumbline-gate.sh is the only thing in this repository that fetches
+      # the harness, and running it here is not a duplicate of the audit job's
+      # work by accident — it is the order the comparison needs. Asking
+      # whether the server matches the graded evidence is only a question
+      # worth answering while that evidence is passing.
+      - name: Resolve the harness, by running the gate that owns resolution
+        run: ./plumbline-gate.sh
+
+      - name: Grade the running server and compare it to the recording
+        run: ./plumbline-live.sh --summary-file "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the live report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-report
+          path: .plumbline-live/audits/
           if-no-files-found: warn

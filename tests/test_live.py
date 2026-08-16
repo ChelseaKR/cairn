@@ -41,6 +41,17 @@ def load(path: Path) -> dict:
         return tomllib.load(handle)
 
 
+def workflow_job(name: str) -> str:
+    """One job's block out of the workflow, without the jobs after it."""
+    text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    start = lines.index(f"  {name}:")
+    for offset, line in enumerate(lines[start + 1:], start + 1):
+        if line.startswith("  ") and not line.startswith("   ") and line.rstrip().endswith(":"):
+            return "\n".join(lines[start:offset])
+    return "\n".join(lines[start:])
+
+
 def responses_of(bundle: Path) -> dict[str, str]:
     return {
         row["id"]: row["response"]
@@ -362,10 +373,13 @@ class TestTheRunnerIsNotTheGate(unittest.TestCase):
         script = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("NOT THE GATE", script)
 
-    def test_the_gate_workflow_step_does_not_call_it(self):
-        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        audit_job = workflow.split("  audit:", 1)[1]
-        self.assertNotIn("plumbline-live.sh", audit_job)
+    def test_the_gate_workflow_job_does_not_call_it(self):
+        # A live check inside the audit job would make the merge gate depend
+        # on a server coming up, which is the whole thing being avoided.
+        self.assertNotIn("plumbline-live.sh", workflow_job("audit"))
+
+    def test_the_live_job_is_not_something_the_gate_waits_for(self):
+        self.assertNotIn("live", workflow_job("audit").split("steps:", 1)[0])
 
 
 if __name__ == "__main__":

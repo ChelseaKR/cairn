@@ -53,6 +53,18 @@ fail() {
     exit "$EXIT_ENVIRONMENT"
 }
 
+# `plumbline audit` has no --summary-file (only `gate` does), so it is read
+# here and handed to the comparison instead of passed through blindly.
+summary_file=''
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --summary-file) [ $# -ge 2 ] || fail "--summary-file needs a path"
+                        summary_file=$2; shift 2 ;;
+        --summary-file=*) summary_file=${1#--summary-file=}; shift ;;
+        *) fail "unknown argument '$1' (this runner takes --summary-file PATH)" ;;
+    esac
+done
+
 [ -f "$PIN_FILE" ] || fail "no pin file at '$PIN_FILE'"
 [ -f "$LIVE_CONFIG" ] || fail "no live target config at '$LIVE_CONFIG'"
 
@@ -144,8 +156,13 @@ export PYTHONPATH="$harness_src${PYTHONPATH:+:$PYTHONPATH}"
     --synthetic \
     --note "cairn serve on ${LIVE_HOST}:${LIVE_PORT}, driven by ./plumbline-live.sh"
 
-"$PLUMBLINE_PYTHON" -m plumbline audit --config "$LIVE_CONFIG" --out "$AUDIT_OUT" "$@"
+"$PLUMBLINE_PYTHON" -m plumbline audit --config "$LIVE_CONFIG" --out "$AUDIT_OUT"
 
 unset PYTHONPATH
 
-"$PLUMBLINE_PYTHON" live_check.py --config "$LIVE_CONFIG"
+if [ -n "$summary_file" ]; then
+    "$PLUMBLINE_PYTHON" live_check.py --config "$LIVE_CONFIG" \
+        --summary-file "$summary_file"
+else
+    "$PLUMBLINE_PYTHON" live_check.py --config "$LIVE_CONFIG"
+fi
