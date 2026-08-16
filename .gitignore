@@ -18,6 +18,13 @@ tests/browser/package-lock.json
 .plumbline-cache/
 plumbline/audits/
 
+# evidence recorded from a running server by ./plumbline-live.sh. A recording
+# is evidence you make, not evidence the repository ships: it is stamped with
+# the moment it was taken, so committing one would put a timestamp inside a
+# hash and make the tree differ from itself on every run. The committed
+# bundle under plumbline/bundle is the deterministic one.
+.plumbline-live/
+
 # tooling caches
 .ruff_cache/
 .pytest_cache/
