@@ -19,7 +19,9 @@ kind = "lexical"
 enabled = true
 floor = 1.0
 
-# Measured 0.414. The metric is token overlap against a one-sentence reference
+# Measured 0.3982, and pinned at that value in plumbline/baseline.json — the
+# floor below is the minimum, the baseline is the bar. The metric is token
+# overlap against a one-sentence reference
 # answer, and Cairn quotes a whole passage verbatim, so precision is
 # structurally low and always will be: a system that never paraphrases cannot
 # score like one that writes a summary. The number that catches fabrication
@@ -32,7 +34,7 @@ enabled = true
 floor = 0.35
 
 # The harness's own default, deliberately not a number chosen to fit Cairn's
-# score. Measured 0.923: one known over-refusal, ck-015 ("who can get the
+# score. Measured 0.9615: one known over-refusal, ck-015 ("who can get the
 # discount bus pass"), where the colloquial phrasing shares too little
 # vocabulary with "Harbor GoPass Reduced Fare Program" to clear the relevance
 # threshold. That is a recall limit of a lexical retriever, named in DESIGN.md
@@ -61,8 +63,16 @@ floor = 1.0
 # language profile.
 #
 # Re-enable this when the pinned harness ships an Arabic profile.
+#
+# `gap` and `fix_belongs_in` below are Cairn's keys, not the harness's: the
+# harness stops reading a suite table the moment `enabled` is false, so they
+# cost it nothing. audit_guard.py requires them on every disabled suite and
+# prints them beside the gate's result, in the terminal and in the CI summary,
+# so "12 suites passed" is never the last word on what was checked.
 [suites.multilingual]
 enabled = false
+gap = "the pinned harness ships language profiles for en and es only, and a third of Cairn's evidence is Arabic"
+fix_belongs_in = "plumbline, not here: LANGUAGE_PROFILES in src/plumbline/lexicons.py (see DESIGN.md, 'The gap in the audit, and whose it is')"
 
 [suites.groundedness]
 enabled = true

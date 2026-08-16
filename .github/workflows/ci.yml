@@ -6,8 +6,10 @@
 #              and no auditor: this is the path a contributor runs, and it
 #              must not depend on anything outside this repository.
 #   interface  the accessibility behaviours that need a real browser.
-#   audit      the merge gate. Resolves the pinned auditor and grades the
-#              recorded evidence.
+#   audit      the merge gate. Resolves the pinned auditor, grades the
+#              recorded evidence, and then holds the result against the
+#              committed baseline — because a floor is a minimum and a score
+#              can decay a long way above one without breaching it.
 #
 # `audit` is the job that must be marked required in branch protection. It is
 # not enough for it to exist: a gate nobody has made blocking is a report.
@@ -152,6 +154,14 @@ jobs:
 
       - name: Run the pinned audit
         run: ./plumbline-gate.sh --summary-file "$GITHUB_STEP_SUMMARY"
+
+      # The gate checks floors. This checks the two things a floor cannot: a
+      # score that fell without breaching one, and a suite switched off
+      # without saying so. It reads the report the step above just wrote, so
+      # it runs after it and never instead of it. No `continue-on-error`, for
+      # the same reason the gate has none.
+      - name: No regression against the committed baseline, no undeclared gap
+        run: python3 audit_guard.py --summary-file "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the report
         if: always()

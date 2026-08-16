@@ -22,3 +22,21 @@ ref  = 25a583def6ac25afef48c96f76a81c0e89f966a0
 
 config = plumbline/target.toml
 out = plumbline/audits
+
+# The bar this repository is holding, distilled from a run we were happy with:
+# one line per suite, short enough to read in a code review. Every later run
+# reports what moved against it, and `audit_guard.py` — run straight after the
+# gate, locally and in CI — turns "reported" into "failed". A floor is a
+# minimum; without a baseline a score can decay from 0.99 to 0.36 and stay
+# green the whole way down.
+baseline = plumbline/baseline.json
+
+# `require_comparable_baseline` is deliberately NOT set here.
+#
+# It would make the harness exit 4 the moment the evidence hash moves — which
+# is every behavior change, because `cairn record` re-records the bundle. That
+# is a configuration-error exit before anything is said about the scores, and
+# "the gate did not run" is the wrong report for "the answers changed and here
+# is how much worse they got". audit_guard.py makes that comparison instead,
+# and fails on it. See its module docstring for why Cairn is entitled to a
+# comparison the harness declines to make on evidence it did not produce.

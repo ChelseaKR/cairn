@@ -198,7 +198,15 @@ a separate project, pinned to an exact commit in
 ```console
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — 12 suites
+GATE: PASS — target cairn-demo, dataset a89df035bfd4, run 371c996bdd9a69a7
+all 12 suites passed:
+  ...
+$ python3 audit_guard.py        # and the check the gate cannot make on itself
+GUARD: PASS — cairn-demo, run 371c996bdd9a69a7, against baseline affd8b2c6d1517c5
+declared gaps (1 suite not scored at all):
+  multilingual: the pinned harness ships language profiles for en and es only,
+  and a third of Cairn's evidence is Arabic
+no suite moved against the committed baseline.
 ```
 
 The harness is resolved at run time and verified to be at the pinned commit.
@@ -214,6 +222,28 @@ disagreeing about the same policy number and a Spanish refusal a standard
 detector read as an answer. They are written up in
 [DESIGN.md](DESIGN.md#what-the-first-audit-found), along with the two known
 limits that are named rather than tuned away.
+
+**A floor is a minimum, not a ratchet.** `accuracy` could fall from 0.3982 to
+0.36 above a floor of 0.35 and the gate would be green the whole way down, so
+the pin also names a committed baseline — one line per suite, distilled by the
+harness from a run we were happy with — and `audit_guard.py` runs straight
+after the gate and fails on any suite that scored below it, any floor that was
+lowered, and any suite that stopped being scored. It can be silenced by
+regenerating the baseline, which is the point: a drop then arrives as
+`"score": 0.9615` becoming `"score": 0.36` in a reviewed diff, rather than as
+nothing at all.
+
+**One suite is not scored, and the gate will not let that read as coverage.**
+`multilingual` checks that a response came back in the language it was asked
+in; the pinned harness ships language profiles for English and Spanish only,
+and a third of Cairn's evidence is Arabic. The harness calls that a
+configuration error rather than scoring evidence it cannot read, which is
+right, and dropping the Arabic to make the suite runnable would hide the
+language the interface exists to prove it supports. The fix is a small data
+change in Plumbline — Cairn consumes it at a pin and pushes nothing to it —
+written out in [DESIGN.md](DESIGN.md#the-gap-in-the-audit-and-whose-it-is).
+Until then the gap is declared in `plumbline/target.toml`, printed by the
+guard beside every gate result, and held there by a test.
 
 ## License
 
