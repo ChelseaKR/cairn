@@ -394,6 +394,19 @@ state, no storage, nothing logged about the questions people ask.
   marked `lang="en" dir="ltr"` on its own block, with the Latin passage id in
   a `<bdi>`. Getting this wrong was a real bug, found by writing the test:
   the answer had been taking the language of the conversation.
+- **The page carries its own voice.** The strings the script announces with —
+  "the answer is ready, with two sources", "your question could not be sent" —
+  ship inside the page as a JSON block in the language it was rendered in, not
+  fetched. They were fetched, along with every other language, and until that
+  response arrived the script wrote the empty string into the live regions. An
+  empty live region announces nothing, so the interface was mute for a window
+  after every load, in exactly the two places it promises to speak, and
+  permanently mute if the fetch failed. The window was invisible on a laptop
+  and wide enough to fail two checks on a CI runner, which is how it was
+  found. `/strings.json` is still fetched for the thing it is genuinely for:
+  switching to a language this page was not rendered in. The browser suite now
+  blocks that fetch outright and asserts the interface still speaks, so the
+  regression check is deterministic rather than a race.
 - **`default-src 'none'`.** The offline claim is enforced by the browser. A
   CDN font added later breaks the page loudly instead of quietly requiring a
   network.

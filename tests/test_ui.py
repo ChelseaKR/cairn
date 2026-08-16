@@ -235,6 +235,69 @@ class TestDisclosure(ServerHarness):
         self.assertLess(markup.index("disclosure-heading"), markup.index('id="ask"'))
 
 
+class TestTheInterfaceHasItsVoiceBeforeItFetchesAnything(ServerHarness):
+    """A live region can only announce what is in it.
+
+    The announcements used to arrive with ``/strings.json``, so until that
+    response landed every call to the script's ``say()`` returned the empty
+    string and the interface announced nothing — silently, in the two places
+    (answer completion, request failure) where it promises to speak, and
+    permanently if the fetch failed. The page now carries the language it was
+    rendered in.
+    """
+
+    # The strings that are an announcement rather than a label: if any of
+    # these is missing, something the interface says out loud is not said.
+    SPOKEN = (
+        "status_working",
+        "status_answered",
+        "status_refused",
+        "error_request_failed",
+        "error_empty_question",
+    )
+
+    def embedded(self, path="/"):
+        body = self.get(path)[1]
+        self.assertIn('id="ui-strings"', body, "the page carries no strings of its own")
+        block = body.split('id="ui-strings">', 1)[1].split("</script>", 1)[0]
+        return json.loads(block)
+
+    def test_every_page_carries_the_language_it_was_rendered_in(self):
+        for lang in SELECTABLE:
+            with self.subTest(lang=lang):
+                table = self.embedded(f"/?lang={lang}")
+                for key in self.SPOKEN:
+                    self.assertEqual(table.get(key), CATALOGUE[lang][key])
+
+    def test_the_arabic_page_carries_arabic_and_not_a_fallback(self):
+        table = self.embedded("/?lang=ar")
+        self.assertNotEqual(table["status_refused"], CATALOGUE["en"]["status_refused"])
+
+    def test_it_is_data_not_executable_script(self):
+        # `default-src 'none'` forbids fetching script; a JSON block is not
+        # script, so embedding one does not soften the policy.
+        body = self.get()[1]
+        self.assertIn('<script type="application/json" id="ui-strings">', body)
+        self.assertEqual(
+            self.get()[0].headers["Content-Security-Policy"], CSP
+        )
+
+    def test_no_catalogue_entry_could_close_the_element_early(self):
+        for lang in SELECTABLE:
+            with self.subTest(lang=lang):
+                block = self.get(f"/?lang={lang}")[1].split('id="ui-strings">', 1)[1]
+                self.assertNotIn("<", block.split("</script>", 1)[0])
+
+    def test_the_script_reads_it_rather_than_waiting_for_the_fetch(self):
+        script = (STATIC / "app.js").read_text(encoding="utf-8")
+        head = script.split("function say(", 1)[0]
+        self.assertIn("ui-strings", head, "the script must have its voice before it speaks")
+        self.assertNotIn(
+            "strings = null", script,
+            "an unloaded catalogue announces the empty string, which announces nothing",
+        )
+
+
 class TestOfflineAndPolicy(ServerHarness):
     def test_the_page_references_no_external_resource(self):
         for path in ("/", "/app.css", "/app.js"):

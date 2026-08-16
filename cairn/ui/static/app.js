@@ -30,7 +30,24 @@
   var langSelect = document.getElementById("lang");
   var sendButton = form.querySelector("button[type=submit]");
 
-  var strings = null; // filled from /strings.json, needed only for switching
+  /* The interface's own voice. The page it was loaded from carries the
+     language it was rendered in, so every announcement works from the first
+     keystroke and keeps working even if the fetch below never lands.
+     /strings.json adds the *other* languages, which is all the selector
+     needs. This used to be one fetch for everything, and until it resolved
+     the script announced the empty string into a live region — silence, in
+     the two places the interface promises to speak. */
+  var strings = (function () {
+    var block = document.getElementById("ui-strings");
+    var table = {};
+    if (!block) return table;
+    try {
+      table[document.documentElement.lang] = JSON.parse(block.textContent);
+    } catch (error) {
+      /* Leave it empty; the page still posts and the server still renders. */
+    }
+    return table;
+  })();
 
   function announce(text) {
     statusLine.textContent = text;
@@ -46,7 +63,7 @@
   }
 
   function say(key, fields) {
-    var table = (strings && strings[langSelect.value]) || {};
+    var table = strings[langSelect.value] || {};
     var template = table[key];
     if (!template) return "";
     return template.replace(/\{(\w+)\}/g, function (whole, name) {
@@ -151,7 +168,7 @@
   /* Retranslate the page chrome in place. Direction is applied to the document
      element, so the whole layout mirrors rather than the text merely changing. */
   function applyLanguage(lang) {
-    var table = strings && strings[lang];
+    var table = strings[lang];
     if (!table) return;
     document.documentElement.lang = lang;
     document.documentElement.dir = dirOf(lang);
@@ -238,13 +255,16 @@
       return response.json();
     })
     .then(function (payload) {
-      strings = payload;
+      Object.keys(payload).forEach(function (lang) {
+        strings[lang] = payload[lang];
+      });
       document.documentElement.setAttribute("data-strings", "ready");
     })
     .catch(function () {
-      /* The page keeps working: the form still posts, the server still
-         renders. Only in-place language switching is lost, and saying so is
-         better than a selector that silently does nothing. */
+      /* The page keeps working, and so does its voice: this page's own
+         language came with the page. Only in-place switching to another one
+         is lost, and saying so is better than a selector that silently does
+         nothing. */
       langSelect.disabled = true;
       document.documentElement.setAttribute("data-strings", "unavailable");
     });

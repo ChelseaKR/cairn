@@ -23,15 +23,21 @@ voice on the first; a browser stops reordering punctuation on the second.
 
 from __future__ import annotations
 
+import json
 from html import escape
 
 from cairn.answer import Answer
 from cairn.engine import AskResult
 from cairn.language import LANGUAGES, direction_of
+from cairn.messages import catalogue_for
 from cairn.messages import text as message
 
 # Interface languages, in a stable order, for the selector.
 SELECTABLE = ("en", "es", "ar")
+
+# The element the script reads its own voice out of, before it has fetched
+# anything.
+STRINGS_ELEMENT_ID = "ui-strings"
 
 
 def _attrs(lang: str) -> str:
@@ -146,6 +152,28 @@ def _disclosure(lang: str) -> str:
       </section>"""
 
 
+def _embedded_strings(lang: str) -> str:
+    """This page's own language, served with the page.
+
+    The announcements are the interface's voice: "the answer is ready, with
+    two sources", "your question could not be sent". They were fetched from
+    ``/strings.json`` alongside every other language, which meant that until
+    that response arrived the script had nothing to say — and said it. An
+    empty live region announces nothing at all, so for a window after every
+    page load the interface was mute exactly where it promises to speak, and
+    permanently mute if the fetch failed. Serving the current language *in*
+    the page removes the window: the strings are there before the script runs.
+    ``/strings.json`` is still fetched, for the one thing it is genuinely
+    needed for, which is switching to a language this page was not rendered
+    in.
+
+    Not executable script, so the `default-src 'none'` policy is untouched;
+    ``<`` is escaped so no catalogue entry could ever close the element early.
+    """
+    payload = json.dumps(catalogue_for(lang), ensure_ascii=False, sort_keys=True)
+    return payload.replace("<", "\\u003c")
+
+
 def render_page(lang: str, *, turns: str = "", status: str = "") -> str:
     """The whole document. ``turns`` is pre-rendered transcript markup."""
     direction = direction_of(lang)
@@ -197,6 +225,7 @@ def render_page(lang: str, *, turns: str = "", status: str = "") -> str:
       </form>
     </main>
   </div>
+  <script type="application/json" id="{STRINGS_ELEMENT_ID}">{_embedded_strings(lang)}</script>
   <script src="/app.js"></script>
 </body>
 </html>

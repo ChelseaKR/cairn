@@ -11,7 +11,7 @@ ingest with idempotent indexing, grounded answers with citations, refusal as a
 first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor.
-132 tests plus 46 browser behaviour checks, standard library only, offline.
+167 tests plus 49 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
@@ -70,11 +70,14 @@ verdict for each stage that could have gone wrong.
 
 ```console
 $ python3 -m cairn ask --explain "What vaccinations does my dog need?"
-Candidates (2 scored, ranked):
-   1  0.067  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+Threshold: 0.165 (retrieval.threshold)
+...
+Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
+   1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
    ...
 Stage 1 - retrieval: FAILED (below-threshold)
-  2 candidates were scored and none cleared the 0.200 threshold. ...
+  4 candidates were scored and none cleared the 0.165 threshold. The best,
+  grocery-allowance-en#3, scored 0.069 and was short by 0.096.
 Stage 2 - answer: NOT REACHED (no-evidence)
   The answer stage was handed no passages, so it refused. ...
 
@@ -156,7 +159,7 @@ light, dark, and right-to-left.
 
 ```console
 $ cd tests/browser && npm install && npm run check
-46/46 behaviour checks passed
+49/49 behaviour checks passed
 ```
 
 ## Configuration

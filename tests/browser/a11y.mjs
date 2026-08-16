@@ -291,6 +291,48 @@ async function checkRightToLeft(page, base) {
   );
 }
 
+/* The interface has to be able to speak before it has fetched anything.
+ *
+ * This is a regression check with a date on it: the announcements used to
+ * come from /strings.json along with every other language, so between page
+ * load and that response the script wrote the empty string into the live
+ * regions. An empty live region announces nothing. On a fast laptop the
+ * window was invisible; on a CI runner it was wide enough to fail the two
+ * checks above roughly every time, which is how it was found. Blocking the
+ * fetch outright makes the window permanent and the check deterministic.
+ */
+async function checkVoiceWithoutTheFetch(page, base) {
+  section("announcements do not wait for /strings.json");
+  await page.route("**/strings.json", (route) => route.abort());
+  await page.goto(base);
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute("data-strings") === "unavailable"
+  );
+
+  await page.locator("#question").fill("How much is the monthly grocery allowance?");
+  await page.keyboard.press("Enter");
+  await page.waitForSelector(".turn-answered");
+  ok(
+    (await page.locator("#status").textContent()).trim().length > 0,
+    "an answer is still announced when the catalogue never arrived"
+  );
+  ok(
+    (await page.locator(".turn-answered .turn-label").first().textContent()).trim()
+      .length > 0,
+    "the transcript still labels who is speaking"
+  );
+
+  await page.route("**/ask", (route) => route.abort());
+  await page.locator("#question").fill("How much is the monthly grocery allowance?");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(
+    () => document.getElementById("errors").textContent.trim().length > 0
+  );
+  ok(true, "a failure is still spoken on the assertive channel");
+  await page.unroute("**/ask");
+  await page.unroute("**/strings.json");
+}
+
 async function checkTargetSizes(page, base) {
   section("target size");
   await page.goto(base);
@@ -330,6 +372,7 @@ async function main() {
     await checkSkipLink(page, base);
     await checkAnnouncement(page, base);
     await checkErrorChannel(page, base);
+    await checkVoiceWithoutTheFetch(page, base);
     await checkTargetSizes(page, base);
     await checkRightToLeft(page, base);
     await context.close();
