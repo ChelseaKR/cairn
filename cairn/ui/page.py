@@ -51,7 +51,7 @@ def _attrs(lang: str) -> str:
 # and a renderer that disagreed with itself about what a heading is would put
 # a literal ``##`` on one of the two paths and not the other.
 # ``tests/test_ui.py`` fails if the two files stop matching.
-ATX_LINE = re.compile(r"^\s*#")
+ATX_LINE = re.compile(r"^\s*#{1,6}(?:\s|$)")
 ATX_MARKER = re.compile(r"^\s*#+\s*")
 
 
@@ -68,9 +68,26 @@ def _quoted_block(body: str) -> str:
 
     A line that is only markers has nothing to emphasize, so it is left alone
     and printed as it stands.
+
+    ``#`` only opens a heading when a space or the end of the line follows it,
+    and up to six of them. The rule used to be "the line starts with ``#``",
+    which is not Markdown and cost a character of somebody's benefit
+    information: a passage reading ``#1 priority is rent`` rendered as
+    **1 priority is rent**, and ``#4 bus route runs hourly`` lost its route
+    number. Both tests that covered this built their expected value by running
+    ``ATX_MARKER`` over the input, so the bug was the specification and could
+    not fail.
+
+    Lines are split on ``\\n`` and nothing else, to match the script. Python's
+    ``splitlines`` also breaks on U+2028, form feed, vertical tab and U+0085,
+    and the join then wrote ``\\n`` back in their place — so a passage from a
+    Word or PDF extraction rendered on the server with characters the cited
+    source does not contain, while the same answer rendered client-side kept
+    them. The parity test compared the two regexes and not the splitting rule,
+    which is the other half of the algorithm.
     """
     out = []
-    for line in body.splitlines():
+    for line in body.split("\n"):
         stripped = ATX_MARKER.sub("", line)
         if ATX_LINE.match(line) and stripped:
             out.append(f"<strong>{escape(stripped)}</strong>")

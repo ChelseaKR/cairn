@@ -82,8 +82,39 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
             self._send(200, path.read_bytes(), content_type)
 
         def _read_body(self) -> bytes:
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > MAX_BODY_BYTES:
+            """The request body, or nothing — and the connection closed if
+            nothing.
+
+            Two ways this went wrong, both from `protocol_version` being
+            HTTP/1.1, which means a client may send a second request down the
+            same socket.
+
+            An oversized body was refused by returning `b""` and *not reading
+            it*, so the unread bytes stayed in the stream and were parsed as
+            the next request line. A client that pipelined a legitimate
+            question behind an oversized one got back
+            `501 Unsupported method ('question=aaaa...')` and never got its
+            answer — a response that does not correspond to its request, which
+            is the worst failure mode a request/response protocol has. The
+            body is not drained (an attacker chooses its length); the
+            connection is closed, which is what the standard says to do.
+
+            And a non-numeric `Content-Length` raised `ValueError` straight
+            out of here, killing the handler thread with a traceback on stderr
+            and giving the client an empty response.
+
+            The 501 also put a prefix of the question into the server's log,
+            on a server whose module docstring says it logs nothing about the
+            questions people ask. Closing the connection is what stops a
+            question ever being read as a request line.
+            """
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                self.close_connection = True
+                return b""
+            if length < 0 or length > MAX_BODY_BYTES:
+                self.close_connection = True
                 return b""
             return self.rfile.read(length)
 
@@ -139,8 +170,20 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
 
             try:
                 result = ask(question, index, cfg, lang=lang)
-            except EngineError as exc:  # pragma: no cover - lang is validated above
-                self._json({"error": str(exc)}, status=400)
+            except EngineError as exc:
+                # Reachable, and the comment here used to say it was not: it
+                # read "lang is validated above", but `_resolve_lang` falls
+                # back to `cfg.default_lang` and that was itself unvalidated,
+                # so `[language] default = "fr"` served an HTML form client a
+                # raw JSON error object. `Config` now refuses a default the
+                # engine cannot answer in, which closes that door — and the
+                # branch answers in the client's own content type rather than
+                # assuming JSON, because a page that posts a form and gets
+                # `{"error": ...}` is the no-JavaScript path breaking.
+                if wants_json:
+                    self._json({"error": str(exc)}, status=400)
+                else:
+                    self._html(render_page(cfg.default_lang), status=400)
                 return
 
             if wants_json:

@@ -293,12 +293,80 @@ class TestTheInterfaceHasItsVoiceBeforeItFetchesAnything(ServerHarness):
 
     def test_the_script_reads_it_rather_than_waiting_for_the_fetch(self):
         script = (STATIC / "app.js").read_text(encoding="utf-8")
+        # The force of this check is the scoping: `ui-strings` has to be read
+        # *before* `say()` is defined. `str.split` on a separator that is not
+        # there returns the whole string, so renaming `say` — or reformatting
+        # it to `function say (` — quietly turned the check into "the file
+        # mentions ui-strings somewhere", which the fetch callback would also
+        # satisfy. That is the regression the class docstring is about.
+        self.assertIn("function say(", script, "the anchor this check scopes on is gone")
         head = script.split("function say(", 1)[0]
         self.assertIn("ui-strings", head, "the script must have its voice before it speaks")
         self.assertNotIn(
             "strings = null", script,
             "an unloaded catalogue announces the empty string, which announces nothing",
         )
+
+
+class TestTheRequestItselfIsHandledSafely(ServerHarness):
+    """The server speaks HTTP/1.1, so a client may put two requests on one
+    socket. What it must never do is answer the second one with something
+    derived from the first."""
+
+    def raw(self, payload: bytes) -> bytes:
+        import socket
+        import time
+
+        host, port = self.httpd.server_address[:2]
+        sock = socket.create_connection((host, port), timeout=5)
+        try:
+            sock.sendall(payload)
+            time.sleep(0.3)
+            sock.settimeout(1.0)
+            out = b""
+            try:
+                while True:
+                    chunk = sock.recv(65536)
+                    if not chunk:
+                        break
+                    out += chunk
+            except OSError:
+                pass
+            return out
+        finally:
+            sock.close()
+
+    def test_an_oversized_body_does_not_become_the_next_request(self):
+        # It used to. An oversized body was refused by returning b"" without
+        # reading it, so the unread bytes were parsed as the next request
+        # line: a client that pipelined a real question behind an oversized
+        # one got back `501 Unsupported method ('question=aaaa...')` and never
+        # got its answer. The question went into the server's log on the way
+        # past, on a server whose docstring says it logs nothing about the
+        # questions people ask.
+        oversized = b"a" * 9000
+        first = (
+            b"POST /ask HTTP/1.1\r\nHost: x\r\n"
+            b"Content-Type: application/x-www-form-urlencoded\r\n"
+            b"Content-Length: " + str(len(oversized)).encode() + b"\r\n\r\n" + oversized
+        )
+        body = b'{"question":"212","lang":"en"}'
+        second = (
+            b"POST /ask HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\n"
+            b"Content-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body
+        )
+        out = self.raw(first + second)
+        self.assertTrue(out.startswith(b"HTTP/1.1 400"), out[:80])
+        self.assertNotIn(b"501", out)
+        self.assertNotIn(b"Unsupported method", out)
+
+    def test_a_content_length_that_is_not_a_number_is_a_bad_request(self):
+        # It raised ValueError out of the read, which killed the handler
+        # thread with a traceback and gave the client nothing at all.
+        out = self.raw(b"POST /ask HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\n\r\n")
+        self.assertTrue(out.startswith(b"HTTP/1.1 400"), out[:80])
+        # And the server is still answering afterwards.
+        self.assertEqual(self.post_json({"question": "212", "lang": "en"})["lang"], "en")
 
 
 class TestOfflineAndPolicy(ServerHarness):
@@ -426,6 +494,38 @@ class TestQuotedCorpusText(unittest.TestCase):
                     f"/{pattern.pattern}/", script,
                     "app.js and page.py no longer agree on what a heading is",
                 )
+
+    def test_both_renderers_split_lines_the_same_way(self):
+        # The other half of the algorithm, and the half the parity check above
+        # cannot see. `str.splitlines()` breaks on U+2028, form feed, vertical
+        # tab and U+0085 as well as on newlines, and rejoining with "\n" wrote
+        # those characters out of the text — so a passage from a Word or PDF
+        # extraction rendered on the server as something the cited source does
+        # not say, while the same answer rendered client-side kept it. Both
+        # sides split on "\n" and nothing else now.
+        self.assertIn('body.split("\\n")', (STATIC / "app.js").read_text(encoding="utf-8"))
+        for separator in (" ", " ", "\x0b", "\x0c", "\x85"):
+            with self.subTest(separator=repr(separator)):
+                body = f"pay $250{separator}per month"
+                self.assertIn(escape(body), page._quoted_block(body))
+
+    def test_a_hash_that_is_not_a_heading_keeps_its_hash(self):
+        # CommonMark opens an ATX heading only when whitespace or the end of
+        # the line follows the run of hashes, and at most six of them. The old
+        # rule was "the line starts with #", which deleted a character of
+        # somebody's benefit information: `#1 priority is rent` rendered as
+        # **1 priority is rent**. Both tests that covered headings built their
+        # expected value by running ATX_MARKER over the input, so the bug was
+        # the specification and neither could fail.
+        for line in ("#1 priority is rent", "#4 bus route runs hourly", "#hashtag"):
+            with self.subTest(line=line):
+                self.assertIn(escape(line), page._quoted_block(line))
+                self.assertNotIn("<strong>", page._quoted_block(line))
+        for line in ("# Heading", "###### Six", "  ## Indented"):
+            with self.subTest(line=line):
+                self.assertIn("<strong>", page._quoted_block(line))
+        # Seven is not a heading in Markdown either.
+        self.assertNotIn("<strong>", page._quoted_block("####### Seven"))
 
     def test_every_corpus_heading_survives_both_rules_the_same_way(self):
         # The parity check above is on the rule; this is on the content the

@@ -38,6 +38,14 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "The only source I have for this is written in another language "
             "({language}). It is quoted below exactly as published."
         ),
+        # The same statement when more than one passage is quoted, which
+        # `retrieval.max_passages` above 1 makes possible. The singular
+        # wording claims two things that are then false — that there is one
+        # source, and that it is the language named — so it is not reused.
+        "cross_language_notice_partial": (
+            "Some of the sources below are written in another language "
+            "({language}). They are quoted exactly as published."
+        ),
         "sources_heading": "Sources:",
         # --- chat interface ---
         "page_title": "Cairn — ask about Harbor County benefits",
@@ -91,6 +99,10 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "La única fuente que tengo para esto está escrita en otro idioma "
             "({language}). Se cita a continuación tal como fue publicada."
         ),
+        "cross_language_notice_partial": (
+            "Algunas de las fuentes citadas abajo están escritas en otro idioma "
+            "({language}). Se citan tal como fueron publicadas."
+        ),
         "sources_heading": "Fuentes:",
         "page_title": "Cairn — preguntas sobre los beneficios del Condado de Harbor",
         "skip_link": "Ir al cuadro de preguntas",
@@ -143,6 +155,10 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "cross_language_notice": (
             "المصدر الوحيد المتاح لهذا مكتوب بلغة أخرى ({language})، وهو مقتبس "
             "أدناه كما نُشر تمامًا."
+        ),
+        "cross_language_notice_partial": (
+            "بعض المصادر أدناه مكتوبة بلغة أخرى ({language})، وهي مقتبسة كما "
+            "نُشرت تمامًا."
         ),
         "sources_heading": "المصادر:",
         "page_title": "كايرن — اسأل عن مساعدات مقاطعة هاربر",

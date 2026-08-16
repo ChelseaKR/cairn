@@ -105,13 +105,38 @@ def ask(question: str, index: Index, cfg: Config, *, lang: str | None = None) ->
         if widened.grounded:
             chosen = widened
 
+    # The notice describes the passages that are actually quoted, which is the
+    # slice composition will take — not the widening that went looking for
+    # them. Two things were wrong with keying it on `chosen is not primary`.
+    #
+    # It was a proxy: "the widened pass won" happens to imply "the source is
+    # in another language" only because a passage scores identically in both
+    # passes, so a widened pass can never surface a response-language passage
+    # the restricted pass did not already have. Nothing states that and nothing
+    # tests it, and it stops being true the moment IDF becomes scope-relative.
+    #
+    # And it read one passage's language while `compose` quotes
+    # `max_passages` of them. At `max_passages = 2` an Arabic questioner could
+    # be handed a Spanish passage and an English one under a notice naming
+    # Spanish alone and calling it "the only source" — two false statements in
+    # a sentence whose entire job is to say what language the answer is in.
+    used = chosen.accepted[:cfg.max_passages]
+    foreign: list[str] = []
+    for candidate in used:
+        if candidate.passage.lang != response_lang and candidate.passage.lang not in foreign:
+            foreign.append(candidate.passage.lang)
     notice = None
-    if chosen.grounded and chosen is not primary:
-        source_lang = chosen.accepted[0].passage.lang
+    if foreign:
+        # Singular only when there is genuinely one source and it is foreign.
+        key = (
+            "cross_language_notice"
+            if len(used) == 1
+            else "cross_language_notice_partial"
+        )
         notice = message(
-            "cross_language_notice",
+            key,
             response_lang,
-            language=isolate(endonym_of(source_lang), rtl=rtl),
+            language=", ".join(isolate(endonym_of(code), rtl=rtl) for code in foreign),
         )
 
     contact = cfg.contact_for(response_lang)

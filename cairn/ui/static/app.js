@@ -86,7 +86,7 @@
     body.split("\n").forEach(function (line, position) {
       if (position > 0) container.appendChild(document.createTextNode("\n"));
       var trimmed = line.replace(/^\s*#+\s*/, "");
-      if (/^\s*#/.test(line) && trimmed) {
+      if (/^\s*#{1,6}(?:\s|$)/.test(line) && trimmed) {
         container.appendChild(element("strong", null, trimmed));
       } else {
         container.appendChild(document.createTextNode(line));

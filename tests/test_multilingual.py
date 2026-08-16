@@ -236,9 +236,17 @@ class TestLocalizedVoice(MultilingualHarness):
         self.assertNotEqual(refusals["en"], refusals["es"])
         self.assertNotEqual(refusals["en"], refusals["ar"])
         self.assertEqual(dominant_script(refusals["ar"]), "arabic")
+        # Against the configured table, not against `contact_for` — which is
+        # the same lookup with the same fallback, so both sides of the old
+        # assertion moved together and an Arabic refusal ending in the English
+        # contact line satisfied it. The point of a per-language contact is
+        # that a person is pointed at help in a language they read.
         for lang, body in refusals.items():
             with self.subTest(lang=lang):
-                self.assertIn(CFG.contact_for(lang).split(" (")[0][:20], body)
+                configured = CFG.contact_by_language[lang]
+                self.assertIn(configured.split(" (")[0][:20], body)
+        self.assertEqual(dominant_script(CFG.contact_by_language["ar"]), "arabic")
+        self.assertNotIn(CFG.contact_by_language["en"], refusals["ar"])
 
     def test_rtl_refusals_isolate_the_latin_contact_details(self):
         arabic = self.ask("What vaccinations does my dog need?", lang="ar").answer.text
@@ -293,6 +301,71 @@ class TestMessageCatalogue(unittest.TestCase):
     def test_an_unknown_key_raises(self):
         with self.assertRaises(KeyError):
             text("no_such_message", "en")
+
+
+class TestTheNoticeDescribesWhatIsActuallyQuoted(MultilingualHarness):
+    """The notice is the one sentence standing between a reader and a passage
+    they may not be able to read. It has to be true about the passages the
+    answer contains, not about the search that found them."""
+
+    def test_the_language_cairn_speaks_when_it_cannot_tell_is_bounded(self):
+        # `language.default` decides the wording of every refusal and every
+        # notice. It was unvalidated while both the edges around it — the
+        # server's selector and the engine's explicit-language check — were
+        # guarded, which is the same shape as the max_passages bug: the value
+        # that skips both edges was the one nothing checked.
+        # `Config(default_lang="fr")` produced a grounded answer labelled
+        # `lang: "fr"` carrying an English cross-language notice, because the
+        # message catalogue falls back to English for a code it cannot speak.
+        from cairn.config import ConfigError
+
+        for code in ("fr", "he", "xx", ""):
+            with self.subTest(code=code), self.assertRaises(ConfigError):
+                Config(default_lang=code)
+        for code in LANGUAGES:
+            with self.subTest(code=code):
+                self.assertEqual(Config(default_lang=code).default_lang, code)
+
+    def test_it_names_every_language_actually_quoted(self):
+        # The notice used to read the first accepted passage's language while
+        # composition quoted `max_passages` of them, so at 2 an Arabic reader
+        # could be handed a Spanish passage and an English one under a notice
+        # naming Spanish alone and calling it "the only source".
+        result = ask("212", self.index, Config(max_passages=2), lang="ar")
+        answer = result.answer
+        quoted = {source.lang for source in answer.sources}
+        self.assertEqual(quoted, {"es", "en"}, "this fixture needs two languages")
+        for code in quoted:
+            self.assertIn(endonym_of(code), answer.notice)
+
+    def test_it_does_not_call_two_sources_the_only_one(self):
+        one = ask("212", self.index, Config(max_passages=1), lang="ar").answer
+        two = ask("212", self.index, Config(max_passages=2), lang="ar").answer
+        self.assertEqual(one.notice, text(
+            "cross_language_notice", "ar",
+            language=isolate(endonym_of(one.sources[0].lang), rtl=True),
+        ))
+        self.assertNotEqual(one.notice, two.notice)
+        self.assertEqual(dominant_script(two.notice), "arabic")
+
+    def test_there_is_no_notice_when_nothing_foreign_was_quoted(self):
+        for lang in ("en", "es", "ar"):
+            with self.subTest(lang=lang):
+                answer = ask(QUESTIONS[lang], self.index, CFG, lang=lang).answer
+                self.assertEqual(answer.kind, "grounded")
+                self.assertTrue(all(s.lang == lang for s in answer.sources))
+                self.assertIsNone(answer.notice)
+
+    def test_a_notice_and_a_foreign_source_always_travel_together(self):
+        # The predicate used to be "the widened pass won", which implies
+        # "quoted a foreign passage" only through a property of the scorer
+        # that nothing states and nothing tests.
+        for question in (ENGLISH_ONLY_QUESTION, "212", QUESTIONS["en"]):
+            for lang in ("en", "es", "ar"):
+                with self.subTest(question=question, lang=lang):
+                    answer = ask(question, self.index, CFG, lang=lang).answer
+                    foreign = any(s.lang != answer.lang for s in answer.sources)
+                    self.assertEqual(foreign, answer.notice is not None)
 
 
 if __name__ == "__main__":
