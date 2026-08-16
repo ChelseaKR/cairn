@@ -345,10 +345,11 @@ right-to-left is where "multilingual support" is usually only skin deep.
 
 ## Roadmap
 
-Milestones map to the specification's functional requirements. All five are
-built. The table is kept as the record of what was done in what order, because
-the order was a decision and it is part of why the later work went the way it
-did; what is still open is listed under it.
+Milestones map to the specification's functional requirements. All five of the
+specification's are built, and a sixth closed the gap between "the gate runs"
+and "the gate holds". The table is kept as the record of what was done in what
+order, because the order was a decision and it is part of why the later work
+went the way it did; what is still open is listed under it.
 
 | Milestone | Spec requirement | Scope |
 | --- | --- | --- |
@@ -360,6 +361,8 @@ did; what is still open is listed under it.
 | **M3 (done)** | R4 multilingual | Arabic (RTL) in the demo corpus; explicit `--lang` selection and corpus-driven detection; same-language sources preferred; direction derived from the language code and Latin runs bidi-isolated; honest cross-language fallback with an untranslated quote |
 | **M4 (done)** | R6 + R7 UI/docs | accessible chat interface served by stdlib `http.server`: skip link, polite live-region transcript, errors-only assertive channel, labelled input with a key hint, standing disclosure, language selector that mirrors the layout, light and dark. Verified twice — markup and contrast in `tests/test_ui.py`, behavior and axe-core WCAG 2.2 AA in `tests/browser/`. `docs/demo.md` walks the demo and its output is executed by `tests/test_docs.py` |
 | **M5 (done)** | auditor interlock | Plumbline pinned by exact commit in `plumbline.pin`, the single file both local tooling and CI read; resolved at run time, never a package dependency; the gate fails (never skips) when the auditor is unreachable, with the reason written into the workflow at length. `cairn record` produces the evidence from the real engine. Core install/lint/test stays fully independent of the auditor, and CI proves it on every run |
+
+| **M6 (done)** | (beyond the spec) | the gate holds as well as runs: a committed baseline in `plumbline/baseline.json` and `audit_guard.py` failing on any decay below it, on a lowered floor, on a suite that stopped being scored, and on a suite disabled without a declared gap; the branch-protection ruleset written out and *not* applied, because it cannot be; the pin bumped as a reviewed diff |
 
 Ordering rationale: explain mode (M2) before multilingual (M3) because it is the
 operator's debugging instrument — it makes every later milestone cheaper to verify.
@@ -398,6 +401,12 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   alias mechanism above, whose measurement says it degrades passage choice.
   The refusal is the honest answer to "we have this document, in a language
   you did not ask in, and no way to know it is what you meant."
+- **The baseline ratchets down, not up.** A score that improves is reported as
+  a note telling you to refresh the baseline; nothing forces it. Leave that
+  note unactioned and the bar stays at the old number, so a later decay back
+  to it goes unnoticed. Failing on an improvement would make every unrelated
+  change a two-commit dance, so the note stays a note — but it is a gap, and
+  the note appears on every run until somebody deals with it.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
@@ -612,10 +621,10 @@ unless somebody watched it bite. Lowering `retrieval.threshold` from 0.165 to
 with the harness at the pinned commit and every floor intact:
 
 ```
-GATE: PASS — target cairn-demo, dataset 584789e5a836, run 89742a6ca39268b5
+GATE: PASS — target cairn-demo, dataset 62cc5de9b94b, run f682e662bab91fc5
 baseline: numeric comparison refused; verdict changes are still named below
-  REFUSED: the dataset hash differs: this run scored 584789e5a836, the
-  baseline scored a89df035bfd4.
+  REFUSED: the dataset hash differs: this run scored 62cc5de9b94b, the
+  baseline scored 5a311a90d16e.
 GATE: PASS                                            (exit 0)
 
 GUARD: FAIL

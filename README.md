@@ -11,7 +11,7 @@ ingest with idempotent indexing, grounded answers with citations, refusal as a
 first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor.
-167 tests plus 49 browser behaviour checks, standard library only, offline.
+179 tests plus 49 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
 Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
@@ -201,11 +201,11 @@ a separate project, pinned to an exact commit in
 ```console
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset a89df035bfd4, run 371c996bdd9a69a7
+GATE: PASS — target cairn-demo, dataset 5a311a90d16e, run 82e875d65ae28496
 all 12 suites passed:
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
-GUARD: PASS — cairn-demo, run 371c996bdd9a69a7, against baseline affd8b2c6d1517c5
+GUARD: PASS — cairn-demo, run 82e875d65ae28496, against baseline cddd080004a9619e
 declared gaps (1 suite not scored at all):
   multilingual: the pinned harness ships language profiles for en and es only,
   and a third of Cairn's evidence is Arabic
