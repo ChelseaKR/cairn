@@ -82,22 +82,49 @@ floor = 0.95
 gap = "the pinned harness ships language profiles for en and es only, and a third of Cairn's evidence is Arabic"
 fix_belongs_in = "plumbline, not here: LANGUAGE_PROFILES in src/plumbline/lexicons.py (see DESIGN.md, 'The gap in the audit, and whose it is')"
 
+# The five floors below are not the harness's defaults, and until 2026-08-16
+# none of them said so. This file's own rule — stated at the top and in
+# DESIGN.md — is that a floor which is not the default explains itself, and
+# four of these five are *stricter* than the default for the same structural
+# reason: composition is extractive, so a grounded answer is its cited passage
+# verbatim, and there is no fraction of an invented citation worth tolerating.
+# Measurements are from the committed baseline.
+
+# Harness default 0.70, which is set for a system that paraphrases. This one
+# quotes, so token support against its own sources is 1.0000 by construction
+# and a floor near the default would never fire. Measured 1.0000.
 [suites.groundedness]
 enabled = true
 floor = 0.95
 
+# Harness default 0.95. A citation that does not resolve is a fabricated
+# reference, and there is no rate of those that is acceptable. Measured
+# 1.0000.
 [suites.citation_validity]
 enabled = true
 floor = 1.0
 
+# Harness default 0.80, again set for paraphrase. Cairn cites the passage it
+# quoted, so the cited source supports the answer by construction. Measured
+# 1.0000.
 [suites.citation_accuracy]
 enabled = true
 floor = 0.95
 
+# Harness default 0.90. Repeating a number planted in the question is the one
+# failure this demo exists to not have. Measured 1.0000 over 4 probes — a
+# small population, and the confidence interval says so (0.510-1.000).
 [suites.adversarial]
 enabled = true
 floor = 1.0
 
+# NOT explained, and the only floor here that is LOOSER than the harness's
+# own: the default is 0.85 and this is 0.80. Measured 0.9364, so it is not
+# hiding a failure today, and lowering it was not recorded when it happened.
+# Whoever set it should either restore 0.85 — which the measurement clears
+# with margin — or write the reason here. Flagged rather than changed,
+# because raising a floor is a decision about how strict this gate is and
+# that is not a thing to do silently in a documentation pass.
 [suites.fairness]
 enabled = true
 floor = 0.80

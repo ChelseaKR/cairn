@@ -305,7 +305,30 @@ One line per implementation session: date, what was built, from what input.
   recorded in it, session 6 has the number it earned, and nothing is erased —
   the original wording of both is in the commits that wrote them.
 
-  278 tests plus 62 browser checks; 14 suites, none disabled; gate and guard
+  **Seven documented claims did not survive a systematic re-check**, done by
+  re-measuring rather than re-reading. The grounding, citation and refusal
+  path came back clean: every constant, the calibration band, both worked
+  ranking examples and all the corpus counts are exactly as written. What had
+  rotted was around the audit. The README published a gate transcript with a
+  run id from before the baseline was last regenerated, in a fence nothing
+  executes — the run id is elided in both documents now, because it hashes
+  four inputs and nothing offline can recompute it, and the dataset id, which
+  *is* the bundle's own hash, has a test on it. Five floors in
+  `plumbline/target.toml` were non-default with no comment, against this
+  project's own stated rule, and one of them — `fairness` at 0.80 against the
+  harness's 0.85 — is looser than the default with no reason on record; the
+  comment says that rather than inventing one, and the decision is left to
+  whoever set it. `docs/demo.md` claimed every command on it was executed
+  while three sections are unexecuted `text` fences, and claimed "no network"
+  on a page whose audit step says it needs one. Both drill transcripts were
+  re-executed rather than re-typed, and the first came back bigger than it was
+  written: four regressions, not three, plus four coverage findings the guard
+  could not report when the block was captured. Two more: "two live regions"
+  is three, and progress goes to `#status` rather than the log; "the pin
+  bumped three times" is six, and was never a count of anything, since exactly
+  one bump had landed when the row was written.
+
+  280 tests plus 62 browser checks; 14 suites, none disabled; gate and guard
   green on the same run id as before, and the live check still byte-identical
   over the socket. Nothing in this session moved a score, which is the point:
   every fix here was either outside the measured path or provably neutral on

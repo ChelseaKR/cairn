@@ -162,6 +162,68 @@ def readme_runs() -> list[tuple[str, str]]:
     ]
 
 
+class TestTheAuditFiguresInTheDocuments(unittest.TestCase):
+    """The audit transcripts are in unexecuted fences, so they need their own.
+
+    `README.md` and `docs/demo.md` both show a gate block. Neither is run:
+    `readme_runs()` keeps only `index` and `ask`, and the demo page's audit
+    section is fenced as ```text because it needs the network the first time.
+    So the figures in them were being maintained by hand, and one of them
+    rotted — the README carried run id `958f5afd…`, from before `plumbline.pin`
+    last regenerated the baseline. The run id is a hash of the evidence, the
+    judge configuration, the floors *and* the baseline, and nothing offline can
+    recompute it, so it is elided in both pages now.
+
+    The dataset id can be checked: it is the first twelve characters of the
+    bundle's own SHA-256, which this repository writes. So it is, here.
+
+    `DESIGN.md` is deliberately not in scope. Its two remaining literal ids
+    are inside the tamper drills — captured from a deliberately broken tree
+    (threshold 0.105) and from a deliberately stale baseline — so they are
+    records of a run that is *not* the committed one, and holding them to the
+    committed bundle would be requiring them to be the thing they exist to
+    differ from. Both were re-executed on 2026-08-16 rather than re-typed.
+    """
+
+    DOCUMENTS = ("README.md", "docs/demo.md")
+    DATASET_ID = re.compile(r"dataset ([0-9a-f]{6,})")
+    RUN_ID = re.compile(r"run ([0-9a-f]{6,})")
+
+    def setUp(self):
+        import json
+
+        checksums = json.loads(
+            (ROOT / "plumbline" / "bundle" / "checksums.json").read_text(encoding="utf-8")
+        )
+        self.bundle_sha256 = checksums["bundle_sha256"]
+
+    def test_every_dataset_id_shown_is_the_committed_bundle_s(self):
+        seen = 0
+        for name in self.DOCUMENTS:
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for shown in self.DATASET_ID.findall(text):
+                seen += 1
+                with self.subTest(document=name, dataset=shown):
+                    self.assertTrue(
+                        self.bundle_sha256.startswith(shown),
+                        f"{name} shows dataset {shown}, but the committed bundle "
+                        f"hashes to {self.bundle_sha256[:12]}",
+                    )
+        self.assertGreaterEqual(seen, 2, "no document shows a dataset id any more")
+
+    def test_no_document_publishes_a_run_id_nothing_can_check(self):
+        # A run id is derived from four inputs and cannot be recomputed without
+        # the harness, so a literal one here is a number with no check under it
+        # — which is how the last one went stale.
+        for name in self.DOCUMENTS:
+            text = (ROOT / name).read_text(encoding="utf-8")
+            with self.subTest(document=name):
+                self.assertEqual(
+                    self.RUN_ID.findall(text), [],
+                    "elide the run id (`run ...`): nothing offline can verify it",
+                )
+
+
 class TestTheReadmeShowsRealOutput(CleanCheckout):
     """Every word the README shows is a word the command printed.
 

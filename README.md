@@ -12,12 +12,14 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 278 tests plus 62 browser behaviour checks, standard library only,
+server. 280 tests plus 62 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
-Start here: **[the walkthrough](docs/demo.md)** — every command on that page is
-executed by the test suite, so its output is what you will get.
+Start here: **[the walkthrough](docs/demo.md)** — every command in a ```console
+fence on that page is executed by the test suite, so its output is what you
+will get. The three sections that cannot be executed (`serve`, and the audit,
+which needs the network the first time) are fenced as ```text and say so.
 
 ## Provenance
 
@@ -159,7 +161,7 @@ a code change.
 
 ## The chat interface
 
-```console
+```text
 $ python3 -m cairn serve
 cairn: serving the chat interface on http://127.0.0.1:8765/  (ctrl-c to stop)
 ```
@@ -234,22 +236,32 @@ gate hands that bundle to [Plumbline](https://github.com/ChelseaKR/plumbline),
 a separate project, pinned to an exact commit in
 [`plumbline.pin`](plumbline.pin).
 
-```console
+```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
+Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Bundle sha256: 3222a88492612bc6f283779d8d1616b9914e1a74355df993da412ad2df228bdb
+
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 3222a8849261, run 958f5afdafd68ccb
+GATE: PASS — target cairn-demo, dataset 3222a8849261, run ...
 all 14 suites passed:
   ...
-  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  3 unverifiable
+  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  ci 0.717-0.989  mde 0.240  3 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
-GUARD: PASS — cairn-demo, run 958f5afdafd68ccb, against baseline 123b2569cb8a46ba
+GUARD: PASS — cairn-demo, run ..., against baseline 123b2569cb8a46ba
 declared gaps: none — every implemented suite is enabled.
 suites that could not check everything they were handed:
   passage_attribution: scored 16 of 19 eligible (no_distractor 3); unverifiable
   items are excluded, never passed
 no suite moved against the committed baseline.
 ```
+
+The dataset id is the first twelve characters of the bundle's own SHA-256, and
+a test holds this page and `docs/demo.md` to it. The run id is elided because
+it is a hash of the evidence, the judge configuration, the enabled floors
+*and* the baseline, so it moves whenever any of those do — this block carried
+a stale one (`958f5afd…`) from before the baseline was last regenerated, in a
+fence nothing executes.
 
 **The gate is advisory today, and this is the sentence that says so.** The
 `audit` job runs on every pull request and writes a verdict; nothing yet stops

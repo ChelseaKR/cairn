@@ -1,10 +1,16 @@
 # The demo, end to end
 
-Every command below is run exactly as written, from a clean checkout, with no
-network, no API key, and no install step. The output shown under each one is
-the output you get — literally: `tests/test_docs.py` runs these commands in a
-temporary directory and fails if a single character differs. Documentation
-that drifts from behavior is a defect, so it is treated as one.
+Every command in a ```console fence below is run exactly as written, from a
+clean checkout, with no network, no API key, and no install step. The output
+shown under those is the output you get — literally: `tests/test_docs.py` runs
+them in a temporary directory and fails if a single character differs.
+Documentation that drifts from behavior is a defect, so it is treated as one.
+
+Sections 8, 9 and 10 are fenced as ```text instead, and are **not** executed:
+`cairn serve` never returns, and the audit needs the network the first time to
+fetch the pinned harness. Their transcripts are elided with `...` and are
+illustrations rather than recordings — which is why this page says which fence
+you are looking at rather than claiming every line on it is checked.
 
 Requires Python 3.11 or newer. Nothing else.
 
@@ -254,12 +260,13 @@ in [`plumbline.pin`](../plumbline.pin).
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
 Recorded 26 items (20 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Bundle sha256: 3222a88492612bc6f283779d8d1616b9914e1a74355df993da412ad2df228bdb
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
-GATE: PASS — target cairn-demo, dataset ..., run ...
+GATE: PASS — target cairn-demo, dataset 3222a8849261, run ...
 all 14 suites passed:
   ...
-  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  3 unverifiable
+  passage_attribution    score 0.9375  floor 0.90  PASS  n=16  ci 0.717-0.989  mde 0.240  3 unverifiable
   ...
 
 $ python3 audit_guard.py             # the check the gate cannot make on itself

@@ -582,10 +582,12 @@ right-to-left is where "multilingual support" is usually only skin deep.
 ## Roadmap
 
 Milestones map to the specification's functional requirements. All five of the
-specification's are built, and a sixth closed the gap between "the gate runs"
-and "the gate holds". The table is kept as the record of what was done in what
-order, because the order was a decision and it is part of why the later work
-went the way it did; what is still open is listed under it.
+specification's milestones are built, and three more went beyond it: M6 closed
+the gap between "the gate runs" and "the gate holds", M7 worked the two open
+findings to the bottom, and M8 pointed the audit at the running engine. The
+table is kept as the record of what was done in what order, because the order
+was a decision and it is part of why the later work went the way it did; what
+is still open is listed under it.
 
 | Milestone | Spec requirement | Scope |
 | --- | --- | --- |
@@ -598,7 +600,7 @@ went the way it did; what is still open is listed under it.
 | **M4 (done)** | R6 + R7 UI/docs | accessible chat interface served by stdlib `http.server`: skip link, polite live-region transcript, errors-only assertive channel, labelled input with a key hint, standing disclosure, language selector that mirrors the layout, light and dark. Verified twice — markup and contrast in `tests/test_ui.py`, behavior and axe-core WCAG 2.2 AA in `tests/browser/`. `docs/demo.md` walks the demo and its output is executed by `tests/test_docs.py` |
 | **M5 (done)** | auditor interlock | Plumbline pinned by exact commit in `plumbline.pin`, the single file both local tooling and CI read; resolved at run time, never a package dependency; the gate fails (never skips) when the auditor is unreachable, with the reason written into the workflow at length. `cairn record` produces the evidence from the real engine. Core install/lint/test stays fully independent of the auditor, and CI proves it on every run |
 
-| **M6 (done)** | (beyond the spec) | the gate holds as well as runs: a committed baseline in `plumbline/baseline.json` and `audit_guard.py` failing on any score that no longer matches it **in either direction**, on a lowered floor, on a suite that stopped being scored, on a suite scored with no bar under it, and on a suite disabled without a declared gap; the branch-protection ruleset written out and *not* applied, because it cannot be; the pin bumped as a reviewed diff, three times |
+| **M6 (done)** | (beyond the spec) | the gate holds as well as runs: a committed baseline in `plumbline/baseline.json` and `audit_guard.py` failing on any score that no longer matches it **in either direction**, on a lowered floor, on a suite that stopped being scored, on a suite scored with no bar under it, and on a suite disabled without a declared gap; the branch-protection ruleset written out and *not* applied, because it cannot be; the pin bumped as a reviewed diff — six times to date, one of them in this milestone, all six countable with `git log -- plumbline.pin` and named in `WORKLOG.md` (the row said "three times", which was never a count of anything: exactly one bump had landed when the row was written) |
 
 | **M7 (done)** | (beyond the spec) | the two open findings worked to the bottom rather than carried: `ck-015` measured across twenty-one ranking configurations and closed as a corpus fact rather than a scorer bug, with explain mode gaining the term evidence that proves it; and the declared `multilingual` gap closed upstream, enabled, and scored 1.0000 over all 26 items |
 
@@ -716,11 +718,16 @@ state, no storage, nothing logged about the questions people ask.
   stays put. Without it, each answer replaces the transcript — the one
   behavior that genuinely needs client state, and stated on the page's own
   documentation rather than hidden.
-- **Two live regions with a strict division of labour.** A polite `log` for
-  content and progress, and a single `role="alert"` region that carries errors
-  and nothing else. Exactly one function in the codebase writes to the
-  assertive one. An assertive region that also carries routine progress is an
-  assertive region nobody can leave switched on.
+- **Three live regions with a strict division of labour.** A polite `log`
+  holding the transcript, a polite `status` for progress and completion, and a
+  single `role="alert"` region that carries errors and nothing else. The
+  division that matters is between the last one and the other two, but calling
+  it "two regions, a log for content and progress" was wrong twice over:
+  progress never went to the log, it goes to `#status`, which is the region a
+  reader hears the answer-is-ready announcement from. Exactly one function in
+  the codebase writes to the assertive one. An assertive region that also
+  carries routine progress is an assertive region nobody can leave switched
+  on.
 - **Nothing ever calls `focus()` on new content.** Answers arrive in the
   polite region; the caret stays in the textarea. Verified in a real browser,
   because markup cannot promise it.
@@ -1039,29 +1046,61 @@ unless somebody watched it bite. Lowering `retrieval.threshold` from 0.165 to
 with the harness at the pinned commit and every floor intact:
 
 ```
-GATE: PASS — target cairn-demo, dataset 62cc5de9b94b, run f682e662bab91fc5
+GATE: PASS — target cairn-demo, dataset 78db6b800cd4, run e8a621da6ef93198
+all 14 suites passed:
+  accuracy               score 0.3968  floor 0.35  PASS  n=20
+  fairness               score 0.8810  floor 0.80  PASS  n=26
+  passage_attribution    score 0.9000  floor 0.90  PASS  n=20
+  refusal                score 0.9231  floor 0.90  PASS  n=26
 baseline: numeric comparison refused; verdict changes are still named below
-  REFUSED: the dataset hash differs: this run scored 62cc5de9b94b, the
-  baseline scored 5a311a90d16e.
+  REFUSED: the dataset hash differs: this run scored 78db6b800cd4, the
+  baseline scored 3222a8849261. The evidence changed, so the scores are not
+  comparable numbers.
 GATE: PASS                                            (exit 0)
 
-GUARD: FAIL
-REGRESSION accuracy:  0.3982 -> 0.3968  (floor 0.35)
-REGRESSION fairness:  0.9364 -> 0.8810  (floor 0.80)
-REGRESSION refusal:   0.9615 -> 0.9231  (floor 0.90)
+GUARD: FAIL — cairn-demo, run e8a621da6ef93198, against baseline 123b2569cb8a46ba
+REGRESSION  accuracy: score fell 0.3982 -> 0.3968 (-0.0014), above its floor
+            of 0.35. A floor is a minimum, not a bar the score is allowed to
+            drift down to.
+REGRESSION  fairness: score fell 0.9364 -> 0.8810 (-0.0554), above its floor
+            of 0.80. …
+REGRESSION  passage_attribution: score fell 0.9375 -> 0.9000 (-0.0375), above
+            its floor of 0.90. …
+REGRESSION  refusal: score fell 0.9615 -> 0.9231 (-0.0384), above its floor
+            of 0.90. …
+COVERAGE    citation_accuracy: scored 20 items, and the baseline recorded 19.
+            More is checked than the record admits; adopt it, or the extra
+            coverage can be lost later without this check noticing.
+COVERAGE    citation_validity: scored 20 items, and the baseline recorded 19. …
+COVERAGE    groundedness: scored 20 items, and the baseline recorded 19. …
+COVERAGE    passage_attribution: scored 20 items, and the baseline recorded 16. …
 GUARD: FAIL                                           (exit 1)
 ```
 
-Three suites decayed, no floor was breached, the harness declined to put a
+(The four `…` are the same sentence as the finding above each one, cut for
+width; nothing else is elided.)
+
+Four suites decayed, no floor was breached, the harness declined to put a
 number on it, and the gate was green. That green tick is the whole reason this
-file exists.
+file exists. Four more findings are the denominator moving: a lower threshold
+accepts a passage for items that previously had none, so three suites scored
+20 items instead of 19 and `passage_attribution` 20 instead of 16 — more
+coverage, unadopted, which stops the build for the same reason a rise does.
+
+The block above is a re-run, not a remembered one. The version that stood here
+until it was re-executed recorded three regressions and no coverage findings,
+because it was captured before `passage_attribution` was enabled and before
+the guard could read a denominator, and it paraphrased the guard's wording
+rather than quoting it. Its three scores were right and everything around them
+had gone stale — which is the same defect as any other undated transcript in a
+document, in the section arguing that undetected decay is the problem.
 
 **The other direction, drilled the same way.** Holding the run fixed and
 setting the committed `refusal` score back to 0.9231 — the number it would
 have had before an improvement — makes the guard say:
 
 ```
-GUARD: FAIL — cairn-demo, run bed2aab1066e3f7c
+GUARD: FAIL — cairn-demo, run 54a2e2945ef4242b, against baseline 123b2569cb8a46ba
 IMPROVEMENT refusal: score rose 0.9231 -> 0.9615 (+0.0384), and the committed
             baseline still says 0.9231. Adopt it: an improvement nobody
             records is a bar nobody raised, and every point of it can be
@@ -1169,12 +1208,16 @@ item declares `answering_sources`, and two things followed on this side:
 with one failure:
 
 ```
-passage_attribution   score 0.9375  floor 0.90  PASS  n=16  3 unverifiable
-  misattributed: ck-022
-  answering_passage_not_available: ck-022
+passage_attribution    score 0.9375  floor 0.90  PASS  n=16  ci 0.717-0.989  mde 0.240  3 unverifiable
 ```
 
-The second line is the suite being more precise than the write-up above was.
+with the item named in the report rather than on the gate's line —
+`report.json`'s `passage_attribution` details carry
+`"misattributed_items": ["ck-022"]` and
+`"answering_passage_not_available": ["ck-022"]`.
+
+The second of those keys is the suite being more precise than the write-up
+above was.
 `housing-relief-en#2` was never accepted at all, so this is a **retrieval**
 failure rather than a composition one — composition never had the right
 passage to choose. Those need different fixes, and a report that called both
@@ -1268,9 +1311,17 @@ it is now closed upstream.
   the README showing a two-source answer to a question that cites one, left
   behind when `max_passages` became 1, and an English refusal in the wording
   the audit had already made the engine stop using.
-- **Floors in the audit target are measured, with margin, and each one that is
-  not the harness's own default says why in a comment.** A floor above what the
-  system does is red on the day it lands; a floor at zero is not a gate.
+- **Floors in the audit target are measured, and each one that is not the
+  harness's own default says why in a comment.** A floor above what the system
+  does is red on the day it lands; a floor at zero is not a gate. Two
+  qualifications, both of which this sentence used to paper over. Five floors
+  were non-default with no comment at all until 2026-08-16, and one of
+  them — `fairness` at 0.80 against the harness's 0.85 — is *looser* than the
+  default and its reason was never recorded; the comment there says so rather
+  than inventing one. And "with margin" is not true of the seven floors set at
+  1.00 on suites scoring exactly 1.0000: a structural check has no margin to
+  give, which is the point of setting it at 1.00 and not a claim about
+  headroom.
 - **`accuracy` sits at 0.40 and its floor at 0.35, deliberately.** The metric
   is token overlap against a one-sentence reference, and a system that quotes a
   passage verbatim cannot score like one that writes a summary. The check that
