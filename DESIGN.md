@@ -446,6 +446,18 @@ The merge gate hands Cairn's own recorded answers to a separate project,
   appears in no import and no dependency list, and tests assert all three.
   The thing auditing this repository must not be movable by this repository's
   own dependency resolution.
+- **Bumping the pin is a reviewed diff.** The move to
+  `7071783` was read the way a dependency upgrade should be: the runner,
+  the judge, the lexicons and every suite were untouched, the harness version
+  did not move, and the changes were additive — a live-target recording path,
+  a bounded network module, and a `recording` block in the report for bundles
+  that declare one. Cairn's scores came back identical to four decimal places
+  and the run id was unchanged, which is what "behaviour-neutral upgrade"
+  should look like when both sides are deterministic. The harness now offers
+  to record answers from a live target itself; Cairn keeps writing its own
+  bundle, because producing evidence must not require the thing that audits
+  it. Cairn's bundle declares no `recording` block: these answers came from
+  the engine in this repository, at this commit, not from a service somewhere.
 - **`cairn record` produces the evidence.** The questions are authored; the
   answers, the retrieved passage ids, and the interface snapshot are recorded
   from the running engine. Cairn writes the bundle's checksums itself, because

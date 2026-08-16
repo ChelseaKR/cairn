@@ -18,7 +18,7 @@
 # report green: a gate that could not run is not a gate that passed.
 
 repo = https://github.com/ChelseaKR/plumbline.git
-ref  = 25a583def6ac25afef48c96f76a81c0e89f966a0
+ref  = 707178374639f9a3478652cc90261c25717f1081
 
 config = plumbline/target.toml
 out = plumbline/audits
