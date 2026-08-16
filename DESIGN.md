@@ -188,6 +188,149 @@ model (short plain-language passages) does not exercise that advantage.
   and the second would end the offline-and-deterministic guarantee, so it
   refuses, which is the behavior this project exists to demonstrate.
 
+### The colloquial-recall failure, worked as a ranking problem and closed
+
+The open item said the reason `ck-015` ("who can get the discount bus pass")
+refuses is *the ranking*: the fare paragraph outscores the eligibility
+paragraph, so lowering the gate answers from the wrong place. The document
+aliases above were rejected for being a **document-level** lift — every
+passage of a document rises together, so passage choice becomes a coin toss.
+The obvious next move is therefore a **passage-level** signal, something that
+distinguishes passages *within* a document instead of raising all of them.
+
+Three were built and measured, each against the whole probe set: the 15
+in-corpus probes (does the fact's own passage rank 1, and does it still
+answer), the 20 off-topic probes (does anything falsely clear the gate), the
+26 audit items, and the calibration band the threshold sits in. Twenty-one
+configurations. Every one was reverted. The numbers, and what each cost:
+
+**1. The passage's own section heading, weighted into that passage.** The
+passage-level analogue of the document-title weight: `## Who is eligible` is
+that passage's topic sentence the way the title is the document's, and unlike
+a title or an alias it differs per passage.
+
+| Heading weight | fact passage rank 1 | off-topic false accepts | worst in-corpus | best off-topic | `ck-015` |
+| --- | --- | --- | --- | --- | --- |
+| none (shipped) | 15/15 | 0/20 | 0.1965 | 0.1219 | refused |
+| ×1 | 14/15 | 1/20 | 0.2440 | 0.1906 | answered 0.182, **from the fare paragraph** |
+| ×2 | 14/15 | 1/20 | 0.2697 | 0.2242 | same |
+| ×3 | 14/15 | 2/20 | 0.2850 | 0.2449 | same |
+| ×5 | 14/15 | 2/20 | 0.3031 | 0.2701 | same |
+| ×8 | 14/15 | 2/20 | 0.3178 | 0.2911 | same, and `ck-017` stops refusing |
+
+It answers `ck-015` at every weight and it is wrong at every weight — the same
+trade the aliases were rejected for, reached by a different road. It also
+costs a probe that used to be right ("How much does the GoPass cost per year?"
+starts retrieving the grocery document), lets off-topic questions through, and
+closes the calibration band from 0.075 to 0.033. Crossing it with lower title
+weights was worse still: at title ×1 with headings ×5 the best off-topic score
+(0.3047) **exceeded** the worst in-corpus score (0.2691) — the two bands
+inverted, and no threshold separates them at all.
+
+**2. The heading scored as its own field, blended in.** `(1−β)·cos(passage) +
+β·cos(heading)`, the field-weighted reading of the same idea. Scoring the
+heading separately means a two-word heading with one matching term is not
+diluted by sixty body words, which is the mechanism that should have rescued
+the eligibility paragraph.
+
+| β | fact passage rank 1 | off-topic false accepts | worst in-corpus | best off-topic | `ck-015` top passage |
+| --- | --- | --- | --- | --- | --- |
+| 0 (shipped) | 15/15 | 0/20 | 0.1965 | 0.1219 | transit fare |
+| 0.15 | 14/15 | 1/20 | 0.2156 | 0.1658 | transit fare |
+| 0.25 | 14/15 | 1/20 | 0.2337 | 0.1957 | transit fare |
+| 0.40 | 14/15 | 2/20 | 0.2583 | 0.2405 | **`housing-relief-en#3`** |
+| 0.60 | 13/15 | 2/20 | 0.2660 | 0.3002 | `housing-relief-en#3` |
+
+It did not rescue it. Past β = 0.4 the top passage for a question about a bus
+pass is a passage about *housing*, because that document's heading is "Who can
+apply" and this scorer has decided the heading is most of the evidence. At
+β = 0.6 the bands invert again. "How do I get a building permit?" — a question
+the corpus does not cover — clears the gate from β = 0.15 onward.
+
+**3. A query-coverage factor.** `score × (matched IDF mass / query IDF
+mass)^α`: reward a passage for covering more of the question, which cosine
+only does indirectly. This one is interesting because it *never breaks the
+ranking* — 15/15 at every α — and still fails.
+
+| α | fact passage rank 1 | in-corpus still answered | worst in-corpus | best off-topic | separation ratio |
+| --- | --- | --- | --- | --- | --- |
+| 0 (shipped) | 15/15 | 15/15 | 0.1965 | 0.1219 | 1.612 |
+| 0.15 | 15/15 | 15/15 | 0.1694 | 0.1056 | 1.604 |
+| 0.25 | 15/15 | 14/15 | 0.1534 | 0.0964 | 1.591 |
+| 0.40 | 15/15 | 14/15 | 0.1322 | 0.0842 | 1.570 |
+| 0.60 | 15/15 | 13/15 | 0.1085 | 0.0702 | 1.546 |
+| 1.00 | 15/15 | 12/15 | 0.0730 | 0.0488 | 1.496 |
+
+It shrinks every score, so at a fixed threshold real questions start refusing.
+The tempting reply is "then recalibrate the threshold" — but the separation
+*ratio*, which is what a recalibrated threshold would have to work with, gets
+monotonically **worse**. There is no threshold at which this is an
+improvement. And it leaves `ck-015`'s order untouched at every α: the factor
+scales the whole ladder, it does not reorder it.
+
+#### Why none of them worked, which is the actual finding
+
+The diagnosis in the open item was wrong, and the measurement is what showed
+it. It is not that the ranking is wrong. It is that **the eligibility passage
+is not, lexically, an answer to this question** — and the scorer is reporting
+that correctly. Here is every English passage that shares anything at all with
+"who can get the discount bus pass", with the IDF mass of what it shares:
+
+| Passage | Shares | IDF mass |
+| --- | --- | --- |
+| `transit-pass-en#2` — the fare | discount, pass | 5.875 |
+| `transit-pass-en#4` — where to get one | get, pass | 5.469 |
+| `housing-relief-en#3` — who can apply | can, who | 4.488 |
+| `grocery-allowance-en#3` — income limits: who can apply | can, who | 4.488 |
+| `grocery-allowance-en#2` | get | 2.735 |
+| `grocery-allowance-en#1` | can | 2.447 |
+| `housing-relief-en#1` | who | 2.041 |
+| **`transit-pass-en#3` — who is eligible** | **who** | **2.041** |
+| `utility-credit-en#3` | who | 2.041 |
+| the other seven English passages | nothing | 0 |
+
+The passage that holds the answer is tied for **last** among the nine that
+match anything. Its entire overlap with the question is the word "who" — the
+lowest-IDF content term the question has. It does not contain "discount"; it
+does not contain "bus" (the corpus says "buses", which the five-character
+truncation stemmer keeps distinct, and explain mode now prints "bus: in no
+passage"); it does not contain "get"; "GoPass" stems to `gopas` and does not
+answer "pass".
+
+Two passages in *other documents* hold strictly more of the same evidence —
+the same "who" at the same count, plus "can" — and they are the same length
+(217 and 228 characters against 198; norms 17.19 and 18.45 against 17.01). So
+this is not a normalization artifact that a cleverer length model could undo:
+a scheme would have to make the eligibility passage look 2.2× shorter than a
+passage 10% longer than it. There is no reweighting of what these passages
+contain that puts the right one first, which is why all three mechanisms
+failed and why the eligibility passage never once reached the top four in
+twenty-one configurations.
+
+That leaves exactly three ways to answer `ck-015`, and Cairn refuses all
+three:
+
+1. **Put the missing words in the passage** — aliases, per-section keywords,
+   any authored metadata that says "this paragraph is about the discount bus
+   pass". Measured and rejected above; and note what it would have to claim to
+   work: that the *eligibility* section is more about "the discount bus pass"
+   than the *fare* section is. That is false. It would be tuning the corpus to
+   the test.
+2. **Match words that are not there** — embeddings or translation. The first
+   ends offline determinism, the second emits unsourced text.
+3. **Classify the question's intent** — decide that a "who can…" question
+   wants an eligibility section. That needs per-language interrogative lists
+   and a per-language notion of what an eligibility heading looks like, which
+   is the dictionary dependency the whole tokenizer was built to avoid, and it
+   would be a guess dressed as retrieval.
+
+So the refusal stands, and now for a stated reason rather than a deferred one.
+It is the correct output of a system whose rule is that it answers from what
+the corpus says: the corpus does not say this in words this question uses.
+`tests/test_answering.py` pins the evidence table, not the verdict, so if a
+corpus edit or a tokenizer change ever makes the eligibility passage a lexical
+answer to this question, the test fails and says which assumption moved.
+
 ### Chunking
 
 Documents are split into passages on blank-line paragraph boundaries. A
@@ -414,14 +557,21 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   ships language profiles for English and Spanish only. The fix is a data
   change in Plumbline, which Cairn consumes at a pin and cannot push to; it is
   written out above, along with what enforces the gap staying visible.
-- **One known colloquial-recall failure**, `ck-015`. Worked, measured, and
-  kept: the reason is not the threshold and not the vocabulary but the
-  ranking — the highest-scoring passage for "who can get the discount bus
-  pass" is the one about the fare, not the one about eligibility, so every
-  way of making the question clear the gate answers it from the wrong
-  paragraph. `tests/test_answering.py` pins that diagnosis rather than the
-  refusal, so the day retrieval ranks it correctly, the test fails and says
-  so. The alias experiment above is the fix that looked obvious and was not.
+- **One known colloquial-recall failure**, `ck-015` — now closed as a
+  finding rather than left as a to-do. The earlier diagnosis said the ranking
+  was wrong. Measuring it disproved that: three passage-level ranking signals
+  over twenty-one configurations, all reverted, and the reason none of them
+  worked is that the eligibility passage shares exactly one word with "who can
+  get the discount bus pass" — "who" — while two passages in other documents
+  share that word plus another. The corpus does not say this in the words the
+  question uses, and the refusal is the correct output of a system that
+  answers only from what the corpus says. The full measurement, and the three
+  things that *would* answer it and why each is refused, are in "The
+  colloquial-recall failure" above. `tests/test_answering.py` pins the
+  evidence table, so a corpus or tokenizer change that alters it fails a test
+  and names what moved. **Still open** in one honest sense: a person asking in
+  their own words gets a refusal, and the fix for that is a corpus a plain
+  reader recognizes, not a scorer.
 - **Cross-language fallback cannot cross scripts.** Lexical retrieval has no
   way to match an Arabic question to an English document, so those refuse.
   The one bridge that does not need translation or embeddings would be to let

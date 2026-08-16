@@ -151,41 +151,86 @@ class TestThresholdCalibration(EngineHarness):
 
 
 class TestTheKnownColloquialRefusal(EngineHarness):
-    """Why `ck-015` stays refused, pinned as a measurement rather than a claim.
+    """Why `ck-015` stays refused, pinned as evidence rather than as a verdict.
 
     "who can get the discount bus pass" is the one question in the audit's
-    evidence that Cairn refuses and should not. The obvious readings of that
-    are both wrong, and each has an obvious fix that makes the system worse:
+    evidence that Cairn refuses and should not. Two earlier readings of that
+    were both wrong, and each had an obvious fix that made the system worse:
 
-    - *The threshold is too high.* It is not: the highest-scoring passage for
-      this question is the one about the fare and the fee, not the one about
-      who is eligible. Lowering the gate would answer the question from the
-      wrong paragraph — a confident, well-cited, wrong answer, which is a
-      worse outcome than a refusal and a harder one to notice.
-    - *The document needs the words people actually use.* Tried, measured,
-      rejected — see DESIGN.md. Folding declared aliases into a document's
-      passages lifts the whole document at once, which compresses the
-      passages against each other and makes the choice between them close to
-      arbitrary.
+    - *The threshold is too high.* It is not. Lowering the gate answers the
+      question from the fare paragraph — a confident, well-cited, wrong
+      answer, which is worse than a refusal and harder to notice.
+    - *The ranking is wrong.* This was the previous diagnosis, and measuring
+      it is what disproved it. Three passage-level ranking signals were built
+      and measured over twenty-one configurations (DESIGN.md, "The
+      colloquial-recall failure"); the eligibility passage never reached the
+      top four in any of them, and every configuration that answered `ck-015`
+      answered it from the wrong paragraph while letting off-topic questions
+      through.
 
-    So this test does not assert "it refuses". It asserts the reason: the
-    ranking is wrong before the threshold ever gets a say. Fix the ranking and
-    this test fails, which is the correct moment for it to fail.
+    The real reason is below, and it is a property of the corpus, not of the
+    scorer: the eligibility passage's *entire* overlap with this question is
+    the word "who", the weakest content term the question has, and two
+    passages in other documents hold that same word plus another. Retrieval is
+    reporting the evidence correctly. There is no reweighting of what these
+    passages contain that puts the right one first.
+
+    So these tests pin the evidence. If a corpus edit or a tokenizer change
+    ever makes the eligibility passage a lexical answer to this question, they
+    fail and name the assumption that moved — which is the correct moment for
+    them to fail, and a more informative failure than "it stopped refusing".
     """
 
     QUESTION = "who can get the discount bus pass"
     ELIGIBILITY = "transit-pass-en#3"
+    FARE = "transit-pass-en#2"
+    # Measured 2026-08-15. The eligibility passage shares exactly this much
+    # with the question; the two passages that dominate it are in *other*
+    # documents and share the same term plus "can".
+    ELIGIBILITY_OVERLAP = ("who",)
+    DOMINATING = ("grocery-allowance-en#3", "housing-relief-en#3")
 
-    def test_the_eligibility_passage_is_not_what_this_question_retrieves(self):
-        trace = retrieve(
+    def trace(self):
+        return retrieve(
             self.QUESTION, self.index, threshold=CFG.threshold, candidates=CFG.candidates
         )
+
+    def test_the_eligibility_passage_is_not_what_this_question_retrieves(self):
+        trace = self.trace()
         self.assertTrue(trace.candidates, "the question should at least score something")
-        self.assertNotEqual(
+        self.assertEqual(
             trace.candidates[0].passage.passage_id,
-            self.ELIGIBILITY,
-            "retrieval now ranks this correctly — lower the threshold and delete this test",
+            self.FARE,
+            "retrieval now ranks this differently — re-read the evidence below",
         )
+
+    def test_the_eligibility_passage_shares_one_weak_word_with_the_question(self):
+        # The finding the ranking experiments produced, as a measurement: this
+        # is why no reweighting fixes it. The passage does not contain
+        # "discount", does not contain "bus" (the corpus says "buses"), does
+        # not contain "get", and "GoPass" does not stem to "pass".
+        trace = self.trace()
+        found = {c.passage.passage_id: c.matched for c in trace.candidates}
+        self.assertIn(self.ELIGIBILITY, found, "it should still be a scored candidate")
+        self.assertEqual(found[self.ELIGIBILITY], self.ELIGIBILITY_OVERLAP)
+        self.assertEqual(found[self.FARE], ("disco", "pass"))
+        self.assertIn("bus", trace.unmatched, "no passage in the corpus contains 'bus'")
+
+    def test_two_passages_in_other_documents_hold_strictly_more_of_the_same(self):
+        # Strictly more: the same "who", plus "can". A scorer cannot prefer
+        # the eligibility passage over these on the evidence they contain,
+        # which is the whole reason the refusal is correct rather than lazy.
+        trace = self.trace()
+        found = {c.passage.passage_id: set(c.matched) for c in trace.candidates}
+        weak = found[self.ELIGIBILITY]
+        for passage_id in self.DOMINATING:
+            with self.subTest(passage=passage_id):
+                self.assertTrue(weak < found[passage_id], found.get(passage_id))
+                self.assertNotEqual(
+                    passage_id.split("#")[0],
+                    self.ELIGIBILITY.split("#")[0],
+                    "the dominating passages are in other documents entirely",
+                )
 
     def test_so_it_refuses_rather_than_answering_from_the_wrong_paragraph(self):
         self.assertEqual(self.answer(self.QUESTION).kind, "refusal")
