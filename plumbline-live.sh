@@ -65,20 +65,18 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Everything this script can check about its own configuration is checked
+# first, before anything that depends on state outside the checkout. Two
+# reasons, and the second is the one that bit:
+#
+#   - a broken config is this script's fault and deserves the specific
+#     message, not "the harness is not resolved" from three lines later;
+#   - the configuration checks are then reachable in the core dev path, which
+#     deliberately has no resolved harness. A fail-closed drill that can only
+#     run on a machine that has already fetched the auditor is a drill that
+#     does not run in the job that proves the auditor is not needed.
 [ -f "$PIN_FILE" ] || fail "no pin file at '$PIN_FILE'"
 [ -f "$LIVE_CONFIG" ] || fail "no live target config at '$LIVE_CONFIG'"
-
-pin_ref=$(sed -n 's/^[ 	]*ref[ 	]*=[ 	]*\([0-9a-f]*\).*/\1/p' "$PIN_FILE" | head -n 1)
-[ -n "$pin_ref" ] || fail "'$PIN_FILE' does not name a commit in a 'ref =' line"
-
-harness_src="$CACHE_ROOT/$pin_ref/src"
-if [ ! -d "$harness_src" ]; then
-    fail "the harness pinned at $pin_ref is not resolved in '$CACHE_ROOT'. Run ./plumbline-gate.sh first: that is the one thing in this repository that fetches it, deliberately, so that grading a live server can never be the act that installs its own auditor."
-fi
-resolved=$(git -C "$CACHE_ROOT/$pin_ref" rev-parse HEAD 2>/dev/null) \
-    || fail "'$CACHE_ROOT/$pin_ref' is not a readable checkout"
-[ "$resolved" = "$pin_ref" ] \
-    || fail "the resolved harness is at $resolved but $PIN_FILE pins $pin_ref"
 
 command -v "$PLUMBLINE_PYTHON" >/dev/null 2>&1 \
     || fail "'$PLUMBLINE_PYTHON' is not available"
@@ -104,6 +102,18 @@ print(f"LIVE_PORT={parts.port}")
 PY
 ) || fail "'$LIVE_CONFIG' does not carry a usable [adapter].endpoint"
 eval "$endpoint_vars"
+
+pin_ref=$(sed -n 's/^[ 	]*ref[ 	]*=[ 	]*\([0-9a-f]*\).*/\1/p' "$PIN_FILE" | head -n 1)
+[ -n "$pin_ref" ] || fail "'$PIN_FILE' does not name a commit in a 'ref =' line"
+
+harness_src="$CACHE_ROOT/$pin_ref/src"
+if [ ! -d "$harness_src" ]; then
+    fail "the harness pinned at $pin_ref is not resolved in '$CACHE_ROOT'. Run ./plumbline-gate.sh first: that is the one thing in this repository that fetches it, deliberately, so that grading a live server can never be the act that installs its own auditor."
+fi
+resolved=$(git -C "$CACHE_ROOT/$pin_ref" rev-parse HEAD 2>/dev/null) \
+    || fail "'$CACHE_ROOT/$pin_ref' is not a readable checkout"
+[ "$resolved" = "$pin_ref" ] \
+    || fail "the resolved harness is at $resolved but $PIN_FILE pins $pin_ref"
 
 printf 'PLUMBLINE LIVE: harness %s\n' "$pin_ref"
 printf 'PLUMBLINE LIVE: serving cairn on %s:%s\n' "$LIVE_HOST" "$LIVE_PORT"

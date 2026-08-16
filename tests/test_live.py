@@ -346,6 +346,11 @@ class TestTheRunnerCannotFetchItsOwnAuditor(unittest.TestCase):
         self.assertEqual(result.returncode, 4, result.stderr)
         self.assertIn("no pin file", result.stderr)
 
+    def broken_config(self, tmp: Path) -> Path:
+        config = Path(tmp) / "live.toml"
+        config.write_text('[adapter]\nendpoint = "nonsense"\n', encoding="utf-8")
+        return config
+
     def test_an_endpoint_it_cannot_read_exits_four(self):
         # A command substitution that fails still yields an empty string, and
         # `eval ""` succeeds. The runner therefore captures the endpoint
@@ -354,11 +359,44 @@ class TestTheRunnerCannotFetchItsOwnAuditor(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
-            broken = Path(tmp) / "live.toml"
-            broken.write_text('[adapter]\nendpoint = "nonsense"\n', encoding="utf-8")
-            result = self.run_script({"CAIRN_LIVE_CONFIG": str(broken)})
+            result = self.run_script(
+                {"CAIRN_LIVE_CONFIG": str(self.broken_config(Path(tmp)))}
+            )
         self.assertEqual(result.returncode, 4, result.stderr)
         self.assertIn("usable [adapter].endpoint", result.stderr)
+
+    def test_the_config_checks_do_not_depend_on_a_resolved_harness(self):
+        """A drill that only runs on a machine that already fetched the
+        auditor is a drill the core job never runs.
+
+        The runner used to read the pin and require a resolved checkout before
+        it looked at its own config, so on a machine with no `.plumbline-cache`
+        — which is every machine in the `core` CI job, deliberately — a broken
+        config reported "the harness is not resolved" instead. The test above
+        passed or failed on whether the developer had run the gate recently.
+        So: the same broken config, with the cache absent and with one
+        present, has to produce the same specific complaint.
+        """
+        import tempfile
+
+        for state in ("absent", "present"):
+            with self.subTest(cache=state), tempfile.TemporaryDirectory() as tmp:
+                cache = Path(tmp) / "cache"
+                if state == "present":
+                    ref = (ROOT / "plumbline.pin").read_text(encoding="utf-8")
+                    ref = next(
+                        line.split("=", 1)[1].strip()
+                        for line in ref.splitlines()
+                        if line.strip().startswith("ref")
+                    )
+                    (cache / ref / "src").mkdir(parents=True)
+                result = self.run_script({
+                    "CAIRN_LIVE_CONFIG": str(self.broken_config(Path(tmp))),
+                    "PLUMBLINE_CACHE_DIR": str(cache),
+                })
+                self.assertEqual(result.returncode, 4, result.stderr)
+                self.assertIn("usable [adapter].endpoint", result.stderr)
+                self.assertNotIn("not resolved", result.stderr)
 
     def test_a_missing_live_config_exits_four(self):
         import tempfile
