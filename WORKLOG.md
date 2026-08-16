@@ -73,9 +73,14 @@ One line per implementation session: date, what was built, from what input.
   exists to catch, coming through the door the guard left open. Both directions
   block now, labelled differently, and neither adopts a number by itself.
 
-  Third, the pin bumped to `1b92472` and the interlock held: gate green, scores
-  unchanged, the harness declining the numeric comparison because the judge
-  hash moved, and fail-closed re-verified at exit 4. The bump closed the
+  Third, the pin bumped twice — to `1b92472` and then to `a565b21`, upstream's
+  head at the time of reading — and the interlock held both times: gate green,
+  scores unchanged, the harness declining the numeric comparison on the first
+  bump because the judge hash moved, and fail-closed re-verified at exit 4. The
+  second bump touched no `src/` at all (demo data, tooling and docs only) and
+  the gate returned the identical run id, which is the proof rather than the
+  claim that it changed nothing. What to check in a pin review is now written
+  in `plumbline.pin`. The bump closed the
   declared `multilingual` gap — upstream shipped Arabic by script, which is a
   better answer than the word list this repository asked for — and the new
   UNPINNED rule caught the newly enabled suite on its first outing, blocking

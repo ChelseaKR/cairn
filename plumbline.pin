@@ -9,6 +9,19 @@
 # something different tomorrow, which is the opposite of what an audit record
 # is for. Bumping it is a reviewed diff like any other dependency upgrade.
 #
+# Two questions to answer in the review, in this order. Did `src/` change at
+# all? An upstream commit that touches only the harness's own demo data, its
+# tooling or its documentation cannot move a score here, and saying that after
+# looking is a better review note than "bumped". If `src/` did change, does the
+# judge configuration hash move? That is the harness declining to subtract the
+# new scores from the old ones, which is correct of it and is the case
+# audit_guard.py exists to cover — expect the gate to report a refused
+# comparison and expect the guard to make it anyway.
+#
+# Then run the gate. The run id is a function of the evidence, the judge
+# configuration and the suites; if it comes back unchanged, the bump provably
+# did nothing to the measurement.
+#
 # The harness is NOT a dependency of this project. It is resolved at run time
 # into .plumbline-cache/ and verified to be at the pinned commit. Cairn's
 # install, lint and test path never touches it, and nothing in Cairn's own
@@ -18,7 +31,7 @@
 # report green: a gate that could not run is not a gate that passed.
 
 repo = https://github.com/ChelseaKR/plumbline.git
-ref  = 1b924720a6939637eec8f2a11f742a66639dee3c
+ref  = a565b21b4a061b4e32ee086c44a87a46b0a99d8d
 
 config = plumbline/target.toml
 out = plumbline/audits
