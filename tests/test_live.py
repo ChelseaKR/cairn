@@ -346,6 +346,20 @@ class TestTheRunnerCannotFetchItsOwnAuditor(unittest.TestCase):
         self.assertEqual(result.returncode, 4, result.stderr)
         self.assertIn("no pin file", result.stderr)
 
+    def test_an_endpoint_it_cannot_read_exits_four(self):
+        # A command substitution that fails still yields an empty string, and
+        # `eval ""` succeeds. The runner therefore captures the endpoint
+        # before evaluating it, so a config it cannot read is exit 4 rather
+        # than a run with the host and port unset.
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            broken = Path(tmp) / "live.toml"
+            broken.write_text('[adapter]\nendpoint = "nonsense"\n', encoding="utf-8")
+            result = self.run_script({"CAIRN_LIVE_CONFIG": str(broken)})
+        self.assertEqual(result.returncode, 4, result.stderr)
+        self.assertIn("usable [adapter].endpoint", result.stderr)
+
     def test_a_missing_live_config_exits_four(self):
         import tempfile
 

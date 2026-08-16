@@ -86,16 +86,24 @@ command -v "$PLUMBLINE_PYTHON" >/dev/null 2>&1 \
 # The endpoint is written once, in the live config. Reading the host and port
 # back out of it is what stops the server from being started somewhere the
 # recorder is not looking.
-eval "$("$PLUMBLINE_PYTHON" - "$LIVE_CONFIG" <<'PY'
+#
+# Assigned in two steps rather than `eval "$(...)"` in one: a command
+# substitution that fails still produces an empty string, and `eval ""`
+# succeeds, so a one-liner would sail past a broken config with the variables
+# unset. Capturing first makes the failure the script's own exit 4.
+endpoint_vars=$("$PLUMBLINE_PYTHON" - "$LIVE_CONFIG" <<'PY'
 import sys, tomllib
 from urllib.parse import urlparse
 with open(sys.argv[1], "rb") as f:
     endpoint = tomllib.load(f)["adapter"]["endpoint"]
 parts = urlparse(endpoint)
+if not parts.hostname or not parts.port:
+    raise SystemExit(f"[adapter].endpoint has no host and port: {endpoint!r}")
 print(f"LIVE_HOST={parts.hostname}")
-print(f"LIVE_PORT={parts.port or 80}")
+print(f"LIVE_PORT={parts.port}")
 PY
-)" || fail "'$LIVE_CONFIG' does not carry a usable [adapter].endpoint"
+) || fail "'$LIVE_CONFIG' does not carry a usable [adapter].endpoint"
+eval "$endpoint_vars"
 
 printf 'PLUMBLINE LIVE: harness %s\n' "$pin_ref"
 printf 'PLUMBLINE LIVE: serving cairn on %s:%s\n' "$LIVE_HOST" "$LIVE_PORT"
