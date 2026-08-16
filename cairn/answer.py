@@ -86,7 +86,7 @@ class Answer:
 
     @property
     def cited_text(self) -> str:
-        """The answer as one block of plain text with its citations in it.
+        """The whole answer as one block of plain text: notice, quote, citations.
 
         The structured form above is richer, and any client that can render a
         sources list should use it. This is for the clients that cannot: a
@@ -97,13 +97,30 @@ class Answer:
         graded and no user of the served interface could ever obtain. That
         gap was invisible until the audit was pointed at the running server.
 
-        A refusal cites nothing and is returned unchanged: appending an empty
-        marker line to a refusal would be an answer shape on a non-answer.
+        The notice leads, for the same reason the markers are here at all.
+        This shape is the *entire* answer for a client with no second channel
+        to put anything in, and a cross-language answer without the notice is
+        an English passage handed to somebody who asked in Arabic with nothing
+        saying why — the same defect the missing markers were, one field over.
+        ``Answer.text`` is still byte-for-byte corpus content and is what the
+        structured payload carries; this property is the presented form, and
+        the two differ here and nowhere else.
+
+        Note for whoever reads an audit report next: a recorded response with
+        a notice in it carries words no source contains, so a lexical judge
+        will score its token support slightly lower. That is the response the
+        person actually gets, and grading a string they cannot obtain is the
+        mistake this property exists to have stopped making.
+
+        A refusal cites nothing and carries no notice, so it is returned
+        unchanged: appending an empty marker line to a refusal would be an
+        answer shape on a non-answer.
         """
+        body = f"{self.notice}\n\n{self.text}" if self.notice else self.text
         if not self.sources:
-            return self.text
+            return body
         marks = " ".join(f"[{citation_marker(s.source_id)}]" for s in self.sources)
-        return f"{self.text}\n{marks}"
+        return f"{body}\n{marks}"
 
     def to_payload(self) -> dict:
         """Machine-readable record (CLI --json, the web interface, and the

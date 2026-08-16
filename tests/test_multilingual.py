@@ -176,6 +176,38 @@ class TestCrossLanguageFallback(MultilingualHarness):
         answer = self.ask(ENGLISH_ONLY_QUESTION, lang="es").answer
         self.assertNotIn(answer.notice, answer.text)
 
+    def test_the_plain_text_form_carries_the_notice(self):
+        # `Answer.text` stays byte-for-byte corpus content and the notice
+        # rides beside it in the structured payload, which is fine for any
+        # client that can render two fields. `cited_text` is the form for the
+        # clients that cannot — a terminal, an SMS gateway, a transcript — and
+        # for them it is the entire answer. Dropping the notice there hands a
+        # Spanish speaker an English passage with nothing saying why: the same
+        # defect as an answer with no citations in it, one field over, and
+        # that defect is why `cited_text` exists at all.
+        answer = self.ask(ENGLISH_ONLY_QUESTION, lang="es").answer
+        self.assertIsNotNone(answer.notice)
+        self.assertTrue(
+            answer.cited_text.startswith(answer.notice),
+            "a text-only client is told the source is in another language first",
+        )
+        self.assertIn(answer.text, answer.cited_text, "the quote is still verbatim")
+        self.assertEqual(answer.to_payload()["cited_text"], answer.cited_text)
+
+    def test_the_command_line_says_the_same_thing_in_the_same_order(self):
+        # Two renderers, one order. The CLI builds notice-then-quote itself;
+        # if they ever disagree, one of them is telling somebody something the
+        # other is not.
+        from cairn.cli import _render_answer
+
+        result = self.ask(ENGLISH_ONLY_QUESTION, lang="es")
+        printed = _render_answer(result)
+        self.assertLess(
+            printed.index(result.answer.notice),
+            printed.index(result.answer.text),
+            "the notice leads in both forms",
+        )
+
     def test_two_attempts_are_recorded_and_the_first_one_was_restricted(self):
         result = self.ask(ENGLISH_ONLY_QUESTION, lang="es")
         self.assertEqual([a.scope for a in result.attempts], ["language", "corpus"])
