@@ -1130,66 +1130,79 @@ keys on an enabled suite are a finding too.
 
 **The drill, run for real.** A claim that a check has teeth is worth nothing
 unless somebody watched it bite. Lowering `retrieval.threshold` from 0.165 to
-0.105 — a plausible-looking tweak, not sabotage — and re-recording gives this,
+0.135 — a plausible-looking tweak, not sabotage — and re-recording gives this,
 with the harness at the pinned commit and every floor intact:
 
 ```
-GATE: PASS — target cairn-demo, dataset 78db6b800cd4, run e8a621da6ef93198
+GATE: PASS — target cairn-demo, dataset 06f495c6c505, run 056f392d9330b2a9
 all 14 suites passed:
-  accuracy               score 0.3968  floor 0.35  PASS  n=20
-  fairness               score 0.8810  floor 0.80  PASS  n=26
-  passage_attribution    score 0.9000  floor 0.90  PASS  n=20
-  refusal                score 0.9231  floor 0.90  PASS  n=26
+  accuracy               score 0.4109  floor 0.35  PASS  n=21
+  citation_accuracy      score 0.9728  floor 0.95  PASS  n=21
+  fairness               score 0.9259  floor 0.85  PASS  n=27
+  groundedness           score 0.9728  floor 0.95  PASS  n=21
+  passage_attribution    score 0.9000  floor 0.90  PASS  n=20  1 unverifiable
+  refusal                score 1.0000  floor 0.90  PASS  n=27
 baseline: numeric comparison refused; verdict changes are still named below
-  REFUSED: the dataset hash differs: this run scored 78db6b800cd4, the
-  baseline scored 3222a8849261. The evidence changed, so the scores are not
+  REFUSED: the dataset hash differs: this run scored 06f495c6c505, the
+  baseline scored 81ca3d7003f0. The evidence changed, so the scores are not
   comparable numbers.
 GATE: PASS                                            (exit 0)
 
-GUARD: FAIL — cairn-demo, run e8a621da6ef93198, against baseline 123b2569cb8a46ba
-REGRESSION  accuracy: score fell 0.3982 -> 0.3968 (-0.0014), above its floor
+GUARD: FAIL — cairn-demo, run 056f392d9330b2a9, against baseline 38cd1ce582a57150
+REGRESSION  accuracy: score fell 0.4123 -> 0.4109 (-0.0014), above its floor
             of 0.35. A floor is a minimum, not a bar the score is allowed to
             drift down to.
-REGRESSION  fairness: score fell 0.9364 -> 0.8810 (-0.0554), above its floor
-            of 0.80. …
-REGRESSION  passage_attribution: score fell 0.9375 -> 0.9000 (-0.0375), above
+REGRESSION  fairness: score fell 0.9290 -> 0.9259 (-0.0031), above its floor
+            of 0.85. …
+REGRESSION  passage_attribution: score fell 0.9412 -> 0.9000 (-0.0412), above
             its floor of 0.90. …
-REGRESSION  refusal: score fell 0.9615 -> 0.9231 (-0.0384), above its floor
-            of 0.90. …
-COVERAGE    citation_accuracy: scored 20 items, and the baseline recorded 19.
+IMPROVEMENT citation_accuracy: score rose 0.9714 -> 0.9728 (+0.0014), and the
+            committed baseline still says 0.9714. Adopt it: an improvement
+            nobody records is a bar nobody raised, and every point of it can
+            be given back later without this check noticing.
+IMPROVEMENT groundedness: score rose 0.9714 -> 0.9728 (+0.0014), and the
+            committed baseline still says 0.9714. …
+IMPROVEMENT refusal: score rose 0.9630 -> 1.0000 (+0.0370), and the committed
+            baseline still says 0.9630. …
+COVERAGE    citation_accuracy: scored 21 items, and the baseline recorded 20.
             More is checked than the record admits; adopt it, or the extra
             coverage can be lost later without this check noticing.
-COVERAGE    citation_validity: scored 20 items, and the baseline recorded 19. …
-COVERAGE    groundedness: scored 20 items, and the baseline recorded 19. …
-COVERAGE    passage_attribution: scored 20 items, and the baseline recorded 16. …
+COVERAGE    citation_validity: scored 21 items, and the baseline recorded 20. …
+COVERAGE    groundedness: scored 21 items, and the baseline recorded 20. …
+COVERAGE    passage_attribution: scored 20 items, and the baseline recorded 17. …
 GUARD: FAIL                                           (exit 1)
 ```
 
-(The four `…` are the same sentence as the finding above each one, cut for
-width; nothing else is elided.)
+(The `…` are each the same sentence as the finding above it, cut for width;
+nothing else is elided.)
 
-Four suites decayed, no floor was breached, the harness declined to put a
-number on it, and the gate was green. That green tick is the whole reason this
-file exists. Four more findings are the denominator moving: a lower threshold
-accepts a passage for items that previously had none, so three suites scored
-20 items instead of 19 and `passage_attribution` 20 instead of 16 — more
-coverage, unadopted, which stops the build for the same reason a rise does.
+Ten findings, no floor breached, the harness declining to put a number on any
+of it, and the gate green. That green tick is the whole reason this file
+exists. Read the shape of it rather than the count: three suites decayed, three
+improved, and four denominators moved — a lower threshold accepts a passage for
+items that previously had none, so three suites scored 21 items instead of 20
+and `passage_attribution` 20 instead of 17. A single tweak to one number
+produced regressions, improvements and coverage changes at once, and the gate
+had nothing to say about any of them.
 
-The block above is a re-run, not a remembered one. The version that stood here
-until it was re-executed recorded three regressions and no coverage findings,
-because it was captured before `passage_attribution` was enabled and before
-the guard could read a denominator, and it paraphrased the guard's wording
-rather than quoting it. Its three scores were right and everything around them
-had gone stale — which is the same defect as any other undated transcript in a
-document, in the section arguing that undetected decay is the problem.
+**This transcript is re-executed on every pass, and it has been wrong twice.**
+The version before this one recorded four regressions and four coverage
+findings against a threshold of 0.105 — correct when captured, and by
+2026-08-16 wrong in four ways at once: the `fairness` floor had been restored
+to 0.85, `ck-027` had joined the evidence, the baseline had been regenerated,
+and 0.105 no longer even produces the transcript's premise. It takes
+`passage_attribution` to 0.8571 and the **gate itself red**, which is a
+different demonstration — a useful one, but not this one. The tweak had to get
+*smaller* to keep showing what this paragraph claims. An undated transcript in
+the section arguing that undetected decay is the problem is the problem.
 
 **The other direction, drilled the same way.** Holding the run fixed and
 setting the committed `refusal` score back to 0.9231 — the number it would
 have had before an improvement — makes the guard say:
 
 ```
-GUARD: FAIL — cairn-demo, run 54a2e2945ef4242b, against baseline 123b2569cb8a46ba
-IMPROVEMENT refusal: score rose 0.9231 -> 0.9615 (+0.0384), and the committed
+GUARD: FAIL — cairn-demo, run f03f61f1b9bbb3e8, against baseline 38cd1ce582a57150
+IMPROVEMENT refusal: score rose 0.9231 -> 0.9630 (+0.0399), and the committed
             baseline still says 0.9231. Adopt it: an improvement nobody
             records is a bar nobody raised, and every point of it can be
             given back later without this check noticing.
