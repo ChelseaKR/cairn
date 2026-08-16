@@ -88,12 +88,38 @@ class TestScoreMovement(unittest.TestCase):
         now = report_doc(suite("refusal", 0.9600))
         self.assertEqual(blocking(regression_findings(now, before)), ["refusal"])
 
-    def test_a_score_that_rose_is_a_note_not_a_failure(self):
+    def test_a_score_that_rose_also_fails_until_the_baseline_catches_up(self):
+        # The ratchet used to work one way: a fall failed, a rise printed a
+        # note. Leave the note unactioned and the recorded bar stays at the old
+        # number, so every point of the improvement can be given back later
+        # and the comparison calls it unchanged. Both directions stop the
+        # build now; neither is adopted automatically.
         before = baseline_doc(suite("accuracy", 0.40))
         now = report_doc(suite("accuracy", 0.44))
         findings = regression_findings(now, before)
-        self.assertEqual(blocking(findings), [])
-        self.assertIn("baseline is behind", findings[0].detail)
+        self.assertEqual(blocking(findings), ["accuracy"])
+        self.assertIn("0.4000 -> 0.4400", findings[0].detail)
+
+    def test_a_rise_and_a_fall_are_not_reported_with_the_same_word(self):
+        # Both block; they do not mean the same thing, and a log that called
+        # an improvement a regression would teach a reader to skim the word.
+        rose = regression_findings(
+            report_doc(suite("accuracy", 0.44)), baseline_doc(suite("accuracy", 0.40))
+        )
+        fell = regression_findings(
+            report_doc(suite("accuracy", 0.36)), baseline_doc(suite("accuracy", 0.40))
+        )
+        self.assertEqual(rose[0].label, "IMPROVEMENT")
+        self.assertEqual(fell[0].label, "REGRESSION")
+
+    def test_the_guard_never_adopts_a_number_by_itself(self):
+        # The one thing that must not happen in either direction: the file on
+        # disk is the bar, and only a person edits it.
+        before = baseline_doc(suite("accuracy", 0.40))
+        digest = json.dumps(before, sort_keys=True)
+        regression_findings(report_doc(suite("accuracy", 0.44)), before)
+        regression_findings(report_doc(suite("accuracy", 0.36)), before)
+        self.assertEqual(json.dumps(before, sort_keys=True), digest)
 
     def test_a_float_round_trip_does_not_invent_a_finding(self):
         before = baseline_doc(suite("fairness", 0.9364))
@@ -126,12 +152,15 @@ class TestSuitesAppearingAndVanishing(unittest.TestCase):
         self.assertEqual(blocking(findings), ["privacy"])
         self.assertIn("stopped checking", findings[0].detail)
 
-    def test_a_new_suite_is_a_note(self):
+    def test_a_suite_scored_with_no_baseline_entry_fails(self):
+        # A newly enabled suite with nothing recorded for it is a check with
+        # no bar under it: it can decay all the way to its floor and this
+        # comparison has nothing to say. Same principle as the rise above.
         before = baseline_doc(suite("smoke", 1.0))
         now = report_doc(suite("smoke", 1.0), suite("multilingual", 0.97))
         findings = regression_findings(now, before)
-        self.assertEqual(blocking(findings), [])
-        self.assertEqual(findings[0].subject, "multilingual")
+        self.assertEqual(blocking(findings), ["multilingual"])
+        self.assertEqual(findings[0].label, "UNPINNED")
 
 
 class TestTheComparisonMustHaveHappened(unittest.TestCase):
@@ -232,8 +261,8 @@ class TestTheCommittedArtifacts(unittest.TestCase):
 
     def test_every_enabled_suite_is_pinned_in_the_baseline(self):
         # Enabling a suite without recording its score would leave a new check
-        # with no bar under it. The guard reports that as a note at gate time;
-        # this catches it offline, before anyone needs the network.
+        # with no bar under it. The guard fails on that at gate time; this
+        # catches it offline, before anyone needs the network.
         enabled = {
             suite_id
             for suite_id, spec in self.target.get("suites", {}).items()
@@ -297,6 +326,14 @@ class TestRunningIt(unittest.TestCase):
             tmp = Path(name)
             self.write(tmp, report_doc(suite("smoke", 0.5)),
                        baseline_doc(suite("smoke", 1.0)), "[suites.smoke]\nenabled = true\n")
+            self.assertEqual(self.invoke(tmp), EXIT_FINDINGS)
+
+    def test_an_unadopted_improvement_exits_one_too(self):
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            self.write(tmp, report_doc(suite("accuracy", 0.9)),
+                       baseline_doc(suite("accuracy", 0.5)),
+                       "[suites.accuracy]\nenabled = true\n")
             self.assertEqual(self.invoke(tmp), EXIT_FINDINGS)
 
     def test_no_report_is_a_failure_to_run_not_a_pass(self):

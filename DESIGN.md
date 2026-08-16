@@ -581,12 +581,6 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   alias mechanism above, whose measurement says it degrades passage choice.
   The refusal is the honest answer to "we have this document, in a language
   you did not ask in, and no way to know it is what you meant."
-- **The baseline ratchets down, not up.** A score that improves is reported as
-  a note telling you to refresh the baseline; nothing forces it. Leave that
-  note unactioned and the bar stays at the old number, so a later decay back
-  to it goes unnoticed. Failing on an improvement would make every unrelated
-  change a two-commit dance, so the note stays a note — but it is a gap, and
-  the note appears on every run until somebody deals with it.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
@@ -779,6 +773,8 @@ the report the gate just wrote, and fails the build on:
 | Finding | Why it is a failure and not a note |
 | --- | --- |
 | a suite scoring below the baseline, by any amount | the answers got worse on the same authored questions |
+| a suite scoring **above** the baseline | see "the ratchet worked one way" below: an improvement nobody records is a bar nobody raised |
+| a suite scored with no baseline entry at all | a newly enabled check with no bar under it can decay to its floor unnoticed |
 | a floor lowered since the baseline | moving the bar down is how a red gate goes green with nothing fixed |
 | a suite in the baseline that this run did not score | a suite that stopped running is a check that stopped checking |
 | a suite disabled without a declared `gap` and `fix_belongs_in` | the gate's output lists what ran and says nothing about what did not |
@@ -809,6 +805,28 @@ a different answer would be defensible.
   ("the gate did not run") the moment the bundle changed, which is the wrong
   report for "the answers changed, and here is how much worse they got".
 
+- **The ratchet worked one way, and now works both.** The first version failed
+  on a fall and printed a note on a rise: *the baseline is behind, refresh it.*
+  A note is not a mechanism. Nothing made anyone action it, and while it went
+  unactioned the recorded bar sat below what the system actually did — so the
+  entire gap between the two was invisible decay, free for a later change to
+  give back with this guard calling it unchanged. The objection at the time was
+  that failing on an improvement makes every unrelated change a two-commit
+  dance. It does not, and the reason is the determinism the rest of this
+  project already leans on: scores move only when answers move, answers come
+  from `cairn record` over a committed corpus and a committed question set, and
+  CI already refuses a commit whose recorded bundle differs from what the
+  engine now produces. A change that moves a score is therefore already a
+  commit that regenerated the evidence; refreshing the baseline is one more
+  command in it. A change that touches nothing sees no finding.
+
+  What the guard does **not** do is take the better number for itself. Both
+  directions stop the build and hand a person the same decision, and a test
+  pins that the guard never writes to the baseline. The asymmetry is gone; the
+  deliberateness is not. A rise is labelled `IMPROVEMENT` and a fall
+  `REGRESSION`, because a log that called both by the same word would teach a
+  reader to skim it.
+
 Two enforcement points, on purpose. The guard catches this at gate time, with
 the network; `tests/test_audit_guard.py` catches an enabled suite missing from
 the baseline offline, before anyone waits on a fetch.
@@ -835,6 +853,22 @@ GUARD: FAIL                                           (exit 1)
 Three suites decayed, no floor was breached, the harness declined to put a
 number on it, and the gate was green. That green tick is the whole reason this
 file exists.
+
+**The other direction, drilled the same way.** Holding the run fixed and
+setting the committed `refusal` score back to 0.9231 — the number it would
+have had before an improvement — makes the guard say:
+
+```
+GUARD: FAIL — cairn-demo, run bed2aab1066e3f7c
+IMPROVEMENT refusal: score rose 0.9231 -> 0.9615 (+0.0384), and the committed
+            baseline still says 0.9231. Adopt it: an improvement nobody
+            records is a bar nobody raised, and every point of it can be
+            given back later without this check noticing.
+GUARD: FAIL                                           (exit 1)
+```
+
+Same exit code, different word, and the baseline file is untouched either
+way — the guard reports, a person decides.
 
 ### The gap in the audit, and whose it is
 

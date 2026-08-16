@@ -159,12 +159,14 @@ jobs:
       - name: Run the pinned audit
         run: ./plumbline-gate.sh --summary-file "$GITHUB_STEP_SUMMARY"
 
-      # The gate checks floors. This checks the two things a floor cannot: a
-      # score that fell without breaching one, and a suite switched off
-      # without saying so. It reads the report the step above just wrote, so
-      # it runs after it and never instead of it. No `continue-on-error`, for
-      # the same reason the gate has none.
-      - name: No regression against the committed baseline, no undeclared gap
+      # The gate checks floors. This checks what a floor cannot: a score that
+      # moved without breaching one — in either direction, because an
+      # improvement nobody adopts leaves the recorded bar below what the
+      # system does, and the whole gap becomes decay nothing will notice — and
+      # a suite switched off without saying so. It reads the report the step
+      # above just wrote, so it runs after it and never instead of it. No
+      # `continue-on-error`, for the same reason the gate has none.
+      - name: The committed baseline still matches, and no gap is undeclared
         run: python3 audit_guard.py --summary-file "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the report

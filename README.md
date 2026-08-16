@@ -242,11 +242,20 @@ limits that are named rather than tuned away.
 0.36 above a floor of 0.35 and the gate would be green the whole way down, so
 the pin also names a committed baseline — one line per suite, distilled by the
 harness from a run we were happy with — and `audit_guard.py` runs straight
-after the gate and fails on any suite that scored below it, any floor that was
-lowered, and any suite that stopped being scored. It can be silenced by
-regenerating the baseline, which is the point: a drop then arrives as
-`"score": 0.9615` becoming `"score": 0.36` in a reviewed diff, rather than as
-nothing at all.
+after the gate and fails on any suite whose score no longer matches it, any
+floor that was lowered, and any suite that stopped being scored. It can be
+silenced by regenerating the baseline, which is the point: a move then arrives
+as `"score": 0.9615` becoming `"score": 0.36` in a reviewed diff, rather than
+as nothing at all.
+
+**A score that went *up* fails too, and the guard still will not adopt it.**
+An improvement nobody records is a bar nobody raised: the committed number
+stays low, and every point of the improvement can be given back later with the
+comparison calling it unchanged. So a rise stops the build exactly as a fall
+does — labelled `IMPROVEMENT` rather than `REGRESSION`, because they do not
+mean the same thing — and a person decides, in a commit, whether the better
+number becomes the new bar. Nothing here ratchets by itself in either
+direction, and a test pins that the guard never writes to the baseline.
 
 **One suite is not scored, and the gate will not let that read as coverage.**
 `multilingual` checks that a response came back in the language it was asked

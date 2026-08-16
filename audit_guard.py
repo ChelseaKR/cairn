@@ -22,11 +22,36 @@ So this script is the ratchet and the inventory. It runs after the gate, reads
 the report the gate just wrote, and fails on:
 
 - any suite scoring below the committed baseline, by any amount;
+- any suite scoring **above** it that the baseline has not caught up with;
 - any suite whose floor was lowered since the baseline;
 - any suite in the baseline that this run did not score at all;
 - any suite disabled in `plumbline/target.toml` without a declared gap saying
   what is missing and where the fix belongs;
 - a run that compared against no baseline, or against a different one.
+
+**Why an improvement fails too, which it did not used to.** The first version
+of this guard printed a note on a score that rose: *the baseline is behind,
+refresh it.* A note is not a mechanism. Leave it unactioned — and nothing made
+anyone action it — and the recorded bar stays at the old number while the
+system performs above it, so the whole distance between the two becomes
+invisible decay: a later change can give back every point of the improvement
+and this guard will call it unchanged.
+
+The objection at the time was that failing on an improvement makes every
+unrelated change a two-commit dance. It does not, and the reason is the
+determinism this project already relies on everywhere else. Scores move only
+when answers move. Answers are produced by `cairn record` from a committed
+corpus and a committed question set, and CI already refuses any commit whose
+recorded bundle differs from what the engine now produces. So a change that
+moves a score is, necessarily, a change that had to touch the evidence in that
+same commit — and refreshing the baseline is one more command in a commit that
+was already regenerating things. A change that touches nothing moves nothing
+and sees no finding.
+
+What this does *not* do is adopt the better number by itself. Nothing here
+ratchets in either direction: both a fall and a rise stop the build and ask a
+person to put the new bar in a reviewed diff, with the reason in the commit
+message. The asymmetry is gone; the deliberateness is not.
 
 **Why Cairn subtracts scores the harness will not.** The harness refuses a
 numeric comparison across a changed dataset hash, and it is right to: for a
@@ -49,14 +74,16 @@ blocking a merge over at any size.
 
 **The escape hatch, and why it is not a hole.** Regenerating the baseline
 makes any of this green. That is deliberate and it is the only way it could
-work: the point is not that scores may never fall, it is that a fall must be a
+work: the point is not that scores may never move, it is that a move must be a
 reviewed diff in a committed file rather than a number nobody looked at. The
 regeneration command is printed with every finding.
 
 Exit codes follow the harness's vocabulary so a build log reads consistently:
 
-    0  no regression, and every disabled suite declares its gap
-    1  findings: something got worse, or a gap is undeclared
+    0  every scored suite matches the committed baseline, and every disabled
+       suite declares its gap
+    1  findings: a score moved off the baseline in either direction, or a gap
+       is undeclared
     4  the guard could not run (no report, no baseline, unreadable input) —
        a check that could not run is not a check that passed
 """
@@ -110,11 +137,18 @@ class GuardError(Exception):
 @dataclass(frozen=True)
 class Finding:
     """One thing wrong. `blocking` findings fail the build; the rest are
-    printed because a reader should see them, not because they are faults."""
+    printed because a reader should see them, not because they are faults.
+
+    `label` exists because two blocking findings can mean opposite things. A
+    build stopped by a score that rose is not a build stopped by a regression,
+    and a log that called both "REGRESSION" would teach a reader to skim past
+    the word.
+    """
 
     blocking: bool
     subject: str
     detail: str
+    label: str = "REGRESSION"
 
 
 def load_json(path: Path, what: str) -> dict:
@@ -178,6 +212,7 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
                         f"[suites.{suite_id}] what is missing (gap) and where the "
                         f"fix belongs (fix_belongs_in)."
                     ),
+                    label="UNDECLARED",
                 )
             )
             continue
@@ -186,7 +221,14 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
 
 
 def regression_findings(report: dict, baseline: dict) -> list[Finding]:
-    """Compare this run against the committed bar."""
+    """Compare this run against the committed bar, in both directions.
+
+    Every scored suite must match the baseline exactly. Falling below it is a
+    regression; rising above it is an improvement the record has not caught up
+    with, and appearing without being in it at all is a suite running with no
+    bar under it. All three stop the build, because all three end with a number
+    in a committed file that is not the number the system produces.
+    """
     findings: list[Finding] = []
 
     comparison = report.get("baseline")
@@ -237,12 +279,15 @@ def regression_findings(report: dict, baseline: dict) -> list[Finding]:
     for suite_id in sorted(set(now) - set(before)):
         findings.append(
             Finding(
-                blocking=False,
+                blocking=True,
                 subject=suite_id,
                 detail=(
-                    f"scored {now[suite_id]['score']:.4f}; it is not in the baseline, "
-                    f"so there is nothing to compare it against yet."
+                    f"scored {now[suite_id]['score']:.4f} and is not in the committed "
+                    f"baseline, so it is running with no bar under it — it can decay "
+                    f"to its floor unnoticed. Adopt it in the commit that switched it "
+                    f"on."
                 ),
+                label="UNPINNED",
             )
         )
 
@@ -265,13 +310,17 @@ def regression_findings(report: dict, baseline: dict) -> list[Finding]:
         elif delta > TOLERANCE:
             findings.append(
                 Finding(
-                    blocking=False,
+                    blocking=True,
                     subject=suite_id,
                     detail=(
                         f"score rose {previous['score']:.4f} -> "
-                        f"{current['score']:.4f} ({delta:+.4f}). The baseline is "
-                        f"behind: refresh it to make the improvement the new bar."
+                        f"{current['score']:.4f} ({delta:+.4f}), and the committed "
+                        f"baseline still says {previous['score']:.4f}. Adopt it: an "
+                        f"improvement nobody records is a bar nobody raised, and "
+                        f"every point of it can be given back later without this "
+                        f"check noticing."
                     ),
+                    label="IMPROVEMENT",
                 )
             )
         if current["floor"] < previous["floor"] - TOLERANCE:
@@ -330,13 +379,18 @@ def render_terminal(
         lines.append("declared gaps: none — every implemented suite is enabled.")
     if findings:
         for finding in findings:
-            mark = "REGRESSION" if finding.blocking else "note      "
-            lines.append(f"{mark} {finding.subject}: {finding.detail}")
+            mark = finding.label if finding.blocking else "note"
+            lines.append(f"{mark:<11} {finding.subject}: {finding.detail}")
     else:
         lines.append("no suite moved against the committed baseline.")
     if blocking:
         lines.append("")
         lines.append("If a finding above is intended, " + REGENERATE)
+        lines.append(
+            "An IMPROVEMENT is intended more often than not, and adopting it is "
+            "the same command as accepting a fall: the point is that the bar "
+            "moves in a reviewed diff, not that it may only move down."
+        )
     lines.append(f"report: {report_path}")
     lines.append(f"GUARD: {verdict}")
     return lines
@@ -365,7 +419,7 @@ def render_markdown(
     if findings:
         lines += ["| | Suite | Finding |", "|---|---|---|"]
         for finding in findings:
-            mark = "**regression**" if finding.blocking else "note"
+            mark = f"**{finding.label.lower()}**" if finding.blocking else "note"
             lines.append(f"| {mark} | `{finding.subject}` | {finding.detail} |")
         lines.append("")
     else:
