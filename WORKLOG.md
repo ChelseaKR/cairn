@@ -161,3 +161,60 @@ One line per implementation session: date, what was built, from what input.
   Pin: `a565b21` → `d45ca40` → `f4b285e`, both bumps read as dependency
   upgrades and both behaviour-neutral here. 255 tests plus 49 browser checks;
   14 suites, none disabled.
+
+- 2026-08-16 — Review pass (AI review session, clean-room implementation
+  side). Deliberately not numbered: the two entries above are both "Session
+  4", one dated 2026-08-15 and one 2026-08-16, and picking a number here would
+  either repeat that or imply a session 5 that never happened. A provenance
+  log is worth more with its inconsistency visible than tidied over.
+
+  Input: the same specification and hygiene rules, and this repository's own
+  state. No original repository, no other project's code. A quality pass
+  rather than a milestone: nothing new was built, and five things were found.
+
+  **`main` was red, and had been since the previous commit.**
+  `tests/test_live.py::test_an_endpoint_it_cannot_read_exits_four` asked
+  `./plumbline-live.sh` about a broken live config, but the runner read the
+  pin and required a resolved harness checkout *before* it looked at its own
+  configuration — so on a machine with no `.plumbline-cache`, which is every
+  machine in the `core` job by design, it answered "the harness is not
+  resolved" instead. The runner now finishes checking what it can check on
+  its own before it needs anything outside the checkout, and a second test
+  runs the same broken config with the cache absent and present and requires
+  the same complaint from both, so the drill can no longer depend on whether
+  someone had run the gate lately.
+
+  **Four documented claims did not survive being checked.** `DESIGN.md` said
+  `retrieval.max_passages` defaults to 2, in the configuration table and twice
+  in prose, while the code, `cairn.toml` and `DESIGN.md`'s own audit-findings
+  table say 1 — the value an audit finding moved it to. The calibration note
+  quoted 0.187/0.148, which are the weight-1 numbers from the multilingual
+  milestone; the shipped scorer measures 0.1965/0.1219, and every probe's fact
+  passage ranks first rather than in the top two. The `README` quick-start
+  showed a two-source answer to a question that cites one, and an English
+  refusal in the wording the audit had already replaced — the version that
+  said it had no source without saying it could not help. And
+  `cairn/language.py` told operators to add right-to-left codes to
+  `[language] rtl`, a configuration key that does not exist and, per
+  `DESIGN.md`, deliberately never will; the unused `extra_rtl` parameter that
+  made it look plausible is gone.
+
+  **Two checks that could pass without checking.** The README is now executed
+  like the walkthrough, under a rule loose enough for wrapped and elided
+  prose — every word shown must be a word the command printed, in order —
+  which is what caught two of the claims above. And the contrast suite graded
+  a colour pair in both presentations without anything requiring the dark
+  presentation to define its own colours: an unoverridden token silently keeps
+  its light value, and the light pair passes by construction. Every colour the
+  pairs use must now be re-themed.
+
+  **Four browser checks asserted `true`.** Each was backed by a preceding
+  wait, so none was empty, but one of them — "an empty question is reported
+  without a request" — never checked the second half of its own description.
+  It counts requests to `/ask` now, and fails if the script stops preventing
+  the form's native post. 50 browser checks, up from 49; 260 tests, up from
+  255.
+
+  Not done: the branch-protection ruleset is still committed and **not
+  applied**, the screen-reader pass has still not happened, and `ck-015` and
+  `ck-022` behave exactly as recorded.

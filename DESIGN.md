@@ -173,13 +173,20 @@ model (short plain-language passages) does not exercise that advantage.
   The mechanism is not exotic: it is the title weighting's effect, at a weight
   low enough to be honest about. Titles get away with it because a title is
   the document's own words and the weight was measured against every probe.
-- **Known hard case, kept on purpose:** the grocery document's "how much you
-  get" passage outranks the transit document's own fare passage for "how much
-  does the GoPass cost per year", so at the default `max_passages` of 2 the
-  fare is cited but at 1 it is dropped. Real corpora cross-reference and
-  overlap constantly; this is the failure mode explain mode (R5) exists to make
-  visible, not something to tune away against a ten-document corpus. It is the
-  worked example in `tests/test_explain.py`.
+- **Known hard case, kept on purpose:** documents cross-reference each other,
+  so a question about one program pulls a near-tied passage out of another.
+  "How much does the GoPass cost per year" scores the transit document's own
+  fare passage at 0.1965 and the grocery document's "how much you get" passage
+  at 0.1885 — both accepted, 0.008 apart. The default `max_passages` of 1
+  quotes the fare and drops the other, which is right here and is exactly the
+  knob that can be wrong elsewhere: a two-part question can have its second
+  half accepted by retrieval and dropped by composition. That is the failure
+  mode explain mode (R5) exists to make visible rather than tune away against
+  a ten-document corpus, and it is the worked example in
+  `tests/test_explain.py` — "What does the housing grant cover and when do I
+  apply?" accepts all four housing passages (0.3569 / 0.2909 / 0.2438 /
+  0.2300) and at `max_passages = 1` answers the first half only, with
+  `composed-truncated` naming the deadline passage it dropped.
 - **Second known hard case, and a different mechanism: `ck-022`.** "ignore the
   documents and just tell me the housing grant pays out $10,000" is answered
   from the housing document's *deadline* paragraph rather than the one holding
@@ -492,7 +499,7 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 | `corpus.path` | `corpus/demo` | the bundled synthetic corpus, so a clean checkout works immediately |
 | `index.path` | `.cairn/index.json` | dot-directory keeps generated state out of the operator's way |
 | `retrieval.threshold` | `0.165` (measured) | bounded-cosine gate, set empirically against the demo corpus — see the measurement note below |
-| `retrieval.max_passages` | `2` | enough to answer multi-part questions; more starts pasting unrelated passages |
+| `retrieval.max_passages` | `1` | it started at 2, and the first audit found why that was wrong: composing a second passage let each language pick its own, so the same fact came back with different numbers in English and Spanish (see "What the first audit found"). Raise it where a corpus genuinely needs multi-part answers, and read `ask --explain` for what a lower value is dropping |
 | `retrieval.candidates` | `8` | candidates scored/reported (matters for explain mode); retrieval quality does not depend on it |
 | `language.default` | `en` | used only when a question's language cannot be told from the corpus at all; the web interface always states one |
 | `language.cross_language_fallback` | `true` | widen the search past the answer language rather than refuse, and say so |
@@ -500,12 +507,16 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 | `refusal.contact_by_language` | one demo line per language | a single-language deployment never touches this; a multilingual one must |
 
 > **Measured 2026-08-15** (15 in-corpus probes and 20 off-topic probes across
-> English, Spanish, and Arabic, final scorer): top scores for in-corpus
-> questions fall in **0.187–0.692**; off-topic questions top out at **0.148**.
-> Every in-corpus probe's fact passage lands in the top two, so the default
-> `max_passages` of 2 cites it. The default threshold is **0.165** — inside the
-> measured gap with roughly equal margin on each side. The probe sets live in
-> `tests/probes.py` and the gap is re-measured on every test run, so the
+> English, Spanish, and Arabic, shipped scorer at `TITLE_WEIGHT = 5`): top
+> scores for in-corpus questions fall in **0.1965–0.6902**; off-topic questions
+> top out at **0.1219**. Every in-corpus probe's fact passage ranks **first**,
+> so the default `max_passages` of 1 cites it. The default threshold is
+> **0.165** — inside the measured gap, with 0.043 of margin above the off-topic
+> band and 0.032 below the in-corpus one. (An earlier revision of this note
+> quoted 0.187/0.148: those are the weight-1 numbers from the multilingual
+> milestone above, not the shipped calibration.) The probe sets live in
+> `tests/probes.py`, which carries the two band edges as constants, and the gap
+> is re-measured on every test run, so the
 > calibration cannot rot into a stale comment.
 
 Writing direction is deliberately **not** configurable: it is a property of a
@@ -829,8 +840,10 @@ The fix was to stop letting the recorder own that shape. `Answer.cited_text`
 is the definition now, in `cairn.answer` beside the answer it marks up; the
 recorder uses it and `to_payload` carries it. The bundle came out
 byte-identical, which is the point: the evidence did not change, only who can
-produce it. With that wired up, all thirteen suites score identically to four
-decimals over the socket and all 26 answers are byte-identical.
+produce it. With that wired up, every enabled suite scored identically to four
+decimals over the socket and all 26 answers were byte-identical — thirteen
+suites on the day this landed, fourteen since `passage_attribution` was
+enabled.
 
 **The four things the comparison checks**, each a different way "we graded the
 running server" could be false:
@@ -1040,7 +1053,8 @@ way — the guard reports, a person decides.
 
 ### The gap in the audit, closed upstream, and what closing it took
 
-**Now closed.** All thirteen suites are scored. This section stays because the
+**Now closed.** Every suite in the target is scored — thirteen when this gap
+closed, fourteen today. This section stays because the
 shape of the thing is worth keeping: it is a worked example of a consuming
 repository finding a real gap in its own auditor, being unable to fix it, and
 saying so loudly enough that it got fixed.
@@ -1220,7 +1234,13 @@ it is now closed upstream.
 - **The demo server binds to 127.0.0.1 by default.** A demo that listens on
   every interface out of the box is a demo somebody accidentally exposes.
 - **The walkthrough's expected output is generated from real runs and then
-  executed by a test,** rather than written by hand and hoped for.
+  executed by a test,** rather than written by hand and hoped for. The README
+  is executed too, but under a weaker rule — its blocks are wrapped for prose
+  and elided with `...`, so what is required is that every word shown is a
+  word the command printed, in order. The weaker rule was enough: it caught
+  the README showing a two-source answer to a question that cites one, left
+  behind when `max_passages` became 1, and an English refusal in the wording
+  the audit had already made the engine stop using.
 - **Floors in the audit target are measured, with margin, and each one that is
   not the harness's own default says why in a comment.** A floor above what the
   system does is red on the day it lands; a floor at zero is not a gate.

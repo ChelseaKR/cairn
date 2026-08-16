@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 255 tests plus 49 browser behaviour checks, standard library only,
+server. 260 tests plus 50 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -47,11 +47,11 @@ The grant covers up to $3,500 of unpaid rent. ...
 
 Sources:
   [1] Harbor Housing Relief Grant (housing-relief-en#2)
-  [2] Harbor Housing Relief Grant (housing-relief-en#1)
 
 $ python3 -m cairn ask "Can you help me renew my drivers license?"
-I don't have a source for that. None of the official documents this assistant
-is allowed to answer from cover your question, and I won't guess.
+I don't have a source for that, so I can't help with this question. None of
+the official documents this assistant is allowed to answer from cover it, and
+I won't guess.
 For help from a person, contact ...
 ```
 
@@ -78,6 +78,7 @@ Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
   question terms:      does, dog, need, vacci, what
   in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
+          ...
           matched 1/5: need
    ...
 Stage 1 - retrieval: FAILED (below-threshold)
@@ -188,7 +189,7 @@ light, dark, and right-to-left.
 
 ```console
 $ cd tests/browser && npm install && npm run check
-49/49 behaviour checks passed
+50/50 behaviour checks passed
 ```
 
 ## Configuration
@@ -213,7 +214,12 @@ diagnosis in explain mode, multilingual behavior including script-aware
 tokenizing and bidi isolation, output determinism, and the CLI contract — and
 it re-measures the retrieval threshold calibration on every run rather than
 trusting a comment. It also runs every command in
-[the walkthrough](docs/demo.md) and fails if the recorded output has drifted.
+[the walkthrough](docs/demo.md) and fails if the recorded output has drifted —
+and every `cairn` command on this page too, under a looser rule that tolerates
+the wrapping and the `...` but not a word the command never printed. That
+second one was added after this README was found showing a two-source answer
+to a question that cites one, and a refusal in wording the engine stopped
+using.
 
 The browser checks under `tests/browser/` need Node and Chromium and are
 deliberately not part of this path: install, lint and test work with no Node,
