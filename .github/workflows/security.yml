@@ -1,0 +1,92 @@
+# Security scanning, kept out of ci.yml on purpose.
+#
+# ci.yml's `core` job is the path a contributor runs, and its argument is that
+# it needs nothing from outside this repository. These jobs need the opposite:
+# a scanner fetched from somewhere, and in gitleaks' case the full history. So
+# they live here, where a slow or unavailable scanner cannot make the
+# contributor path look broken.
+#
+# All three run automatically on push and pull request. A scanner wired to
+# workflow_dispatch only is a scanner nobody runs: the badge says the gate
+# exists and the log nobody opens says it last ran in March. There is also a
+# weekly schedule, because a new advisory against an unchanged tree is a fact
+# about the world that no commit will surface.
+#
+# No `continue-on-error`, and no `|| true`. The same argument ci.yml makes
+# about the audit job applies here: a check that could not run is not a check
+# that passed, and the honest report of that is a red one.
+#
+# Every action is pinned to a commit rather than a tag, because a tag can be
+# moved and a green run today that quietly means something else tomorrow is not
+# a record of anything.
+
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: secret-scan (gitleaks, full history)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks-action lists the pull request's commits to scope its scan.
+      # Without this it gets a 403 from the pulls API and dies before scanning.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # A secret is committed once and removed in the next commit; a
+          # shallow clone is exactly the scan that would miss it.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    name: sast (semgrep)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      # .plumbline-cache is not scanned even when a previous job has left one
+      # behind: it is somebody else's code at a pinned commit, and scanning a
+      # dependency here would report findings this repository cannot fix.
+      - name: Semgrep
+        run: pipx run semgrep==1.168.0 scan --error --metrics off --config p/python --config p/security-audit cairn tests *.py
+
+  dependency-audit:
+    name: dependency-audit (pip-audit)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      # The runtime has no dependencies at all, so what this audits is the
+      # development toolchain. That is not a formality: a compromised linter
+      # runs on every contributor's checkout.
+      - name: pip-audit the development toolchain
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pipx run pip-audit --strict

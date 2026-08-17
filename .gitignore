@@ -37,3 +37,9 @@ plumbline/audits/
 # tooling caches
 .ruff_cache/
 .pytest_cache/
+
+# coverage and mypy caches
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/

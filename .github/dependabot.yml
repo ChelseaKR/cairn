@@ -1,0 +1,30 @@
+# Dependabot keeps the two things this repository pins from going stale.
+#
+# `github-actions` is the important one. Every `uses:` here is pinned to a
+# commit SHA, which is what stops a moved tag from changing what runs, and it
+# is also what stops a security fix from arriving on its own. A pin without
+# something that raises it is not caution, it is a frozen dependency.
+#
+# `pip` covers the development toolchain. The runtime has no dependencies, so
+# there is nothing else to watch.
+#
+# The cooldown is deliberate: a release is not automatically safer than the one
+# it replaces on its first day, and a compromised package's window is usually
+# short. Waiting a week costs nothing here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7

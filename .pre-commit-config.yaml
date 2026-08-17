@@ -1,0 +1,28 @@
+# A fast pre-flight, not the gate. `make verify` is the local gate and
+# ./plumbline-gate.sh is the merge gate; nothing here is a substitute for
+# either, and a hook that passed says only that the cheap checks passed.
+#
+# Local hooks run through `uv run --locked`, so the tool versions come from
+# uv.lock and match `make lint` and `make typecheck` exactly. A separately
+# pinned mirror would be a second set of versions to keep in step with the
+# lockfile, and it would drift.
+#
+# Install with: uvx pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run --locked --extra dev ruff check --fix
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: uv run --locked --extra dev mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
