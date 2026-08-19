@@ -10,6 +10,53 @@ version is bumped; the annotated tag is cut by the maintainer afterwards,
 because tagging is a push and this repository's working rule is that an agent
 does not push.
 
+Work that has landed but is not yet in a version is recorded below under
+**Unreleased**, at one heading level down from the version sections. That is
+not decoration: `tests/test_cli.py` requires the first `##` heading in this
+file to be the current version, because a changelog whose newest version
+section describes a release that does not exist is worse than one that is
+behind. So unreleased work waits at `###` until the version is bumped, and then
+becomes a version section like any other.
+
+### Unreleased
+
+Nothing here changes what Cairn answers or how it is graded. Development
+tooling and repository documentation only.
+
+#### Added
+
+- `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
+  the test suite under coverage with an 85% branch floor (measured 89%). It is
+  deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
+  a separate, fail-closed job, for the reasons in `.github/workflows/ci.yml`.
+- `uv.lock` and `.python-version`, so the development toolchain is a pinned,
+  reviewable resolution rather than whatever pip picked today. The runtime is
+  still standard-library only and still has no lockfile to consult, because it
+  has nothing to lock.
+- `.github/workflows/security.yml`: gitleaks over the full history, Semgrep,
+  and `pip-audit` over the development toolchain. All three run automatically
+  on push, on pull request, and weekly; none of them can be skipped into a
+  green check.
+- `.github/dependabot.yml` for GitHub Actions and pip, with a seven-day
+  cooldown. Every `uses:` in this repository is pinned to a commit SHA, and a
+  pin with nothing raising it is a frozen dependency rather than a careful one.
+- `SECURITY.md`, `CONTRIBUTING.md`, `.github/CODEOWNERS`,
+  `.pre-commit-config.yaml`, and `docs/adr/0000-record-architecture-decisions.md`.
+- A Standards Conformance table in the README, with every standard declared
+  and the three real gaps (mypy strict, the complexity rule, no i18n
+  declaration) named rather than left out.
+
+#### Changed
+
+- Every action in `ci.yml` is pinned to a full commit SHA with a version
+  comment, matching what `pages.yml` already did. The SHAs are the exact
+  commits the previous major-version tags resolved to, so nothing about what
+  runs has changed; what has changed is that a moved tag can no longer change
+  it.
+- `pyproject.toml`: the dev extra now carries version floors (ruff, mypy,
+  pytest, coverage) instead of bare names, and gains mypy, coverage, and
+  complexity configuration.
+
 ## 0.1.0 — 2026-08-16
 
 First citable version. Everything the functional specification asks for is

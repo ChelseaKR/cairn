@@ -184,11 +184,34 @@ def compare_responses(recorded: dict[str, str], live: dict[str, str]) -> list[st
     return findings
 
 
+#: Schemes this checker will open. `urllib` also understands `file:`, `ftp:` and
+#: `data:`, so an endpoint that arrived from a config file or an argument could make
+#: this read a local path instead of reaching the network. Nothing here needs those,
+#: and a check that silently reads the disk it is meant to be checking against is
+#: worse than a check that refuses.
+FETCHABLE_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+
+
 def check_interface(endpoint: str, recorded_bundle: Path) -> list[str]:
     """The audited interface snapshot against the page actually served."""
     parts = urlparse(endpoint)
+    if parts.scheme not in FETCHABLE_SCHEMES:
+        raise CannotRun(
+            f"refusing to fetch {endpoint!r}: only "
+            f"{', '.join(sorted(FETCHABLE_SCHEMES))} are fetchable"
+        )
+    if not parts.netloc:
+        raise CannotRun(f"refusing to fetch {endpoint!r}: no host in the endpoint")
     page_url = f"{parts.scheme}://{parts.netloc}/"
     try:
+        # The rule below asks that dynamic urllib calls be audited so a caller cannot
+        # control the scheme. That audit is the FETCHABLE_SCHEMES check above, which
+        # refuses anything but http and https before this line is reached, and the
+        # reconstruction from `parts.scheme` and `parts.netloc` drops any path, query
+        # or fragment. The rule matches on the value being dynamic and cannot see the
+        # guard, so it is suppressed at this call rather than repo-wide. Both refusals
+        # are covered by tests.
+        # nosemgrep: dynamic-urllib-use-detected
         with urllib.request.urlopen(page_url, timeout=FETCH_TIMEOUT_SECONDS) as response:
             served = response.read().decode("utf-8")
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:

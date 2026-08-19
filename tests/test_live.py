@@ -446,3 +446,23 @@ class TestTheRunnerIsNotTheGate(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCheckInterfaceRefusesUnfetchableEndpoints(unittest.TestCase):
+    """`urllib` understands more schemes than this checker should ever open.
+
+    Semgrep flagged the dynamic `urlopen` call: `file:` is a scheme urllib accepts, so
+    an endpoint arriving from a config file or an argument could turn this checker into
+    a file reader, comparing the audited snapshot against the disk it was meant to be
+    checking. These fail without the allowlist.
+    """
+
+    def test_a_file_scheme_endpoint_is_refused(self):
+        with self.assertRaises(live_check.CannotRun) as caught:
+            live_check.check_interface("file:///etc/passwd", ROOT)
+        self.assertIn("only http, https", str(caught.exception))
+
+    def test_an_endpoint_with_no_host_is_refused(self):
+        with self.assertRaises(live_check.CannotRun) as caught:
+            live_check.check_interface("https://", ROOT)
+        self.assertIn("no host", str(caught.exception))
