@@ -3,6 +3,7 @@
 Subcommands:
 
     cairn index            build the local index; report what was indexed
+    cairn lint             check the corpus for problems, without indexing
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
@@ -31,6 +32,8 @@ from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import diagnose, render, trace_payload
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.language import isolate
+from cairn.lint import lint_corpus
+from cairn.lint import render as render_lint_report
 from cairn.messages import text as message
 from cairn.record import DEFAULT_BUNDLE, DEFAULT_QUESTIONS, RecordError, record
 from cairn.server import serve
@@ -52,6 +55,15 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     # being visible rather than only internal.
     print(f"Corpus fingerprint: {report.corpus_fingerprint[:12]} ({cfg.corpus_path})")
     return 0
+
+
+def _cmd_lint(args: argparse.Namespace, cfg: Config) -> int:
+    report = lint_corpus(cfg.corpus_path)
+    print(render_lint_report(report))
+    # Warnings do not fail the command — they are advisory, not a defect
+    # `cairn index` would itself refuse — but a structural error does, the
+    # same way any other subcommand reports a real problem: exit 1.
+    return 0 if report.ok else 1
 
 
 def _render_answer(result: AskResult) -> str:
@@ -150,6 +162,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_index = sub.add_parser("index", help="build the local index from the corpus")
     p_index.set_defaults(func=_cmd_index)
+
+    p_lint = sub.add_parser(
+        "lint", help="check the corpus for problems, without building an index"
+    )
+    p_lint.set_defaults(func=_cmd_lint)
 
     p_ask = sub.add_parser("ask", help="ask a question against the index")
     p_ask.add_argument("question", help="the question, quoted")

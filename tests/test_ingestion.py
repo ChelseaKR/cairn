@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from cairn.corpus import CorpusError, load_corpus, load_document
-from cairn.index import build_and_write, build_index, read_index, write_index
+from cairn.index import LanguageStats, build_and_write, build_index, read_index, write_index
 
 DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
 
@@ -179,6 +179,43 @@ class TestIndexing(unittest.TestCase):
                     self.assertEqual(read_back.title, original.title)
                     self.assertEqual(read_back.term_counts, original.term_counts)
                     self.assertTrue(original.term_counts)
+
+
+class TestDilutionExemption(unittest.TestCase):
+    """`LanguageStats.dilution_exempt` tells apart the two ways
+    `suppressed` can come back empty: a language with plenty of passages
+    and nothing common enough to suppress (fine), and a language with so
+    few passages that *every* term clears the ratio and the floor stands
+    down entirely (the ``ck-022``-shaped trap `cairn lint` reports)."""
+
+    def test_a_real_demo_language_is_not_exempt(self):
+        index = build_index(DEMO)
+        for lang, stats in index.languages.items():
+            with self.subTest(lang=lang):
+                self.assertFalse(stats.dilution_exempt)
+
+    def test_a_single_passage_language_is_exempt(self):
+        # Every term in a one-passage language has df == passage_count, so
+        # every term clears `MAX_DF_RATIO * passage_count` and the floor
+        # exempts the lot rather than suppress the passage to nothing.
+        stats = LanguageStats(passage_count=1, doc_freq={"program": 1, "assist": 1})
+        self.assertTrue(stats.dilution_exempt)
+        self.assertEqual(stats.suppressed, frozenset())
+
+    def test_a_language_with_no_terms_is_not_exempt(self):
+        stats = LanguageStats(passage_count=0, doc_freq={})
+        self.assertFalse(stats.dilution_exempt)
+
+    def test_a_language_with_room_to_suppress_is_not_exempt(self):
+        # A larger, more ordinary language: one term common enough to be
+        # suppressed, one that is not. `suppressed` is non-empty here for
+        # the ordinary reason, not the exemption.
+        stats = LanguageStats(
+            passage_count=10,
+            doc_freq={"the": 8, "grant": 2},
+        )
+        self.assertEqual(stats.suppressed, frozenset({"the"}))
+        self.assertFalse(stats.dilution_exempt)
 
 
 if __name__ == "__main__":

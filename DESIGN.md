@@ -41,6 +41,7 @@ cairn/                  the package
   corpus.py             load + chunk corpus documents (front-matter markdown)
   text.py               tokenization, script classification, script-aware normalizing
   index.py              build/read the on-disk index; deterministic serialization
+  lint.py               read-only corpus checks an author runs before indexing
   retrieve.py           TF-IDF cosine scoring, threshold gate, retrieval trace
   language.py           language registry, writing direction, bidi isolates, detection
   messages.py           every string Cairn says in its own voice, per language
@@ -53,7 +54,7 @@ cairn/                  the package
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
-  cli.py                subcommands: index, ask, serve, record
+  cli.py                subcommands: index, lint, ask, serve, record
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 docs/demo.md            the walkthrough, with executed (not asserted) output
@@ -494,6 +495,19 @@ about, and a document no question in any language can reach is a worse thing to
 leave in it. The change is provably neutral on the demo corpus: every language
 in it has surviving terms, `cairn record` re-records a byte-identical bundle,
 and the dataset id, run id and baseline are unmoved.
+
+**This was a finding an author could only discover the hard way, until
+`cairn lint`.** Nothing told an operator that a single-passage language they
+just added was exempted from the floor rather than protected by it — the
+first sign would have been a real question, in that language, quoted
+verbatim from the document, refused. `LanguageStats.dilution_exempt` names
+the exact condition (every term in a language's document-frequency table
+clears the ratio, so the floor stands down entirely rather than suppress the
+language to nothing) separately from `suppressed` simply being empty for the
+ordinary reason — a corpus large and varied enough that nothing needs
+suppressing. `cairn lint` reports the first case as a warning, at the point
+an author is about to publish, instead of leaving it for a refusal to
+surface later. It changes no score and writes no index; see `cairn/lint.py`.
 
 ### Refusal is a first-class outcome
 

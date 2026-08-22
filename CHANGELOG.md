@@ -21,10 +21,23 @@ becomes a version section like any other.
 ### Unreleased
 
 Nothing here changes what Cairn answers or how it is graded. Development
-tooling and repository documentation only.
+tooling, repository documentation, and one new read-only operator command.
 
 #### Added
 
+- `cairn lint`: reads the corpus the way `cairn index` would, without writing
+  an index, and reports every problem found rather than stopping at the
+  first one — malformed front matter, a duplicate doc id, a passage that
+  tokenizes to no scoring terms at all (title included, at the weight
+  `cairn index` would use), and a language with too few passages for the
+  document-frequency floor to suppress anything
+  (`LanguageStats.dilution_exempt`, new on `Index`). Advisory: warnings do
+  not fail the command, only a structural error `cairn index` would itself
+  refuse does. See `cairn/lint.py` and DESIGN.md, "The document-frequency
+  floor has one exemption, and it is narrow".
+- `docs/I18N.md`: the scope and flip conditions for language support, in
+  three tiers (corpus language, interface language, right-to-left table
+  entry) — closing the gap the Standards Conformance table named directly.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

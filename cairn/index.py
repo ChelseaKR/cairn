@@ -131,6 +131,28 @@ class LanguageStats:
         over = frozenset(term for term, df in self.doc_freq.items() if df > cut)
         return frozenset() if len(over) == len(self.doc_freq) else over
 
+    @cached_property
+    def dilution_exempt(self) -> bool:
+        """True when the exemption above actually fired for this language:
+        every term this language has would clear the document-frequency
+        ratio, so :attr:`suppressed` exempted all of them rather than
+        suppress everything down to a 0.0 score.
+
+        Kept separate from :attr:`suppressed` being empty, which is also true
+        of the ordinary case where nothing needs suppressing — a corpus large
+        and varied enough that no term repeats in more than half its
+        language's passages. Only this property tells the two apart, which is
+        the distinction `cairn lint` reports: a language reachable *because*
+        nothing needs suppressing is fine; a language reachable *because the
+        floor stood down* is one question away from the same trap at a bigger
+        scale, per ``ck-022``.
+        """
+        if not self.doc_freq:
+            return False
+        cut = MAX_DF_RATIO * self.passage_count
+        over = sum(1 for df in self.doc_freq.values() if df > cut)
+        return over == len(self.doc_freq)
+
 
 @dataclass(frozen=True)
 class Index:

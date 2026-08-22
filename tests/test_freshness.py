@@ -306,16 +306,18 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
     failure with a message.
     """
 
-    # The one subcommand that does not answer from the index: it is the fix,
-    # not a reader. Anything else added to this set is somebody deciding a new
+    # The subcommands that do not answer from the index: `index` is the fix,
+    # not a reader, and `lint` reads the corpus directly and never touches an
+    # index at all. Anything else added to this set is somebody deciding a new
     # command may quote a corpus it has not checked.
-    DOES_NOT_ANSWER = {"index"}
+    DOES_NOT_ANSWER = {"index", "lint"}
 
     # Arguments each subcommand needs to get as far as reading the index.
     # A subcommand with no entry here fails the completeness test below rather
     # than being skipped.
     ARGV = {
         "index": [],
+        "lint": [],
         "ask": ["a question"],
         "serve": ["--port", "0"],
         "record": [],  # --out is added per-run, into the temp workspace
