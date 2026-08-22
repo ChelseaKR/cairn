@@ -127,6 +127,20 @@ tooling, repository documentation, and one new read-only operator command.
   regenerated — that step needs the network-resolved Plumbline harness,
   unavailable here. `cairn record --diff-against plumbline/bundle` confirms
   the committed evidence bundle is byte-for-byte unmoved by this change.
+- `.github/workflows/ruleset-check.yml`: a weekly (plus `workflow_dispatch`)
+  job that asks the GitHub API directly whether an active ruleset currently
+  enforces `.github/rulesets/main.json`'s required checks, and opens (or
+  updates) a tracking issue for as long as the answer is no, closing it
+  automatically once it is not. Converts the fact that the merge gate is
+  advisory from a prose claim, checked whenever someone happens to reread
+  the README, into something re-verified against the live repository on a
+  schedule — the same discipline `audit_guard.py` already applies to a
+  suite's score, applied here to whether the gate can block a merge at all.
+  It never applies the ruleset itself; that stays an admin action nobody but
+  the maintainer can take (`.github/rulesets/README.md`). Untested beyond
+  YAML validity and manual review — it needs a real GitHub Actions run
+  against the live repository and `issues: write` permission to verify
+  end to end, neither available in this environment.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

@@ -1,0 +1,104 @@
+# Checks whether .github/rulesets/main.json is actually enforced on this
+# repository — a fact GitHub's own settings page shows, but nothing here
+# re-checked over time until this workflow existed.
+#
+# The gap this closes: the ruleset being unapplied is documented in prose
+# (README.md, DESIGN.md, .github/rulesets/README.md), and prose does not
+# notice when the world stops matching it. If the ruleset were ever applied
+# and then silently removed — a misclick, a repo transfer, a settings reset
+# — nothing would say so. This job asks GitHub directly, on a schedule, and
+# keeps one tracking issue open for as long as the answer is "not applied".
+#
+# What this job does NOT do: apply the ruleset. Whether a check can block a
+# merge is a repository setting only someone with admin rights can change
+# (.github/rulesets/README.md), and a workflow quietly seizing that decision
+# would be the opposite of the point — it reports, it never enforces.
+
+name: ruleset-check
+
+on:
+  schedule:
+    - cron: "23 6 * * 1" # weekly, offset from security.yml's Monday run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check ruleset is applied
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check whether an active ruleset enforces the required checks
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # "Applied" here means at least one ACTIVE ruleset exists on the
+          # repository. A disabled or evaluate-only ruleset does not block a
+          # merge, so it does not count — see .github/rulesets/README.md's
+          # own distinction between existing and enforcing.
+          active_count=$(gh api "repos/${REPO}/rulesets" --jq \
+            '[.[] | select(.enforcement == "active")] | length')
+          echo "active rulesets: ${active_count}"
+          if [ "${active_count}" -gt 0 ]; then
+            echo "applied=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "applied=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the tracking issue
+        if: steps.check.outputs.applied == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TITLE="Branch protection ruleset is not enforced"
+          CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          BODY=".github/rulesets/main.json is committed but no active ruleset \
+          currently enforces it on this repository (checked ${CHECKED_AT}). \
+          The \`audit\` job reports rather than blocks a merge until this is \
+          applied — see .github/rulesets/README.md for the two ways to apply \
+          it, both of which need admin rights on the repository.
+
+          This issue is opened and updated automatically by \
+          \`.github/workflows/ruleset-check.yml\` on a weekly schedule. It \
+          does not apply the ruleset itself, only reports its absence, and \
+          it will close itself automatically once an active ruleset is found."
+
+          existing=$(gh issue list --repo "$REPO" --state open \
+            --search "in:title \"${TITLE}\"" --json number,title \
+            --jq "[.[] | select(.title == \"${TITLE}\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$BODY"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" --body "$BODY"
+          fi
+
+      - name: Close the tracking issue if the ruleset is now applied
+        if: steps.check.outputs.applied == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TITLE="Branch protection ruleset is not enforced"
+          CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          existing=$(gh issue list --repo "$REPO" --state open \
+            --search "in:title \"${TITLE}\"" --json number,title \
+            --jq "[.[] | select(.title == \"${TITLE}\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body \
+              "An active ruleset now enforces the required checks (checked ${CHECKED_AT}). Closing automatically."
+            gh issue close "$existing" --repo "$REPO"
+          fi
