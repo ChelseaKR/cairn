@@ -330,6 +330,19 @@ tooling, repository documentation, and one new read-only operator command.
   Also states the support-and-maintenance reality plainly (one unpaid
   maintainer, no SLA) for a procurement risk register. README.md's
   Incident Response and Data Governance rows cross-reference it.
+- `docs/screen-reader-test-script.md`: a structured, task-by-task script for
+  the manual VoiceOver/NVDA/JAWS session DESIGN.md's "What is still open"
+  and README.md both name as not having happened yet — so running it takes
+  an hour against a checklist instead of a day of improvising. Each task is
+  grounded in a behavioral contract the automated suites already assert
+  (`tests/browser/a11y.mjs`'s 63 pinned checks, `tests/test_ui.py`'s markup
+  checks) and names which automated check covers it, so a result that
+  contradicts the script is either a regression the automation missed or a
+  gap between what Chromium/axe-core can verify and what a real assistive
+  technology stack does. **This does not close the open item** — writing the
+  script is not running the session — and `tests/test_open_items.py`'s
+  anchor for "No manual screen-reader pass" is unchanged. DESIGN.md,
+  README.md, and docs/compliance.md cross-reference the new page.
 
 #### Changed
 
