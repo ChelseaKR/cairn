@@ -3,9 +3,13 @@
 ``http.server`` from the standard library, because the demo path has to run on
 a laptop with no network and no install step. It is a demonstration server: it
 binds to localhost by default, keeps no state, stores nothing, and logs
-nothing about the questions people ask. The one opt-in exception is
+nothing about the questions people ask. Two opt-in exceptions:
 ``--refusal-stats``, which stores an aggregate count per (language, reason)
-pair on a refusal — never the question itself; see ``cairn/refusal_stats.py``.
+pair on a refusal — never the question itself; see
+``cairn/refusal_stats.py`` — and ``--followup-store``, an explicit "request
+a follow-up" action on a refusal that stores an asker's own contact
+information, and their question only if they separately choose to include
+it; see ``cairn/followup.py``.
 
 The content security policy is deliberately absolute — ``default-src 'none'``
 with same-origin styles, scripts and fetches — so the offline claim is
@@ -27,8 +31,10 @@ from cairn import __version__
 from cairn.config import Config
 from cairn.engine import EngineError, ask
 from cairn.explain import refusal_reason
+from cairn.followup import FollowupStore
 from cairn.index import Index
 from cairn.messages import CATALOGUE
+from cairn.messages import text as message
 from cairn.network import RateLimiter, check_token, cors_headers, frame_ancestors
 from cairn.refusal_stats import RefusalCounter
 from cairn.ui.page import SELECTABLE, render_page, turn_markup
@@ -59,16 +65,18 @@ def build_handler(
     cors_origins: tuple[str, ...] = (),
     embed_origins: tuple[str, ...] = (),
     refusal_counter: RefusalCounter | None = None,
+    followup_store: FollowupStore | None = None,
 ):
     """A request handler class bound to one configuration and index.
 
-    `auth_token`, `rate_limiter`, `cors_origins`, `embed_origins`, and
-    `refusal_counter` are all off by default (empty token, `None` limiter,
-    empty origin tuples, `None` counter), which is the only path
-    `cairn serve` reaches without an operator explicitly opting into
-    networked deployment, cross-origin embedding, or refusal analytics —
-    see `cairn/network.py`, `cairn/refusal_stats.py`, `docs/deployment.md`,
-    and `docs/embedding.md`.
+    `auth_token`, `rate_limiter`, `cors_origins`, `embed_origins`,
+    `refusal_counter`, and `followup_store` are all off by default (empty
+    token, `None` limiter, empty origin tuples, `None` counter, `None`
+    store), which is the only path `cairn serve` reaches without an
+    operator explicitly opting into networked deployment, cross-origin
+    embedding, refusal analytics, or a real follow-up channel — see
+    `cairn/network.py`, `cairn/refusal_stats.py`, `cairn/followup.py`,
+    `docs/deployment.md`, and `docs/embedding.md`.
     """
     csp = (
         CSP
@@ -218,9 +226,15 @@ def build_handler(
         def do_POST(self):  # noqa: N802 - stdlib naming
             if not self._gate():
                 return
-            if urlparse(self.path).path != "/ask":
+            route = urlparse(self.path).path
+            if route == "/ask":
+                self._handle_ask()
+            elif route == "/follow-up" and followup_store is not None:
+                self._handle_followup()
+            else:
                 self._html("<h1>404</h1>", status=404)
-                return
+
+        def _handle_ask(self) -> None:
             raw = self._read_body()
             wants_json = "application/json" in (self.headers.get("Content-Type") or "")
             if wants_json:
@@ -234,7 +248,10 @@ def build_handler(
             else:
                 fields = parse_qs(raw.decode("utf-8"))
                 question = (fields.get("question") or [""])[0]
-                lang = _resolve_lang((fields.get("lang") or [None])[0], cfg.default_lang)
+                lang_values = fields.get("lang")
+                lang = _resolve_lang(
+                    lang_values[0] if lang_values else None, cfg.default_lang
+                )
 
             question = question.strip()
             if not question:
@@ -269,11 +286,92 @@ def build_handler(
                 # one call site.
                 refusal_counter.record(lang, refusal_reason(result.answer.trace))
 
+            offer_followup = followup_store is not None and result.answer.kind == "refusal"
             if wants_json:
-                self._json(result.answer.to_payload())
+                payload = result.answer.to_payload()
+                if offer_followup:
+                    # A hint only, added here rather than in
+                    # `Answer.to_payload()` (cairn/answer.py) — that method
+                    # also backs `cairn record`'s evidence bundle and `cairn
+                    # ask --json`, neither of which runs a server or has a
+                    # follow-up store to offer. Adding a server-only key
+                    # there would drift the bundle's own JSON shape for a
+                    # feature the bundle has no opinion about.
+                    payload = {**payload, "follow_up_available": True}
+                self._json(payload)
             else:
                 self._html(
-                    render_page(lang, turns=turn_markup(question, result, lang))
+                    render_page(
+                        lang,
+                        turns=turn_markup(
+                            question, result, lang, followup_enabled=offer_followup
+                        ),
+                    )
+                )
+
+        def _handle_followup(self) -> None:
+            """`POST /follow-up`: the opt-in request a refusal's disclosure
+            form submits — see `cairn/ui/page.py`'s `_followup_form` and
+            `cairn/followup.py`'s module docstring for the consent story.
+            Only reachable at all when `followup_store` is configured;
+            `do_POST` 404s this path otherwise, the same as any route this
+            server does not have.
+            """
+            raw = self._read_body()
+            wants_json = "application/json" in (self.headers.get("Content-Type") or "")
+            if wants_json:
+                try:
+                    submitted = json.loads(raw.decode("utf-8") or "{}")
+                except ValueError:
+                    self._json({"error": "malformed JSON body"}, status=400)
+                    return
+                contact = str(submitted.get("contact") or "").strip()
+                question = str(submitted.get("question") or "").strip()
+                lang = _resolve_lang(submitted.get("lang"), cfg.default_lang)
+                include_question = bool(submitted.get("include_question"))
+            else:
+                fields = parse_qs(raw.decode("utf-8"))
+                contact = (fields.get("contact") or [""])[0].strip()
+                question = (fields.get("question") or [""])[0].strip()
+                lang_values = fields.get("lang")
+                lang = _resolve_lang(
+                    lang_values[0] if lang_values else None, cfg.default_lang
+                )
+                include_question = (fields.get("include_question") or [""])[0] == "yes"
+
+            if not contact:
+                if wants_json:
+                    self._json({"error": "missing contact information"}, status=400)
+                else:
+                    self._html(
+                        render_page(
+                            lang,
+                            followup_notice=message("error_missing_contact", lang),
+                        ),
+                        status=400,
+                    )
+                return
+
+            assert followup_store is not None  # do_POST only reaches here if so
+            followup_store.record(
+                lang=lang,
+                contact=contact,
+                # Structural per-submission opt-in: the checkbox on *this*
+                # request is the only thing that decides whether `question`
+                # is ever written to the store. Unchecked, or absent
+                # entirely (a JSON caller that never sent the field), and
+                # None is stored — never an empty string standing in for
+                # "the asker said no", which would be indistinguishable
+                # from "the asker never got the choice."
+                question=question if include_question else None,
+            )
+            if wants_json:
+                self._json({"received": True})
+            else:
+                self._html(
+                    render_page(
+                        lang, followup_notice=message("followup_confirmation", lang)
+                    )
                 )
 
         def do_OPTIONS(self):  # noqa: N802 - stdlib naming
@@ -317,13 +415,15 @@ def serve(
     cors_origins: tuple[str, ...] = (),
     embed_origins: tuple[str, ...] = (),
     refusal_stats_path: Path | None = None,
+    followup_store_path: Path | None = None,
 ):
     """Build a server. The caller decides when to start serving.
 
     `auth_token`, `rate_limit_per_minute`, `cors_origins`, `embed_origins`,
-    and `refusal_stats_path` are all off by default (see
-    `cairn/network.py` and `cairn/refusal_stats.py`) — passing none of them
-    reproduces exactly the server this project has always shipped.
+    `refusal_stats_path`, and `followup_store_path` are all off by default
+    (see `cairn/network.py`, `cairn/refusal_stats.py`, and
+    `cairn/followup.py`) — passing none of them reproduces exactly the
+    server this project has always shipped.
     """
     handler = build_handler(
         cfg,
@@ -334,5 +434,6 @@ def serve(
         cors_origins=cors_origins,
         embed_origins=embed_origins,
         refusal_counter=RefusalCounter(refusal_stats_path) if refusal_stats_path else None,
+        followup_store=FollowupStore(followup_store_path) if followup_store_path else None,
     )
     return ThreadingHTTPServer((host, port), handler)

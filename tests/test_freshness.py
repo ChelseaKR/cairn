@@ -311,10 +311,11 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
     # index; `config` reads only `cairn.toml`; `diff` compares two corpus
     # directories named on the command line, not the configured one;
     # `refusals` reads only a `--refusal-stats` JSON file named on the
-    # command line, never the corpus or the index. Anything else added to
-    # this set is somebody deciding a new command may quote a corpus it has
-    # not checked.
-    DOES_NOT_ANSWER = {"index", "lint", "config", "diff", "refusals"}
+    # command line, never the corpus or the index; `followups` reads only a
+    # `--followup-store` file the same way. Anything else added to this set
+    # is somebody deciding a new command may quote a corpus it has not
+    # checked.
+    DOES_NOT_ANSWER = {"index", "lint", "config", "diff", "refusals", "followups"}
 
     # Arguments each subcommand needs to get as far as reading the index.
     # A subcommand with no entry here fails the completeness test below rather
@@ -328,6 +329,7 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
         "ask": ["a question"],
         "serve": ["--port", "0"],
         "refusals": ["nonexistent-refusal-stats.json"],
+        "followups": ["nonexistent-followup-store.jsonl"],
         "record": [],  # --out is added per-run, into the temp workspace
     }
 
