@@ -270,7 +270,25 @@ def _attempt_lines(result: AskResult) -> list[str]:
     return lines
 
 
-def render(result: AskResult, diagnosis: Diagnosis, *, index_summary: str) -> str:
+def _margin_line(trace: RetrievalTrace, margin_warn: float) -> str | None:
+    """One line reporting how close the ranking was, or `None` when there is
+    no winner or no runner-up to compare it to. See `RetrievalTrace.margin`.
+    """
+    if trace.margin is None:
+        return None
+    runner_up = trace.candidates[1]
+    line = (
+        f"Margin:    {_fmt(trace.margin)} "
+        f"(next: {runner_up.passage.passage_id} at {_fmt(runner_up.score)})"
+    )
+    if trace.margin < margin_warn:
+        line += f" — WARN: below retrieval.margin_warn ({_fmt(margin_warn)})"
+    return line
+
+
+def render(
+    result: AskResult, diagnosis: Diagnosis, *, index_summary: str, margin_warn: float = 0.02
+) -> str:
     """The operator's plain-text report. Written to stdout above the answer."""
     answer = result.answer
     trace = answer.trace
@@ -294,7 +312,11 @@ def render(result: AskResult, diagnosis: Diagnosis, *, index_summary: str) -> st
                 verdict.detail, width=REPORT_WIDTH, initial_indent="  ", subsequent_indent="  "
             )
         )
+    margin_line = _margin_line(trace, margin_warn)
     lines.append("")
+    if margin_line:
+        lines.append(margin_line)
+        lines.append("")
     if diagnosis.grounded:
         lines.append(f"Verdict: GROUNDED - {len(answer.sources)} source(s) cited.")
     else:
@@ -305,10 +327,20 @@ def render(result: AskResult, diagnosis: Diagnosis, *, index_summary: str) -> st
     return "\n".join(lines)
 
 
-def trace_payload(trace: RetrievalTrace) -> dict:
-    """Machine-readable candidate list for ``ask --explain --json``."""
+def trace_payload(trace: RetrievalTrace, *, margin_warn: float | None = None) -> dict:
+    """Machine-readable candidate list for ``ask --explain --json``.
+
+    ``margin_warn`` is optional so a caller with no configured threshold in
+    hand still gets the raw margin value; passing it additionally sets
+    ``margin_below_warn``, the same comparison the text report renders as a
+    WARN line.
+    """
     return {
         "threshold": trace.threshold,
+        "margin": trace.margin,
+        "margin_below_warn": (
+            margin_warn is not None and trace.margin is not None and trace.margin < margin_warn
+        ),
         "query_terms": list(trace.query_terms),
         "unmatched_terms": list(trace.unmatched),
         "ignored_terms": list(trace.ignored),

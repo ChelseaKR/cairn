@@ -232,6 +232,21 @@ model (short plain-language passages) does not exercise that advantage.
   and the audit now fails this one item by name. See "The wrong-paragraph gap,
   closed upstream" below. The behavior is unchanged and still visible; what
   changed is that the gate can see it too.
+- **Near-tie surfacing, added after both of the above.** Neither hard case
+  above is invisible in its own trace — the GoPass tie is two accepted
+  candidates 0.008 apart, and `ck-022`'s four candidates are visibly close —
+  but nothing before `--explain` said so in one line an operator could act
+  on without doing the subtraction themselves. `RetrievalTrace.margin` is the
+  gap between the winning candidate's score and its runner-up, computed from
+  scores already produced, never fed back into an accept/reject decision or
+  into composition. `--explain` prints it, and flags it against
+  `retrieval.margin_warn` (default `0.02`, comfortably inside the measured
+  calibration gap so it stays quiet on ordinary in-corpus answers). A low
+  margin is not itself a defect — many genuine in-corpus answers have plenty
+  of margin and a few legitimately do not — but it is exactly the fact an
+  operator needs to tell "this answer is solid" from "this answer won by a
+  coin toss" without re-deriving it from a candidate table by hand, which is
+  the same justification the term-evidence columns were added under.
 - **Known limitation:** cross-language fallback is lexical, so it can only fire
   where the question shares vocabulary with the other language's passages.
   Measured, that means proper nouns and numbers and nothing else: an Arabic
@@ -592,6 +607,7 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 | `retrieval.threshold` | `0.165` (measured) | bounded-cosine gate, set empirically against the demo corpus — see the measurement note below |
 | `retrieval.max_passages` | `1` | it started at 2, and the first audit found why that was wrong: composing a second passage let each language pick its own, so the same fact came back with different numbers in English and Spanish (see "What the first audit found"). Raise it where a corpus genuinely needs multi-part answers, and read `ask --explain` for what a lower value is dropping |
 | `retrieval.candidates` | `8` | candidates scored/reported (matters for explain mode); retrieval quality does not depend on it |
+| `retrieval.margin_warn` | `0.02` | diagnostic only (see "Near-tie surfacing" below) — how close the winning candidate's score has to be to its runner-up before `--explain` flags it; never changes which candidate is accepted or composed |
 | `language.default` | `en` | used only when a question's language cannot be told from the corpus at all; the web interface always states one |
 | `language.cross_language_fallback` | `true` | widen the search past the answer language rather than refuse, and say so |
 | `refusal.contact` | demo office string | fictional demo contact; a real agency must set this |

@@ -56,6 +56,14 @@ tooling, repository documentation, and one new read-only operator command.
   flip, blame-stage flip, accepted-set changes, score deltas on shared
   candidates. A single-question tuning aid, explicit in its own output that
   it is not a gate.
+- `RetrievalTrace.margin` and `--explain`'s "Margin:" line: the score gap
+  between the winning candidate and its runner-up, surfaced (and flagged
+  against the new `retrieval.margin_warn`, default `0.02`) so the two
+  documented near-tie hard cases — the GoPass cross-document tie and
+  `ck-022`'s one-word-decided ranking — are visible in one line instead of
+  requiring the subtraction by hand. Purely diagnostic: computed from scores
+  already produced, changes no accept/reject decision, and explain mode
+  stays byte-identical to the answer without it.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

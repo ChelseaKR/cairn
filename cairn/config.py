@@ -52,6 +52,15 @@ class Config:
     threshold: float = 0.165
     max_passages: int = 1
     candidates: int = 8
+    # Below this gap between the winning candidate and its runner-up,
+    # explain mode flags the retrieval as a near-tie. Diagnostic only: it
+    # never changes which candidate is accepted or composed, only whether
+    # `--explain` warns about how close the ranking was. 0.02 is comfortably
+    # smaller than the measured calibration gap (0.032-0.043) so it does not
+    # fire on ordinary in-corpus answers, and comfortably larger than zero so
+    # it catches the documented GoPass near-tie (0.008 apart) rather than
+    # only exact ties.
+    margin_warn: float = 0.02
     default_lang: str = "en"
     cross_language_fallback: bool = True
     contact: str = _DEMO_CONTACTS["en"]
@@ -90,6 +99,11 @@ class Config:
             )
         if self.candidates < 1:
             raise ConfigError("retrieval.candidates must be >= 1")
+        if self.margin_warn < 0.0:
+            raise ConfigError(
+                "retrieval.margin_warn must be >= 0: it is a score gap, and a "
+                "negative gap is not a gap"
+            )
         # `language.default` is the language Cairn *speaks* when it cannot
         # tell what was asked — the refusal, the cross-language notice, the
         # interface chrome. It was unvalidated, and the same "bounds at the
@@ -188,6 +202,7 @@ def load_config(path: str | Path | None = None) -> Config:
         threshold=_get(retrieval, "threshold", float, defaults.threshold),
         max_passages=_get(retrieval, "max_passages", int, defaults.max_passages),
         candidates=_get(retrieval, "candidates", int, defaults.candidates),
+        margin_warn=_get(retrieval, "margin_warn", float, defaults.margin_warn),
         default_lang=_get(language, "default", str, defaults.default_lang),
         cross_language_fallback=_get(
             language, "cross_language_fallback", bool, defaults.cross_language_fallback

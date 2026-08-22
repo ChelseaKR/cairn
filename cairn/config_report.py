@@ -35,6 +35,10 @@ _RATIONALE: dict[str, str] = {
         "DESIGN.md, 'Configuration' — widens what --explain reports; retrieval "
         "quality does not depend on it"
     ),
+    "margin_warn": (
+        "cairn/config.py — diagnostic only; smaller than the measured "
+        "calibration gap so it does not fire on ordinary in-corpus answers"
+    ),
 }
 
 

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cairn.config import Config
+from cairn.config import Config, ConfigError
 from cairn.engine import ask
 from cairn.explain import diagnose, excerpt, render, trace_payload
 from cairn.index import build_index
@@ -299,6 +299,77 @@ class TestLanguageInTheTrace(ExplainHarness):
             self.assertEqual(diagnosis.blame, "retrieval")
             report = render(result, diagnosis, index_summary="test index")
             self.assertIn("corpus coverage gap", report)
+
+
+# DESIGN.md's own worked example: two accepted candidates from different
+# documents, 0.008 apart. Real reproduction, not a synthetic fixture.
+GOPASS_TIE_Q = "How much does the GoPass cost per year?"
+
+
+class TestMargin(ExplainHarness):
+    def test_a_negative_margin_warn_is_refused(self):
+        # A score gap cannot be negative, and the constructor is where every
+        # other retrieval bound is enforced (Config.__post_init__).
+        with self.assertRaises(ConfigError):
+            Config(margin_warn=-0.01)
+        self.assertEqual(Config(margin_warn=0.0).margin_warn, 0.0, "zero is a valid gap")
+
+    def test_a_near_tie_is_reported_and_warned_on(self):
+        result, diag = self.ask(GOPASS_TIE_Q)
+        trace = result.answer.trace
+        self.assertIsNotNone(trace.margin)
+        self.assertAlmostEqual(trace.margin, 0.00799, places=4)
+        report = render(result, diag, index_summary="test index", margin_warn=0.02)
+        self.assertIn("Margin:", report)
+        self.assertIn("WARN", report)
+        self.assertIn("retrieval.margin_warn", report)
+
+    def test_a_healthy_margin_is_reported_without_a_warning(self):
+        result, diag = self.ask(GROUNDED_Q, max_passages=8)
+        trace = result.answer.trace
+        self.assertIsNotNone(trace.margin)
+        self.assertGreater(trace.margin, 0.02)
+        report = render(result, diag, index_summary="test index", margin_warn=0.02)
+        self.assertIn("Margin:", report)
+        self.assertNotIn("WARN", report)
+
+    def test_no_margin_line_when_nothing_is_accepted(self):
+        result, diag = self.ask(MISS_Q)
+        self.assertIsNone(result.answer.trace.margin)
+        report = render(result, diag, index_summary="test index")
+        self.assertNotIn("Margin:", report)
+
+    def test_margin_is_none_with_no_runner_up(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "solo.md").write_text(
+                "---\nid: solo\ntitle: Solo Program\nlang: en\n---\n"
+                "The solo program pays a fixed monthly benefit to residents.\n",
+                encoding="utf-8",
+            )
+            index = build_index(tmp)
+            result = ask("How much does the solo program pay?", index, Config())
+            self.assertEqual(result.answer.kind, "grounded")
+            self.assertEqual(len(result.answer.trace.candidates), 1)
+            self.assertIsNone(result.answer.trace.margin)
+
+    def test_json_payload_carries_the_margin(self):
+        result, _ = self.ask(GOPASS_TIE_Q)
+        payload = trace_payload(result.answer.trace, margin_warn=0.02)
+        self.assertIsNotNone(payload["margin"])
+        self.assertTrue(payload["margin_below_warn"])
+
+        payload_no_warn = trace_payload(result.answer.trace)
+        self.assertIsNotNone(payload_no_warn["margin"])
+        self.assertFalse(payload_no_warn["margin_below_warn"])
+
+    def test_explain_is_still_byte_identical_to_the_answer_without_it(self):
+        # The margin surfacing must hold the same invariant every other
+        # explain-mode addition holds: it is strictly observational.
+        cfg = Config()
+        with_explain = ask(GOPASS_TIE_Q, self.index, cfg)
+        without_explain = ask(GOPASS_TIE_Q, self.index, cfg)
+        self.assertEqual(with_explain.answer.text, without_explain.answer.text)
+        self.assertEqual(with_explain.answer.kind, without_explain.answer.kind)
 
 
 if __name__ == "__main__":

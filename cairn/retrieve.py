@@ -73,6 +73,31 @@ class RetrievalTrace:
         """The terms that could have contributed: everything but the ignored."""
         return tuple(t for t in self.query_terms if t not in set(self.ignored))
 
+    @property
+    def margin(self) -> float | None:
+        """The score gap between the top (accepted) candidate and the next
+        candidate in rank order, accepted or not.
+
+        `None` when nothing is accepted — there is no winner to have a
+        margin — or when the top candidate is the only one scored at all,
+        which has no runner-up to compare against.
+
+        Purely diagnostic: `candidates` is already sorted and scored before
+        this is computed, so reading it changes no accept/reject decision and
+        nothing about `Answer`. A small margin does not mean an answer is
+        wrong; it means the ranking that produced it was close, which is
+        worth an operator's attention for the same reason DESIGN.md's two
+        documented hard cases are: the GoPass cross-document near-tie
+        (0.1965 vs. 0.1885, 0.008 apart, both accepted) and `ck-022`, where
+        the entire ranking among four otherwise-tied passages is decided by
+        one incidental word.
+        """
+        if not self.candidates or not self.candidates[0].accepted:
+            return None
+        if len(self.candidates) < 2:
+            return None
+        return self.candidates[0].score - self.candidates[1].score
+
 
 def _idf(term: str, stats: LanguageStats) -> float:
     """Smoothed IDF within one language, zero for a suppressed term.
