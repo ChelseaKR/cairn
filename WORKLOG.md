@@ -618,3 +618,22 @@ One line per implementation session: date, what was built, from what input.
   applied**, GitHub Pages is **not enabled** so the evidence page's URL is a
   404, no `v0.1.0` tag exists, the screen-reader pass has not happened, and
   `ck-015` and `ck-022` behave exactly as recorded.
+
+- 2026-08-22 — Session 10 (AI implementation session, clean-room implementation
+  side). A correction, and the thing it corrects.
+
+  **The evidence page has been live since 2026-08-16.** The session 9 entry
+  above, the README and a comment in `pages.yml` all said GitHub Pages was
+  *not* enabled and the page's URL was a 404. Pages was enabled that same day
+  — the first successful `pages` deploy is timestamped 2026-08-16 — and
+  https://chelseakr.github.io/cairn/ returned 200 when checked today. The
+  sentence in the README was true when written and stayed six days after it
+  stopped being true. Nothing in the test suite could have caught it: whether
+  a URL serves is a property of GitHub's side, not of a checkout, which is the
+  same reason the branch-protection item lives under "the one thing this
+  repository cannot do for itself". Corrected in all three places; the
+  session 9 entry is left as written, because that is what was true then.
+
+  Not done, still: the branch-protection ruleset is committed and **not
+  applied**, no `v0.1.0` tag exists, the screen-reader pass has not happened,
+  and `ck-015` and `ck-022` behave exactly as recorded.

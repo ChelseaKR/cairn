@@ -422,9 +422,13 @@ loopback server with no harness and no network at all.
 [`site/index.html`](site/index.html) is a committed static page holding a
 refusal, the cross-language answer the audit scores as a failure, and the
 committed baseline. It is served by GitHub Pages at
-**https://chelseakr.github.io/cairn/** once Pages is enabled in repository
-settings — it is not enabled as of 2026-08-16, so that URL is a 404 until
-somebody with admin rights turns it on.
+**https://chelseakr.github.io/cairn/**. Pages was enabled in repository
+settings on 2026-08-16 (the first successful `pages` deploy is from that
+day), and the URL was checked to return 200 on 2026-08-22. A sentence here
+used to say the URL was a 404; it was true when written and stayed in the
+README for six days after it stopped being true, which is the kind of drift
+nothing in this repository can test for — whether a URL serves is a fact
+about GitHub's side, not about a checkout.
 
 Nothing on it is written by hand. `site_build.py` renders it from
 `plumbline/bundle` and `plumbline/baseline.json`, and
