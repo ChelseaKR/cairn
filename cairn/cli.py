@@ -4,6 +4,7 @@ Subcommands:
 
     cairn index            build the local index; report what was indexed
     cairn lint             check the corpus for problems, without indexing
+    cairn config           show the effective config against built-in defaults
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
@@ -27,7 +28,11 @@ import sys
 
 from cairn import __version__
 from cairn.config import Config, ConfigError, load_config
+from cairn.config_report import diff_from_defaults
+from cairn.config_report import render as render_config_diff
 from cairn.corpus import CorpusError
+from cairn.coverage import coverage_report
+from cairn.coverage import render as render_coverage
 from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import diagnose, render, trace_payload
 from cairn.index import IndexError_, build_and_write, read_index
@@ -36,6 +41,8 @@ from cairn.lint import lint_corpus
 from cairn.lint import render as render_lint_report
 from cairn.messages import text as message
 from cairn.record import DEFAULT_BUNDLE, DEFAULT_QUESTIONS, RecordError, record
+from cairn.record_diff import diff_against_bundle
+from cairn.record_diff import render as render_record_diff
 from cairn.server import serve
 
 
@@ -54,6 +61,11 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     # changed line here after an edit is the whole point of the fingerprint
     # being visible rather than only internal.
     print(f"Corpus fingerprint: {report.corpus_fingerprint[:12]} ({cfg.corpus_path})")
+    return 0
+
+
+def _cmd_config(args: argparse.Namespace, cfg: Config) -> int:
+    print(render_config_diff(diff_from_defaults(cfg)))
     return 0
 
 
@@ -132,6 +144,20 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_record(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path, cfg.corpus_path)
+    if args.coverage:
+        # A separate report, not a bundle write: this never touches
+        # `plumbline/bundle` or anything the audit gate reads, so asking for
+        # coverage cannot be mistaken for having recorded evidence.
+        print(render_coverage(coverage_report(index, cfg, questions_path=args.questions)))
+        return 0
+    if args.diff_against is not None:
+        # Also never writes a bundle: a preview of what recording would
+        # produce, diffed against a bundle already on disk.
+        diffs = diff_against_bundle(
+            index, cfg, args.diff_against, questions_path=args.questions
+        )
+        print(render_record_diff(diffs))
+        return 0
     report = record(index, cfg, questions_path=args.questions, out_dir=args.out)
     print(
         f"Recorded {report.item_count} items "
@@ -167,6 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
         "lint", help="check the corpus for problems, without building an index"
     )
     p_lint.set_defaults(func=_cmd_lint)
+
+    p_config = sub.add_parser(
+        "config", help="show the effective configuration against built-in defaults"
+    )
+    p_config.set_defaults(func=_cmd_config)
 
     p_ask = sub.add_parser("ask", help="ask a question against the index")
     p_ask.add_argument("question", help="the question, quoted")
@@ -224,6 +255,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_record.add_argument(
         "--out", default=DEFAULT_BUNDLE, help=f"bundle directory (default: {DEFAULT_BUNDLE})"
+    )
+    p_record.add_argument(
+        "--coverage",
+        action="store_true",
+        help=(
+            "report which corpus passages this question set ever retrieves, instead "
+            "of recording a bundle. Not part of the audited evidence path."
+        ),
+    )
+    p_record.add_argument(
+        "--diff-against",
+        metavar="BUNDLE_DIR",
+        default=None,
+        help=(
+            "preview what recording would produce, diffed against a bundle already "
+            "on disk, instead of writing one. Unscored — not a substitute for "
+            "./plumbline-gate.sh."
+        ),
     )
     p_record.set_defaults(func=_cmd_record)
 

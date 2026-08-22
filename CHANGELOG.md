@@ -38,6 +38,19 @@ tooling, repository documentation, and one new read-only operator command.
 - `docs/I18N.md`: the scope and flip conditions for language support, in
   three tiers (corpus language, interface language, right-to-left table
   entry) — closing the gap the Standards Conformance table named directly.
+- `cairn config`: the effective configuration next to its built-in default,
+  with a one-line rationale pointer into DESIGN.md for load-bearing keys.
+  Read-only; introduces no second config path.
+- `cairn record --coverage`: which corpus passages the recorded question set
+  ever puts in an accepted candidate set, reusing the exact `Candidate`
+  objects the evidence bundle is built from. Writes no bundle; not part of
+  the audited evidence path.
+- `cairn record --diff-against`: an unscored dry-run preview of what
+  recording would produce, diffed by item id against a bundle already on
+  disk. Reuses `record`'s own item-building function (factored out as
+  `record.build_items_and_responses`) rather than a second idea of what an
+  answer is. Never writes or modifies a bundle, and is explicit in its own
+  output that it is not a substitute for `./plumbline-gate.sh`.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

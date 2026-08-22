@@ -49,12 +49,15 @@ cairn/                  the package
   engine.py             the ask pipeline: language, retrieval, fallback, composition
   explain.py            operator explain mode: candidate trace and per-stage diagnosis
   config.py             TOML config loading with defaults
+  config_report.py      effective config vs. built-in defaults, read-only
   record.py             record an evidence bundle from the real engine
+  record_diff.py        unscored dry-run preview against a committed bundle
+  coverage.py           which corpus passages a question set ever retrieves
   server.py             the localhost demo server behind `cairn serve`
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
-  cli.py                subcommands: index, lint, ask, serve, record
+  cli.py                subcommands: index, lint, config, ask, serve, record
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 docs/demo.md            the walkthrough, with executed (not asserted) output
