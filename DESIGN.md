@@ -57,6 +57,7 @@ cairn/                  the package
   coverage.py           which corpus passages a question set ever retrieves
   explain_diff.py       single-question A/B trace comparison, a tuning aid
   server.py             the localhost demo server behind `cairn serve`
+  network.py            opt-in bearer-token auth + rate limiting for `serve`
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
@@ -78,6 +79,7 @@ import_corpus.py        dev-only: .txt/.html to reviewable corpus scaffold
 docs/authoring.md       the FAQ-pair convention for closing a lexical gap
 docs/onboarding.md      bulk import and the reviewed_at staleness convention
 docs/I18N.md            language support: scope and flip conditions, by tier
+docs/deployment.md      exposing `cairn serve` past a single laptop, safely
 ```
 
 `engine.ask` is the only entry point that answers a question. The CLI and the
@@ -1019,6 +1021,56 @@ number is the only thing that can tell those apart, so a11y.mjs holds itself
 to it and exits non-zero if fewer ran, and `tests/test_docs.py` holds the
 README's figure to a11y.mjs's — and the README's test count to what the loader
 actually discovers, which nothing checked either.
+
+## Networked deployment is opt-in, and stays separate from the answering engine
+
+`cairn serve`'s default — loopback, no auth, no rate limit — is the one
+behaviour this project has shipped from the start, and `SECURITY.md` states
+it as a boundary rather than a gap. That default does not fit every operator:
+an agency running a small internal tool for staff, reachable from more than
+one machine, needs something between "trust the network" and "run a
+full identity provider in front of a reference implementation." `cairn/network.py`
+is that something, kept as small as the gap it closes:
+
+- **`check_token`** — one `hmac.compare_digest` call. A plain `==` on a
+  secret token is a timing side channel (it returns on the first mismatched
+  byte, so response time leaks how much of the guess was right); this is the
+  one place in the codebase that comparison would matter and the one place it
+  is avoided.
+- **`RateLimiter`** — one lock-protected fixed-window counter per client
+  address, in memory, per process. Not a token bucket, not fair-queuing —
+  the simplest thing an operator can read in thirty seconds and trust, for a
+  threat model of "one noisy client," not "a distributed flood." `SECURITY.md`
+  already scopes denial-of-service against your own server as out of bounds
+  for a report; this does not change that scope, it gives an operator a knob
+  for the ordinary version of the problem.
+
+Both are wired through one method, `CairnHandler._gate()`, checked at the top
+of every route — GET, HEAD, and POST alike — rather than duplicated per
+route or left to each handler to remember. Auth is checked before the rate
+limit, so an unauthenticated client learns nothing about rate-limit state
+from the response it gets back.
+
+Everything this does not do is deliberate, and named rather than left
+implicit: no TLS (terminate it in a reverse proxy — `docs/deployment.md`
+has both a Caddy and an nginx example), no per-user identity (this is
+service-level bearer auth, one shared secret, not a login system), and no
+`X-Forwarded-For` trust (the limiter keys on the direct TCP peer, so a
+reverse proxy in front collapses every real client to one address — an
+operator who needs per-client limiting behind a proxy should rate-limit in
+the proxy instead). `docs/deployment.md` is where those limits are spelled
+out for an operator deciding whether this is enough for their deployment,
+because a security control that overstates what it covers is worse than one
+that is silent about it.
+
+The token and the rate limit never enter `Config`/`cairn.toml`. Everything
+else about `cairn serve`'s behaviour is config-driven by design — but a
+bearer token is a secret, and the versioned config file is not a place
+secrets belong even in a demo project; it is CLI-flag-or-environment-variable
+only, resolved in `_cmd_serve` with the flag winning if given and
+`CAIRN_AUTH_TOKEN` as the fallback, so a real deployment never has to put a
+secret on a command line another process on the same host can read out of
+`/proc`.
 
 ## The audit interlock
 
