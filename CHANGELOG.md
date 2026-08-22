@@ -81,6 +81,13 @@ tooling, repository documentation, and one new read-only operator command.
   silent judgment call the rejected corpus-alias experiment made about
   content, applied to passage identity instead. Advisory only; needs no
   config or index.
+- `docs/authoring.md`: the FAQ-pair convention for closing a `ck-015`-shaped
+  lexical gap without repeating the alias mistake DESIGN.md already
+  measured and reverted — write the question a passage answers into the
+  passage itself, as real prose, rather than as document-level metadata
+  that lifts every passage of a document by the same amount. Documentation
+  only; no code, no lint rule (one is sketched and deliberately left
+  unbuilt, pending measurement).
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
