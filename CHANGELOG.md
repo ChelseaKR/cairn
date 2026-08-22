@@ -141,6 +141,15 @@ tooling, repository documentation, and one new read-only operator command.
   YAML validity and manual review — it needs a real GitHub Actions run
   against the live repository and `issues: write` permission to verify
   end to end, neither available in this environment.
+- `tests/test_performance.py`, gated in `make verify` like any other test:
+  a page-weight budget (deterministic — page plus `app.css` plus `app.js`,
+  no timing involved, budgeted at roughly 2x the ~21KB measured baseline
+  across all four interface languages) and a demo-corpus query-latency
+  budget (deliberately loose — two orders of magnitude above the ~3.3ms
+  measured, so ordinary CI runner noise cannot trip it while a genuine
+  algorithmic regression still would). Closes the exact gap the Performance
+  Standards Conformance row used to name: "no latency or page-weight budget
+  is measured and none is gated."
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
