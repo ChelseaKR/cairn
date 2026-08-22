@@ -528,6 +528,21 @@ suppressing. `cairn lint` reports the first case as a warning, at the point
 an author is about to publish, instead of leaving it for a refusal to
 surface later. It changes no score and writes no index; see `cairn/lint.py`.
 
+**A second, passage-level reachability check lives beside it.** The
+language-level exemption above is about a whole language having too few
+passages; a corpus with plenty of passages can still hold one passage whose
+own vocabulary is too diluted for any single term in it to clear the
+threshold alone — `cairn.retrieve.single_term_scores` computes, for every
+term a passage holds (title included, at the weight `cairn index` uses),
+the score a query of exactly that one term would get, and `cairn lint`
+warns when the best of them is still below `retrieval.threshold`. Worded
+deliberately short of a reachability *proof*: DESIGN.md's own `ck-022`
+shows four passages tied on two shared terms with the ranking decided by a
+third, which is precisely a passage reached through a combination of terms
+none of which alone would have done it — so the warning says only that no
+one-word question naming a held term will find this passage, not that
+nothing will. Quiet on the shipped demo corpus at its calibrated threshold.
+
 ### Refusal is a first-class outcome
 
 `answer.py` returns exactly one of two result kinds: `grounded` or `refusal`.

@@ -145,6 +145,44 @@ class TestLintCorpus(unittest.TestCase):
                 "no per-language reachability warning without a buildable index",
             )
 
+    def test_single_term_reachability_is_checked_against_the_given_threshold(self):
+        # No real passage's single strongest term reaches a threshold this
+        # high, so every passage in a normal corpus is flagged — a
+        # deliberately extreme threshold, chosen so the test does not need to
+        # hand-engineer term frequencies to land below a realistic one (that
+        # is `tests/test_retrieve.py`'s job, precisely).
+        report = lint_corpus(DEMO, threshold=0.99)
+        self.assertTrue(report.ok, "still only warnings, no structural error")
+        self.assertGreater(report.warning_count, 0)
+        self.assertTrue(
+            all("no single term in" in i.message for i in report.issues),
+            report.issues,
+        )
+
+    def test_single_term_reachability_is_quiet_at_a_low_threshold(self):
+        report = lint_corpus(DEMO, threshold=0.0)
+        self.assertEqual(report.warning_count, 0)
+
+    def test_default_threshold_is_the_shipped_config_default(self):
+        from cairn.config import Config
+        from cairn.lint import DEFAULT_THRESHOLD
+
+        self.assertEqual(DEFAULT_THRESHOLD, Config().threshold)
+
+    def test_an_empty_scoring_passage_is_not_also_flagged_for_reachability(self):
+        # It already got the more specific "no scoring terms at all" finding;
+        # a second warning saying the same thing a different way is noise.
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp)
+            write_doc(
+                corpus, "empty.md",
+                front_matter="id: empty\ntitle: AB\nlang: en",
+                body="!!! ??? ...\n",
+            )
+            report = lint_corpus(corpus, threshold=0.0)  # would flag everything else
+            self.assertEqual(report.warning_count, 1)
+            self.assertIn("no scoring terms", report.issues[0].message)
+
     def test_render_reports_clean_and_dirty_corpora(self):
         clean = render(lint_corpus(DEMO))
         self.assertIn("No issues found.", clean)

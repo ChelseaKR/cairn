@@ -25,9 +25,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from cairn.config import Config
 from cairn.corpus import CorpusError, Document, corpus_paths, load_document
 from cairn.index import TITLE_WEIGHT, build_index
+from cairn.retrieve import single_term_scores
 from cairn.text import tokenize
+
+# The built-in default, not a live deployment's own — `lint_corpus` takes an
+# explicit `threshold` for that; this is only what a caller checking a
+# corpus with no config in hand gets.
+DEFAULT_THRESHOLD = Config().threshold
 
 Severity = str  # "error" | "warning"
 
@@ -94,15 +101,20 @@ def _load_documents(corpus_dir: str | Path) -> tuple[list[Document], list[LintIs
     return docs, issues
 
 
-def lint_corpus(corpus_dir: str | Path) -> LintReport:
+def lint_corpus(corpus_dir: str | Path, *, threshold: float = DEFAULT_THRESHOLD) -> LintReport:
     """Check every document under `corpus_dir`.
 
     Raises `CorpusError` for exactly what `corpus_paths` already refuses —
     no such directory, or no `*.md` documents in it — because a lint with no
     corpus to read is not a report, it is nothing. Everything checkable per
     document becomes a finding instead of a stop.
+
+    `threshold` is `retrieval.threshold` from whatever config the caller is
+    actually running — `cairn lint` passes `cfg.threshold` — because the
+    reachability check below means nothing against the wrong number.
     """
     docs, issues = _load_documents(corpus_dir)
+    empty_passages: set[str] = set()
     for doc in docs:
         for passage in doc.passages:
             # The exact text `cairn index` scores this passage on: title,
@@ -110,6 +122,7 @@ def lint_corpus(corpus_dir: str | Path) -> LintReport:
             # be a second, drifting idea of what "has scoring terms" means.
             scored = tokenize(f"{passage.title}\n" * TITLE_WEIGHT + passage.text)
             if not scored:
+                empty_passages.add(passage.passage_id)
                 issues.append(
                     LintIssue(
                         "warning",
@@ -137,6 +150,25 @@ def lint_corpus(corpus_dir: str | Path) -> LintReport:
                         f"is exempted from suppression rather than scored down (see "
                         f"DESIGN.md, 'The document-frequency floor has one exemption'). "
                         f"Add more {lang!r} content to let the floor engage normally.",
+                    )
+                )
+        doc_paths = {doc.doc_id: doc.path for doc in docs}
+        for indexed in index.passages:
+            if indexed.passage_id in empty_passages:
+                continue  # already reported, and every single-term score is 0.0 anyway
+            stats = index.stats_for(indexed.lang)
+            scores = single_term_scores(indexed, stats)
+            best = max(scores.values(), default=0.0)
+            if best < threshold:
+                issues.append(
+                    LintIssue(
+                        "warning",
+                        doc_paths[indexed.doc_id],
+                        f"no single term in {indexed.passage_id!r} would clear "
+                        f"retrieval.threshold ({threshold:.3f}) alone (best {best:.3f}). "
+                        f"Not proof it is unreachable — a combination of otherwise-common "
+                        f"terms can still retrieve it together (see DESIGN.md, `ck-022`) — "
+                        f"only that no one-word question naming a term it holds will.",
                     )
                 )
     ordered = tuple(sorted(issues, key=lambda i: (i.path, i.message)))

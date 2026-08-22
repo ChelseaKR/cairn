@@ -72,7 +72,7 @@ def _cmd_config(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def _cmd_lint(args: argparse.Namespace, cfg: Config) -> int:
-    report = lint_corpus(cfg.corpus_path)
+    report = lint_corpus(cfg.corpus_path, threshold=cfg.threshold)
     print(render_lint_report(report))
     # Warnings do not fail the command — they are advisory, not a defect
     # `cairn index` would itself refuse — but a structural error does, the

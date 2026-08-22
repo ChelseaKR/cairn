@@ -64,6 +64,14 @@ tooling, repository documentation, and one new read-only operator command.
   requiring the subtraction by hand. Purely diagnostic: computed from scores
   already produced, changes no accept/reject decision, and explain mode
   stays byte-identical to the answer without it.
+- `cairn lint` gains a per-passage reachability check: whether any single
+  term a passage holds (title included) would clear `retrieval.threshold`
+  on its own. Built on a new `cairn.retrieve.single_term_scores`. Explicit
+  in its own wording that this is not proof of unreachability — a
+  combination of otherwise-common terms can still retrieve a passage
+  together, per `ck-022` — only that no one-word question naming a term the
+  passage holds will find it alone. Quiet on the demo corpus at the shipped
+  default threshold; verified to fire reliably at an artificially strict one.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

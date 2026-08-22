@@ -161,6 +161,24 @@ def _matched_terms(
     )
 
 
+def single_term_scores(passage: IndexedPassage, stats: LanguageStats) -> dict[str, float]:
+    """The score `passage` would get from a query consisting of exactly one
+    of its own (title-weighted) terms, for every term it holds.
+
+    Not part of an actual retrieval — nothing calls this during `ask`. It
+    exists for `cairn lint`'s reachability check: the highest value here is
+    the best a single-word question naming any term this passage contains
+    could ever do for it. A passage whose highest single-term score sits
+    below the configured threshold cannot be found by any one-word question,
+    though it may still be reachable through a combination of otherwise-
+    common terms scoring together — see DESIGN.md, `ck-022`, where four
+    passages tied on two shared terms and the ranking among them was decided
+    by a third. This function says nothing about that case; it only answers
+    the single-term question.
+    """
+    return {term: _cosine({term: 1}, passage, stats) for term in passage.term_counts}
+
+
 def retrieve(
     query: str,
     index: Index,
