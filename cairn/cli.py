@@ -165,6 +165,8 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
     # same machine can read from /proc. Neither set: auth stays off, which is
     # the only path this command has ever taken before this existed.
     auth_token = args.auth_token or os.environ.get("CAIRN_AUTH_TOKEN", "")
+    cors_origins = tuple(args.cors_origins or ())
+    embed_origins = tuple(args.embed_origins or ())
     httpd = serve(
         cfg,
         index,
@@ -173,6 +175,8 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         quiet=args.quiet,
         auth_token=auth_token,
         rate_limit_per_minute=args.rate_limit,
+        cors_origins=cors_origins,
+        embed_origins=embed_origins,
     )
     host, port = httpd.server_address[0], httpd.server_address[1]
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
@@ -185,6 +189,16 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         print(
             f"cairn: rate limiting is ON — {args.rate_limit} request(s)/minute "
             "per client address"
+        )
+    if cors_origins:
+        print(
+            f"cairn: CORS is ON for the JSON API — allowed origin(s): "
+            f"{', '.join(cors_origins)}"
+        )
+    if embed_origins:
+        print(
+            f"cairn: iframe embedding is ON — allowed origin(s): "
+            f"{', '.join(embed_origins)}"
         )
     print(
         f"cairn: {index.passage_count} passages, {index.doc_count} documents, "
@@ -364,6 +378,29 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="N",
         help="max requests per minute per client address (default: 0, unlimited)",
+    )
+    p_serve.add_argument(
+        "--cors-origin",
+        action="append",
+        default=None,
+        metavar="ORIGIN",
+        dest="cors_origins",
+        help=(
+            "allow cross-origin fetch() calls to the JSON API from this "
+            "origin (repeatable). Off by default — see docs/embedding.md."
+        ),
+    )
+    p_serve.add_argument(
+        "--allow-embed",
+        action="append",
+        default=None,
+        metavar="ORIGIN",
+        dest="embed_origins",
+        help=(
+            "allow this origin to put the page in an <iframe> (repeatable; "
+            "sets the CSP frame-ancestors directive). Off by default — see "
+            "docs/embedding.md."
+        ),
     )
     p_serve.set_defaults(func=_cmd_serve)
 

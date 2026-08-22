@@ -57,7 +57,7 @@ cairn/                  the package
   coverage.py           which corpus passages a question set ever retrieves
   explain_diff.py       single-question A/B trace comparison, a tuning aid
   server.py             the localhost demo server behind `cairn serve`
-  network.py            opt-in bearer-token auth + rate limiting for `serve`
+  network.py            opt-in auth, rate limiting, CORS + embed origins for `serve`
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
@@ -80,6 +80,7 @@ docs/authoring.md       the FAQ-pair convention for closing a lexical gap
 docs/onboarding.md      bulk import and the reviewed_at staleness convention
 docs/I18N.md            language support: scope and flip conditions, by tier
 docs/deployment.md      exposing `cairn serve` past a single laptop, safely
+docs/embedding.md       putting Cairn in an agency's own site: iframe, CORS
 ```
 
 `engine.ask` is the only entry point that answers a question. The CLI and the
@@ -1071,6 +1072,46 @@ only, resolved in `_cmd_serve` with the flag winning if given and
 `CAIRN_AUTH_TOKEN` as the fallback, so a real deployment never has to put a
 secret on a command line another process on the same host can read out of
 `/proc`.
+
+### Embedding is two separate opt-ins, not one
+
+"An agency's existing site can use Cairn" turned out to be two different
+questions, not one, once it was worked through: *can your site frame our
+page*, and *can your site's own script call our API*. A browser enforces
+them through two entirely different mechanisms — CSP `frame-ancestors` for
+the first, CORS response headers for the second — and conflating them would
+have meant one flag doing two things a reviewer has to hold apart to reason
+about. So `--allow-embed` and `--cors-origin` are separate flags, wired to
+separate functions in `cairn/network.py` (`frame_ancestors` and
+`cors_headers`), and neither implies the other. `docs/embedding.md` states
+that independence for an operator; the tests in `tests/test_network.py`
+(`TestEmbedEnabled.test_embedding_does_not_imply_cors`) state it for a
+reviewer of the code.
+
+Both follow the same shape as auth and rate limiting before them: an
+explicit allow-list of exact origins, no wildcard, off by default. The
+wildcard refusal is not just consistency for its own sake — a bearer token
+carried in `Authorization` cannot legally be paired with a wildcarded
+`Access-Control-Allow-Origin` under the CORS spec, so the two features
+(auth and CORS) would silently conflict the first time an operator turned
+both on if CORS accepted `*`. Requiring an explicit origin either way makes
+that conflict structurally impossible rather than a combination an operator
+has to know not to try. `cors_headers` also echoes back the *specific*
+matched origin rather than a static string, so the header is only ever
+present for a request that actually matched the allow-list — a cache
+sitting in front of this server cannot serve one origin's CORS-flavoured
+response to a different, disallowed one, which is what `Vary: Origin`
+being unconditionally present on a match exists to guarantee.
+
+The CORS preflight (`OPTIONS`) is answered in its own handler,
+deliberately outside `_gate()`. A browser's preflight never carries the
+`Authorization` header the real request would — that header is exactly
+what the preflight negotiates permission to send — so routing it through
+the same auth check as every other route would 401 the preflight and the
+real, authenticated request behind it would never be sent at all. This is
+the one route in the server that is not gated, and it is not gated on
+purpose, not by omission: it answers only from the CORS allow-list, carries
+no request body, and reaches nothing the engine or the corpus touch.
 
 ## The audit interlock
 
