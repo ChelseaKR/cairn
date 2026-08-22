@@ -9,7 +9,9 @@ The content security policy is deliberately absolute — ``default-src 'none'``
 with same-origin styles, scripts and fetches — so the offline claim is
 enforced by the browser rather than asserted in a README. If a future change
 adds a font from a CDN, the page breaks loudly instead of quietly requiring
-the network.
+the network. ``frame-ancestors`` is the one directive an operator can widen,
+via ``--allow-embed``, and only to an explicit list of origins — see
+``cairn/network.py`` and ``docs/embedding.md``.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from cairn.config import Config
 from cairn.engine import EngineError, ask
 from cairn.index import Index
 from cairn.messages import CATALOGUE
-from cairn.network import RateLimiter, check_token
+from cairn.network import RateLimiter, check_token, cors_headers, frame_ancestors
 from cairn.ui.page import SELECTABLE, render_page, turn_markup
 
 STATIC = Path(__file__).resolve().parent / "ui" / "static"
@@ -50,14 +52,26 @@ def build_handler(
     quiet: bool = False,
     auth_token: str = "",
     rate_limiter: RateLimiter | None = None,
+    cors_origins: tuple[str, ...] = (),
+    embed_origins: tuple[str, ...] = (),
 ):
     """A request handler class bound to one configuration and index.
 
-    `auth_token` and `rate_limiter` are both off by default (empty token,
-    `None` limiter), which is the only path `cairn serve` reaches without
-    an operator explicitly opting into networked deployment — see
-    `cairn/network.py` and `docs/deployment.md`.
+    `auth_token`, `rate_limiter`, `cors_origins`, and `embed_origins` are
+    all off by default (empty token, `None` limiter, empty origin tuples),
+    which is the only path `cairn serve` reaches without an operator
+    explicitly opting into networked deployment or cross-origin embedding —
+    see `cairn/network.py`, `docs/deployment.md`, and `docs/embedding.md`.
     """
+    csp = (
+        CSP
+        if not embed_origins
+        else (
+            "default-src 'none'; style-src 'self'; script-src 'self'; "
+            "connect-src 'self'; form-action 'self'; base-uri 'none'; "
+            f"frame-ancestors {frame_ancestors(embed_origins)}"
+        )
+    )
 
     class CairnHandler(BaseHTTPRequestHandler):
         server_version = f"cairn/{__version__}"
@@ -106,10 +120,14 @@ def build_handler(
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Content-Security-Policy", CSP)
+            self.send_header("Content-Security-Policy", csp)
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Cache-Control", "no-store")
+            for name, value in cors_headers(
+                self.headers.get("Origin"), cors_origins
+            ).items():
+                self.send_header(name, value)
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(body)
@@ -244,6 +262,32 @@ def build_handler(
                     render_page(lang, turns=turn_markup(question, result, lang))
                 )
 
+        def do_OPTIONS(self):  # noqa: N802 - stdlib naming
+            """A CORS preflight response — deliberately not gated.
+
+            A browser's preflight `OPTIONS` request never carries the
+            `Authorization` header a real follow-up request would (that is
+            what the preflight exists to negotiate *before* sending it), so
+            checking `auth_token` here would 401 every preflight and the
+            real request behind it would never be sent. It carries no
+            request body and answers from `cors_origins` alone: a 404 for
+            an origin that is not allowed, exactly like any other route this
+            server does not recognize, and no route-specific logic beyond
+            that CORS negotiation.
+            """
+            headers = cors_headers(self.headers.get("Origin"), cors_origins)
+            if not headers:
+                self._html("<h1>404</h1>", status=404)
+                return
+            self.send_response(204)
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Access-Control-Max-Age", "600")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
     return CairnHandler
 
 
@@ -256,12 +300,15 @@ def serve(
     quiet: bool = False,
     auth_token: str = "",
     rate_limit_per_minute: int = 0,
+    cors_origins: tuple[str, ...] = (),
+    embed_origins: tuple[str, ...] = (),
 ):
     """Build a server. The caller decides when to start serving.
 
-    `auth_token` and `rate_limit_per_minute` are both off by default (see
-    `cairn/network.py`) — passing neither reproduces exactly the server
-    this project has always shipped.
+    `auth_token`, `rate_limit_per_minute`, `cors_origins`, and
+    `embed_origins` are all off by default (see `cairn/network.py`) —
+    passing none of them reproduces exactly the server this project has
+    always shipped.
     """
     handler = build_handler(
         cfg,
@@ -269,5 +316,7 @@ def serve(
         quiet=quiet,
         auth_token=auth_token,
         rate_limiter=RateLimiter(rate_limit_per_minute) if rate_limit_per_minute > 0 else None,
+        cors_origins=cors_origins,
+        embed_origins=embed_origins,
     )
     return ThreadingHTTPServer((host, port), handler)

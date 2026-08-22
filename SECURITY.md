@@ -57,6 +57,15 @@ against the *default* server about missing auth or rate limiting is still not
 in scope — but a way to bypass a *configured* token check (other than trying
 tokens), or to make a configured rate limit not apply, is.
 
+The default also sends no CORS headers and refuses to be framed
+(`frame-ancestors 'none'`). An operator can opt a named list of origins into
+either, independently, for embedding in an agency's own site
+(`--cors-origin`/`--allow-embed`; see `docs/embedding.md`). Both are
+exact-origin allow-lists with no wildcard. A report that a *default* server
+sends no `Access-Control-Allow-Origin` or refuses framing is not in scope —
+but a way to get a CORS header or embed permission for an origin *not* on a
+configured list, or a wildcard where none was configured, is.
+
 ## Out of scope
 
 - The accuracy of documents an operator puts in the corpus. Cairn quotes what

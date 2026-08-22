@@ -247,6 +247,20 @@ tooling, repository documentation, and one new read-only operator command.
   TLS, not a login system, not a firewall, and not `X-Forwarded-For`-aware.
   `SECURITY.md`'s server section is updated to describe the opt-in path
   alongside the unchanged default.
+- `cairn serve --allow-embed` and `--cors-origin`: two independent opt-ins
+  for an agency embedding Cairn in its own site — the CSP `frame-ancestors`
+  directive (letting a named origin put the page in an `<iframe>`) and CORS
+  response headers (letting a named origin's own script call the JSON API
+  directly), neither implying the other. Both are exact-origin allow-lists
+  with no wildcard, repeatable, and off by default, so the server's existing
+  `frame-ancestors 'none'`/no-CORS-headers behaviour is unchanged unless an
+  operator asks for more. New `frame_ancestors`/`cors_headers` in
+  `cairn/network.py`; `cairn/server.py` answers the CORS preflight
+  (`OPTIONS`) in its own handler, deliberately not gated by `--auth-token`
+  since a preflight never carries the `Authorization` header the real
+  request would. `docs/embedding.md` covers both, with a worked iframe
+  example and a worked `fetch()` example; `SECURITY.md`'s server section
+  is extended to describe the scope of each.
 
 #### Changed
 
