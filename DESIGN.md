@@ -42,6 +42,7 @@ cairn/                  the package
   text.py               tokenization, script classification, script-aware normalizing
   index.py              build/read the on-disk index; deterministic serialization
   lint.py               read-only corpus checks an author runs before indexing
+  corpus_diff.py        what changed between two corpus directories, advisory
   retrieve.py           TF-IDF cosine scoring, threshold gate, retrieval trace
   language.py           language registry, writing direction, bidi isolates, detection
   messages.py           every string Cairn says in its own voice, per language
@@ -58,7 +59,7 @@ cairn/                  the package
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
-  cli.py                subcommands: index, lint, config, ask, serve, record
+  cli.py                subcommands: index, lint, config, diff, ask, serve, record
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 docs/demo.md            the walkthrough, with executed (not asserted) output

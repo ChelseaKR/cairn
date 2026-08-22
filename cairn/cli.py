@@ -5,6 +5,7 @@ Subcommands:
     cairn index            build the local index; report what was indexed
     cairn lint             check the corpus for problems, without indexing
     cairn config           show the effective config against built-in defaults
+    cairn diff OLD NEW     compare two corpus directories, advisory only
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
@@ -31,6 +32,8 @@ from cairn.config import Config, ConfigError, load_config
 from cairn.config_report import diff_from_defaults
 from cairn.config_report import render as render_config_diff
 from cairn.corpus import CorpusError
+from cairn.corpus_diff import diff_corpora
+from cairn.corpus_diff import render as render_corpus_diff
 from cairn.coverage import coverage_report
 from cairn.coverage import render as render_coverage
 from cairn.engine import AskResult, EngineError, ask
@@ -63,6 +66,12 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     # changed line here after an edit is the whole point of the fingerprint
     # being visible rather than only internal.
     print(f"Corpus fingerprint: {report.corpus_fingerprint[:12]} ({cfg.corpus_path})")
+    return 0
+
+
+def _cmd_diff(args: argparse.Namespace, cfg: Config) -> int:
+    diffs = diff_corpora(args.old, args.new)
+    print(render_corpus_diff(diffs))
     return 0
 
 
@@ -210,6 +219,17 @@ def build_parser() -> argparse.ArgumentParser:
         "config", help="show the effective configuration against built-in defaults"
     )
     p_config.set_defaults(func=_cmd_config)
+
+    p_diff = sub.add_parser(
+        "diff",
+        help=(
+            "compare two corpus directories: added/removed/changed documents and "
+            "which passage ids now hold different text"
+        ),
+    )
+    p_diff.add_argument("old", help="the earlier corpus directory")
+    p_diff.add_argument("new", help="the later corpus directory")
+    p_diff.set_defaults(func=_cmd_diff)
 
     p_ask = sub.add_parser("ask", help="ask a question against the index")
     p_ask.add_argument("question", help="the question, quoted")

@@ -72,6 +72,15 @@ tooling, repository documentation, and one new read-only operator command.
   together, per `ck-022` — only that no one-word question naming a term the
   passage holds will find it alone. Quiet on the demo corpus at the shipped
   default threshold; verified to fire reliably at an artificially strict one.
+- `cairn diff OLD NEW`: compares two corpus directories by document id —
+  added, removed, or changed — and for a changed document, which passage
+  ordinals now hold different text than before. Deliberately positional
+  rather than re-aligned: an inserted paragraph correctly shows every later
+  ordinal as changed, because every later citation id now points at
+  different text, and re-aligning ordinals to hide that would be the same
+  silent judgment call the rejected corpus-alias experiment made about
+  content, applied to passage identity instead. Advisory only; needs no
+  config or index.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

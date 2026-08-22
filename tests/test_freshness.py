@@ -308,9 +308,11 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
 
     # The subcommands that do not answer from the index: `index` is the fix,
     # not a reader; `lint` reads the corpus directly and never touches an
-    # index; `config` reads only `cairn.toml`. Anything else added to this set
-    # is somebody deciding a new command may quote a corpus it has not checked.
-    DOES_NOT_ANSWER = {"index", "lint", "config"}
+    # index; `config` reads only `cairn.toml`; `diff` compares two corpus
+    # directories named on the command line, not the configured one. Anything
+    # else added to this set is somebody deciding a new command may quote a
+    # corpus it has not checked.
+    DOES_NOT_ANSWER = {"index", "lint", "config", "diff"}
 
     # Arguments each subcommand needs to get as far as reading the index.
     # A subcommand with no entry here fails the completeness test below rather
@@ -319,6 +321,7 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
         "index": [],
         "lint": [],
         "config": [],
+        "diff": [str(DEMO), str(DEMO)],
         "ask": ["a question"],
         "serve": ["--port", "0"],
         "record": [],  # --out is added per-run, into the temp workspace
