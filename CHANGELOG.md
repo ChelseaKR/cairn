@@ -261,6 +261,22 @@ tooling, repository documentation, and one new read-only operator command.
   request would. `docs/embedding.md` covers both, with a worked iframe
   example and a worked `fetch()` example; `SECURITY.md`'s server section
   is extended to describe the scope of each.
+- `cairn serve --refusal-stats PATH` and `cairn refusals PATH`: opt-in,
+  local, aggregate-only refusal analytics for finding corpus gaps, without
+  weakening "nothing about the questions people ask is ever logged" — the
+  server's oldest promise. Every refusal increments one counter keyed by
+  (language, reason code) — the same machine-stable codes
+  `cairn ask --explain` already names for the retrieval stage
+  (`no-passages-in-language`, `no-lexical-overlap`, `below-threshold`;
+  factored out as `cairn.explain.refusal_reason`) — never the question, a
+  client address, or a timestamp. `cairn refusals PATH` reports the
+  aggregate, sorted worst-gap-first with a legend for the reason codes.
+  New `cairn/refusal_stats.py` (`RefusalCounter` for the write side,
+  `report`/`render` for the read side). Off by default: with no
+  `--refusal-stats` flag, nothing is written and a refusal behaves exactly
+  as before. `docs/refusal-analytics.md` covers the feature and states its
+  limits plainly (not a query log, not real-time); `SECURITY.md`'s server
+  section is extended to describe its scope.
 
 #### Changed
 

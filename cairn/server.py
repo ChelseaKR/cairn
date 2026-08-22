@@ -3,7 +3,9 @@
 ``http.server`` from the standard library, because the demo path has to run on
 a laptop with no network and no install step. It is a demonstration server: it
 binds to localhost by default, keeps no state, stores nothing, and logs
-nothing about the questions people ask.
+nothing about the questions people ask. The one opt-in exception is
+``--refusal-stats``, which stores an aggregate count per (language, reason)
+pair on a refusal — never the question itself; see ``cairn/refusal_stats.py``.
 
 The content security policy is deliberately absolute — ``default-src 'none'``
 with same-origin styles, scripts and fetches — so the offline claim is
@@ -24,9 +26,11 @@ from urllib.parse import parse_qs, urlparse
 from cairn import __version__
 from cairn.config import Config
 from cairn.engine import EngineError, ask
+from cairn.explain import refusal_reason
 from cairn.index import Index
 from cairn.messages import CATALOGUE
 from cairn.network import RateLimiter, check_token, cors_headers, frame_ancestors
+from cairn.refusal_stats import RefusalCounter
 from cairn.ui.page import SELECTABLE, render_page, turn_markup
 
 STATIC = Path(__file__).resolve().parent / "ui" / "static"
@@ -54,14 +58,17 @@ def build_handler(
     rate_limiter: RateLimiter | None = None,
     cors_origins: tuple[str, ...] = (),
     embed_origins: tuple[str, ...] = (),
+    refusal_counter: RefusalCounter | None = None,
 ):
     """A request handler class bound to one configuration and index.
 
-    `auth_token`, `rate_limiter`, `cors_origins`, and `embed_origins` are
-    all off by default (empty token, `None` limiter, empty origin tuples),
-    which is the only path `cairn serve` reaches without an operator
-    explicitly opting into networked deployment or cross-origin embedding —
-    see `cairn/network.py`, `docs/deployment.md`, and `docs/embedding.md`.
+    `auth_token`, `rate_limiter`, `cors_origins`, `embed_origins`, and
+    `refusal_counter` are all off by default (empty token, `None` limiter,
+    empty origin tuples, `None` counter), which is the only path
+    `cairn serve` reaches without an operator explicitly opting into
+    networked deployment, cross-origin embedding, or refusal analytics —
+    see `cairn/network.py`, `cairn/refusal_stats.py`, `docs/deployment.md`,
+    and `docs/embedding.md`.
     """
     csp = (
         CSP
@@ -255,6 +262,13 @@ def build_handler(
                     self._html(render_page(cfg.default_lang), status=400)
                 return
 
+            if refusal_counter is not None and result.answer.kind == "refusal":
+                # lang and a fixed reason code only — never the question.
+                # See cairn/refusal_stats.py's module docstring for why that
+                # boundary is structural rather than a promise about this
+                # one call site.
+                refusal_counter.record(lang, refusal_reason(result.answer.trace))
+
             if wants_json:
                 self._json(result.answer.to_payload())
             else:
@@ -302,13 +316,14 @@ def serve(
     rate_limit_per_minute: int = 0,
     cors_origins: tuple[str, ...] = (),
     embed_origins: tuple[str, ...] = (),
+    refusal_stats_path: Path | None = None,
 ):
     """Build a server. The caller decides when to start serving.
 
-    `auth_token`, `rate_limit_per_minute`, `cors_origins`, and
-    `embed_origins` are all off by default (see `cairn/network.py`) —
-    passing none of them reproduces exactly the server this project has
-    always shipped.
+    `auth_token`, `rate_limit_per_minute`, `cors_origins`, `embed_origins`,
+    and `refusal_stats_path` are all off by default (see
+    `cairn/network.py` and `cairn/refusal_stats.py`) — passing none of them
+    reproduces exactly the server this project has always shipped.
     """
     handler = build_handler(
         cfg,
@@ -318,5 +333,6 @@ def serve(
         rate_limiter=RateLimiter(rate_limit_per_minute) if rate_limit_per_minute > 0 else None,
         cors_origins=cors_origins,
         embed_origins=embed_origins,
+        refusal_counter=RefusalCounter(refusal_stats_path) if refusal_stats_path else None,
     )
     return ThreadingHTTPServer((host, port), handler)

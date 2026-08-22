@@ -58,10 +58,12 @@ cairn/                  the package
   explain_diff.py       single-question A/B trace comparison, a tuning aid
   server.py             the localhost demo server behind `cairn serve`
   network.py            opt-in auth, rate limiting, CORS + embed origins for `serve`
+  refusal_stats.py      opt-in aggregate refusal counters, never question text
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
-  cli.py                subcommands: index, lint, config, diff, calibrate, ask, serve, record
+  cli.py                subcommands: index, lint, config, diff, calibrate, ask, serve,
+                        refusals, record
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 docs/demo.md            the walkthrough, with executed (not asserted) output
@@ -81,6 +83,7 @@ docs/onboarding.md      bulk import and the reviewed_at staleness convention
 docs/I18N.md            language support: scope and flip conditions, by tier
 docs/deployment.md      exposing `cairn serve` past a single laptop, safely
 docs/embedding.md       putting Cairn in an agency's own site: iframe, CORS
+docs/refusal-analytics.md  finding corpus gaps from refusals, no questions kept
 ```
 
 `engine.ask` is the only entry point that answers a question. The CLI and the
@@ -1112,6 +1115,47 @@ real, authenticated request behind it would never be sent at all. This is
 the one route in the server that is not gated, and it is not gated on
 purpose, not by omission: it answers only from the CORS allow-list, carries
 no request body, and reaches nothing the engine or the corpus touch.
+
+### Refusal analytics: the aggregate is the whole design
+
+"Nothing about the questions people ask is ever logged" is the server's
+oldest promise — the module docstring has said it since before any of the
+opt-in features above existed. `--refusal-stats` is the first feature that
+gets anywhere near that boundary on purpose, so it earns a stricter design
+constraint than "opt-in and off by default": it had to be *structurally*
+incapable of holding a question, not just conventionally careful not to.
+
+The mechanism that makes that true is `cairn.explain.refusal_reason`, which
+returns exactly one thing: a fixed code (`no-passages-in-language`,
+`no-lexical-overlap`, or `below-threshold`) from a small, closed set the
+retrieval stage already computes for `cairn ask --explain`. It is a
+deliberate narrowing of `_retrieval_verdict`, which also computes a
+`.detail` string — for a human reading an explain report — that quotes
+matched and unmatched terms drawn straight from the question.
+`refusal_reason` returns `.code` and nothing else, so the boundary is not
+"we chose not to pass the detail string to the counter"; it is "the counter
+was never handed anything the detail string lives in." A future change that
+wanted to widen what gets counted would have to add a new return value to
+carry it — it cannot happen by accident inside `RefusalCounter.record(lang,
+code)`, whose two parameters are a four-letter-ish language tag and one of
+three fixed strings.
+
+The same narrowing shows up in the file format: `cairn/refusal_stats.py`'s
+on-disk shape is `{lang: {code: count}}`, an integer at the leaf. There is
+no field anywhere in that shape a per-event fact — a timestamp, a client
+address, a question — could be added to without changing the shape itself,
+which is exactly the property that makes "was anything beyond the aggregate
+ever written here" answerable by reading the module rather than trusting a
+promise about how a field happens to be used today.
+
+This is also why `RefusalCounter` and the read side (`report`/`render`,
+behind `cairn refusals`) are two separate concerns in one small module
+rather than one class: the write side runs inside `cairn serve`, in the
+request path, and only ever sees `(lang, code)` — never a `Path` it could
+misuse to read something back. The read side runs as its own CLI
+subcommand, entirely separate from serving traffic, in `DOES_NOT_ANSWER`
+alongside `diff` and `config` in `tests/test_freshness.py` because it
+touches neither the corpus nor the index — only the file an operator names.
 
 ## The audit interlock
 
