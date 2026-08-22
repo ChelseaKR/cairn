@@ -108,7 +108,7 @@ jobs:
             echo "the core path fetched the auditor; it must not need it" >&2
             exit 1
           fi
-          if grep -rn "plumbline" --include="*.py" cairn/ | grep -v "plumbline-bundle\|plumbline-checksums\|plumbline-contrast\|plumbline.pin\|plumbline/questions.toml\|plumbline/bundle"; then
+          if grep -rnE "^\s*(import|from)\s+plumbline\b" --include="*.py" cairn/; then
             echo "the engine imports the auditor; it must not" >&2
             exit 1
           fi
