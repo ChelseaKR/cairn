@@ -91,7 +91,9 @@ def _cmd_calibrate(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def _cmd_lint(args: argparse.Namespace, cfg: Config) -> int:
-    report = lint_corpus(cfg.corpus_path, threshold=cfg.threshold)
+    report = lint_corpus(
+        cfg.corpus_path, threshold=cfg.threshold, max_age_days=args.max_age_days
+    )
     print(render_lint_report(report))
     # Warnings do not fail the command — they are advisory, not a defect
     # `cairn index` would itself refuse — but a structural error does, the
@@ -222,6 +224,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_lint = sub.add_parser(
         "lint", help="check the corpus for problems, without building an index"
+    )
+    p_lint.add_argument(
+        "--max-age-days",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "also flag documents whose 'reviewed_at' front-matter date is more than N "
+            "days old, or missing entirely. Off by default."
+        ),
     )
     p_lint.set_defaults(func=_cmd_lint)
 

@@ -143,32 +143,22 @@ def build_scaffold(paragraphs: list[str], *, doc_id: str, title: str, lang: str)
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Scaffold a front-matter markdown corpus document from .txt or .html."
-    )
-    parser.add_argument("input", help="a .txt or .html file")
-    parser.add_argument(
-        "-o", "--output", required=True, help="path to write the .md scaffold to"
-    )
-    parser.add_argument(
-        "--id",
-        dest="doc_id",
-        default=None,
-        help="doc id (default: review-<slug of title or filename>)",
-    )
-    parser.add_argument(
-        "--title",
-        default=None,
-        help="document title (default: <title> tag for HTML, filename for text)",
-    )
-    parser.add_argument("--lang", default="en", help="language code (default: en)")
-    args = parser.parse_args(argv)
-
-    src = Path(args.input)
+def scaffold_one(
+    src: Path,
+    out_path: Path,
+    *,
+    doc_id: str | None,
+    title: str | None,
+    lang: str,
+) -> tuple[int, int]:
+    """Scaffold one input file to `out_path`. Returns `(exit_code,
+    paragraph_count)` — the single source both `--batch` and the one-file
+    path go through, so scaffolding a directory of files is never a second,
+    drifting idea of what scaffolding one file does.
+    """
     if not src.is_file():
         print(f"import_corpus: error: no such file: {src}", file=sys.stderr)
-        return 1
+        return 1, 0
     raw = src.read_text(encoding="utf-8", errors="replace")
 
     if src.suffix.lower() in (".htm", ".html"):
@@ -179,21 +169,20 @@ def main(argv: list[str] | None = None) -> int:
         default_title = src.stem
 
     if not paragraphs:
-        print("import_corpus: error: no paragraph text extracted", file=sys.stderr)
-        return 1
+        print(f"import_corpus: error: no paragraph text extracted from {src}", file=sys.stderr)
+        return 1, 0
 
-    title = args.title or default_title
-    doc_id = args.doc_id or f"review-{slugify(title)}"
+    resolved_title = title or default_title
+    resolved_id = doc_id or f"review-{slugify(resolved_title)}"
 
-    scaffold = build_scaffold(paragraphs, doc_id=doc_id, title=title, lang=args.lang)
-    out_path = Path(args.output)
+    scaffold = build_scaffold(paragraphs, doc_id=resolved_id, title=resolved_title, lang=lang)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(scaffold, encoding="utf-8")
 
     print(f"Wrote {out_path} ({len(paragraphs)} paragraph(s) extracted)")
     print(
         "REVIEW REQUIRED before this is a real corpus document: check the doc id "
-        f"(still prefixed 'review-' unless --id was given: {doc_id!r}), the title, "
+        f"(still prefixed 'review-' unless --id was given: {resolved_id!r}), the title, "
         "the language, the synthetic flag, and every paragraph boundary shown "
         "below. Then delete the 'review: unreviewed' front-matter line — it is "
         "inert to Cairn, a marker for a human only."
@@ -206,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
             f"WARNING: the scaffold does not load as a valid document: {exc}",
             file=sys.stderr,
         )
-        return 1
+        return 1, len(paragraphs)
 
     print(f"Chunk preview ({len(doc.passages)} passage(s), via cairn.corpus.load_document):")
     for p in doc.passages:
@@ -214,7 +203,110 @@ def main(argv: list[str] | None = None) -> int:
         if len(preview) > 70:
             preview = preview[:69] + "…"
         print(f"  {p.passage_id}: {preview}")
-    return 0
+    return 0, len(paragraphs)
+
+
+def _batch_sources(src_dir: Path) -> list[Path]:
+    """Every `.txt`/`.html` file directly in `src_dir` — non-recursive, the
+    same flat-directory convention `cairn.corpus.corpus_paths` uses for the
+    real corpus, so batch output maps predictably onto a real corpus layout.
+    """
+    return sorted(
+        p
+        for p in src_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in (".txt", ".html", ".htm")
+    )
+
+
+def run_batch(src_dir: Path, out_dir: Path, *, lang: str) -> int:
+    if not src_dir.is_dir():
+        print(f"import_corpus: error: not a directory: {src_dir}", file=sys.stderr)
+        return 1
+    sources = _batch_sources(src_dir)
+    if not sources:
+        print(f"import_corpus: error: no .txt or .html files in {src_dir}", file=sys.stderr)
+        return 1
+
+    failed = 0
+    total_paragraphs = 0
+    for src in sources:
+        print(f"--- {src.name} ---")
+        code, paragraph_count = scaffold_one(
+            src, out_dir / f"{src.stem}.md", doc_id=None, title=None, lang=lang
+        )
+        if code != 0:
+            failed += 1
+        else:
+            total_paragraphs += paragraph_count
+        print()
+
+    print(
+        f"Batch: {len(sources) - failed}/{len(sources)} file(s) scaffolded, "
+        f"{total_paragraphs} paragraph(s) total."
+    )
+    if failed:
+        print(f"{failed} file(s) failed to scaffold — see the errors above.", file=sys.stderr)
+    print("REVIEW REQUIRED for every file above before any of them is a real corpus document.")
+    return 1 if failed else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Scaffold front-matter markdown corpus document(s) from .txt or .html."
+    )
+    parser.add_argument(
+        "input", help="a .txt or .html file, or (with --batch) a directory of them"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        help="path to write the .md scaffold to (with --batch: the output directory)",
+    )
+    parser.add_argument(
+        "--batch",
+        action="store_true",
+        help=(
+            "treat 'input' as a directory: scaffold every .txt/.html file in it "
+            "(non-recursive) into --output, one .md per source file. --id and "
+            "--title do not apply — each file's id/title is derived the same way "
+            "the one-file path derives them when neither is given."
+        ),
+    )
+    parser.add_argument(
+        "--id",
+        dest="doc_id",
+        default=None,
+        help="doc id (default: review-<slug of title or filename>); not valid with --batch",
+    )
+    parser.add_argument(
+        "--title",
+        default=None,
+        help=(
+            "document title (default: <title> tag for HTML, filename for text); "
+            "not valid with --batch"
+        ),
+    )
+    parser.add_argument("--lang", default="en", help="language code (default: en)")
+    args = parser.parse_args(argv)
+
+    if args.batch:
+        if args.doc_id or args.title:
+            print(
+                "import_corpus: error: --id and --title are not valid with --batch",
+                file=sys.stderr,
+            )
+            return 1
+        return run_batch(Path(args.input), Path(args.output), lang=args.lang)
+
+    code, _ = scaffold_one(
+        Path(args.input),
+        Path(args.output),
+        doc_id=args.doc_id,
+        title=args.title,
+        lang=args.lang,
+    )
+    return code
 
 
 if __name__ == "__main__":

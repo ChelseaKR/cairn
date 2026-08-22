@@ -165,5 +165,88 @@ class TestMainCli(unittest.TestCase):
         self.assertNotIn("import_corpus", vars(cairn.index))
 
 
+class TestBatchMode(unittest.TestCase):
+    def run_main(self, *argv: str):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = import_corpus.main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def _sources(self, src_dir: Path) -> None:
+        (src_dir / "notice1.txt").write_text(
+            "First Notice\n\nBody text about a program.\n", encoding="utf-8"
+        )
+        (src_dir / "notice2.html").write_text(
+            "<html><head><title>Second Notice</title></head>"
+            "<body><p>Different body text entirely.</p></body></html>",
+            encoding="utf-8",
+        )
+        # Not a source: same skip rule cairn.corpus applies to READMEs, and a
+        # batch run should not choke on an unrelated file sitting alongside
+        # the real inputs.
+        (src_dir / "notes.md").write_text("not an input format\n", encoding="utf-8")
+
+    def test_batch_scaffolds_every_txt_and_html_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir, out_dir = Path(tmp) / "in", Path(tmp) / "out"
+            src_dir.mkdir()
+            self._sources(src_dir)
+            code, out, err = self.run_main("--batch", str(src_dir), "-o", str(out_dir))
+            self.assertEqual(code, 0, err)
+            self.assertEqual(
+                sorted(p.name for p in out_dir.iterdir()), ["notice1.md", "notice2.md"]
+            )
+            self.assertIn("2/2 file(s) scaffolded", out)
+            doc1 = load_document(out_dir / "notice1.md")
+            doc2 = load_document(out_dir / "notice2.md")
+            self.assertEqual(doc1.doc_id, "review-notice1")
+            self.assertEqual(doc2.title, "Second Notice")
+
+    def test_batch_reports_partial_failure_without_stopping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir, out_dir = Path(tmp) / "in", Path(tmp) / "out"
+            src_dir.mkdir()
+            self._sources(src_dir)
+            (src_dir / "empty.txt").write_text("   \n\n  \n", encoding="utf-8")
+            code, out, err = self.run_main("--batch", str(src_dir), "-o", str(out_dir))
+            self.assertEqual(code, 1)
+            self.assertIn("2/3 file(s) scaffolded", out)
+            self.assertIn("1 file(s) failed", err)
+            # The two good files still made it out despite the third failing.
+            self.assertEqual(
+                sorted(p.name for p in out_dir.iterdir()), ["notice1.md", "notice2.md"]
+            )
+
+    def test_batch_rejects_id_and_title(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir, out_dir = Path(tmp) / "in", Path(tmp) / "out"
+            src_dir.mkdir()
+            self._sources(src_dir)
+            code, _, err = self.run_main(
+                "--batch", str(src_dir), "-o", str(out_dir), "--id", "x"
+            )
+            self.assertEqual(code, 1)
+            self.assertIn("not valid with --batch", err)
+
+    def test_batch_on_a_missing_directory_is_a_clean_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _, err = self.run_main(
+                "--batch", str(Path(tmp) / "nowhere"), "-o", str(Path(tmp) / "out")
+            )
+            self.assertEqual(code, 1)
+            self.assertIn("not a directory", err)
+
+    def test_batch_on_an_empty_directory_is_a_clean_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir = Path(tmp) / "in"
+            src_dir.mkdir()
+            (src_dir / "notes.md").write_text("wrong format\n", encoding="utf-8")
+            code, _, err = self.run_main(
+                "--batch", str(src_dir), "-o", str(Path(tmp) / "out")
+            )
+            self.assertEqual(code, 1)
+            self.assertIn("no .txt or .html files", err)
+
+
 if __name__ == "__main__":
     unittest.main()
