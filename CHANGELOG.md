@@ -51,6 +51,11 @@ tooling, repository documentation, and one new read-only operator command.
   `record.build_items_and_responses`) rather than a second idea of what an
   answer is. Never writes or modifies a bundle, and is explicit in its own
   output that it is not a substitute for `./plumbline-gate.sh`.
+- `cairn ask --explain --compare-config`/`--compare-index`: runs one question
+  through two configs and/or indexes and diffs the two traces — verdict
+  flip, blame-stage flip, accepted-set changes, score deltas on shared
+  candidates. A single-question tuning aid, explicit in its own output that
+  it is not a gate.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

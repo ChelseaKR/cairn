@@ -35,6 +35,8 @@ from cairn.coverage import coverage_report
 from cairn.coverage import render as render_coverage
 from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import diagnose, render, trace_payload
+from cairn.explain_diff import compare
+from cairn.explain_diff import render as render_explain_diff
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.language import isolate
 from cairn.lint import lint_corpus
@@ -96,6 +98,16 @@ def _render_answer(result: AskResult) -> str:
 
 def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path, cfg.corpus_path)
+    if args.compare_config or args.compare_index:
+        # A separate report mode, not layered onto --explain: it runs the
+        # question twice and diffs the two traces, so it needs its own index
+        # and config for the second side rather than the ones just loaded.
+        cfg_b = load_config(args.compare_config) if args.compare_config else cfg
+        index_b_path = args.compare_index or cfg_b.index_path
+        index_b = read_index(index_b_path, cfg_b.corpus_path)
+        comparison = compare(args.question, index, cfg, index_b, cfg_b, lang=args.lang)
+        print(render_explain_diff(comparison))
+        return 0
     result = ask(args.question, index, cfg, lang=args.lang)
     answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
@@ -217,6 +229,25 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "answer in this language and prefer its sources (en, es, ar). "
             "Omit to detect the language from the question."
+        ),
+    )
+    p_ask.add_argument(
+        "--compare-config",
+        metavar="PATH",
+        default=None,
+        help=(
+            "tuning aid: run this question again against a second cairn.toml and "
+            "diff the two traces (verdict, blame stage, accepted set, score deltas). "
+            "Not a substitute for ./plumbline-gate.sh."
+        ),
+    )
+    p_ask.add_argument(
+        "--compare-index",
+        metavar="PATH",
+        default=None,
+        help=(
+            "the second side's index (default: its config's own index.path). "
+            "Implies --compare-config's comparison mode even alone."
         ),
     )
     p_ask.set_defaults(func=_cmd_ask)

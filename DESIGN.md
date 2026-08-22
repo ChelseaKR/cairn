@@ -53,6 +53,7 @@ cairn/                  the package
   record.py             record an evidence bundle from the real engine
   record_diff.py        unscored dry-run preview against a committed bundle
   coverage.py           which corpus passages a question set ever retrieves
+  explain_diff.py       single-question A/B trace comparison, a tuning aid
   server.py             the localhost demo server behind `cairn serve`
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
