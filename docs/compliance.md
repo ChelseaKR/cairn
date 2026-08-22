@@ -133,6 +133,9 @@ limitation in its own README table rather than letting an automated pass
 rate stand in for it. A procurement review that requires a completed
 manual accessibility audit (a VPAT, a real screen-reader walkthrough) should
 treat that as outstanding work, not as already covered by what is here.
+[`docs/screen-reader-test-script.md`](screen-reader-test-script.md) is a
+structured script for running that session when someone does — publishing
+the script is not a substitute for the session itself.
 
 ## Support and maintenance reality
 

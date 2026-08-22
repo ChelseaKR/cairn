@@ -918,7 +918,10 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   quiet on success — and axe-core checks the rule set. None of that is the
   same as a person driving the page with VoiceOver or NVDA and reporting what
   it was like. That session has not happened, and no automated check should be
-  read as standing in for it.
+  read as standing in for it. A structured script for running it, when someone
+  does, is at [`docs/screen-reader-test-script.md`](docs/screen-reader-test-script.md) —
+  it turns the automated suite's own behavioural contracts into an hour-long
+  checklist; writing it down is not the same as running it.
 - **No generative mode.** The specification permits one as a clearly separated,
   off-by-default option. None is implemented, and the extractive path is the
   reference behavior; anything generative would have to keep the "every fact
