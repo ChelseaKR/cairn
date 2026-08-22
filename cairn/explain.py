@@ -144,6 +144,22 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
     return StageVerdict(stage="retrieval", ok=False, code="below-threshold", detail=detail)
 
 
+def refusal_reason(trace: RetrievalTrace) -> str:
+    """The stage-1 diagnosis code for a refusal — nothing else about it.
+
+    For `cairn/refusal_stats.py`, which aggregates refusal reasons and must
+    never hold anything drawn from the question itself. `_retrieval_verdict`
+    computes a `.detail` string that quotes matched/unmatched question terms;
+    this returns only `.code` — one of `"no-passages-in-language"`,
+    `"no-lexical-overlap"`, or `"below-threshold"` for a trace with no
+    accepted candidates, machine-stable and question-content-free by
+    construction, per this module's own docstring. Call this only when
+    `trace.accepted` is empty; on an accepted trace it returns
+    `"passages-accepted"`, which is not a refusal reason at all.
+    """
+    return _retrieval_verdict(trace).code
+
+
 def _answer_verdict(
     trace: RetrievalTrace, answer: Answer, dropped: tuple[Candidate, ...]
 ) -> StageVerdict:

@@ -10,6 +10,7 @@ Subcommands:
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
+    cairn refusals PATH    report aggregate refusal counts from --refusal-stats
     cairn record           record an evidence bundle for the pinned auditor
 
 Exit codes: 0 for success — including refusals, which are a first-class
@@ -28,6 +29,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 from cairn import __version__
 from cairn.calibrate import CalibrationError, calibrate
@@ -52,6 +54,9 @@ from cairn.messages import text as message
 from cairn.record import DEFAULT_BUNDLE, DEFAULT_QUESTIONS, RecordError, record
 from cairn.record_diff import diff_against_bundle
 from cairn.record_diff import render as render_record_diff
+from cairn.refusal_stats import RefusalStatsError
+from cairn.refusal_stats import render as render_refusal_stats
+from cairn.refusal_stats import report as refusal_report
 from cairn.server import serve
 
 
@@ -81,6 +86,11 @@ def _cmd_diff(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_config(args: argparse.Namespace, cfg: Config) -> int:
     print(render_config_diff(diff_from_defaults(cfg)))
+    return 0
+
+
+def _cmd_refusals(args: argparse.Namespace, cfg: Config) -> int:
+    print(render_refusal_stats(refusal_report(Path(args.path))))
     return 0
 
 
@@ -167,6 +177,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
     auth_token = args.auth_token or os.environ.get("CAIRN_AUTH_TOKEN", "")
     cors_origins = tuple(args.cors_origins or ())
     embed_origins = tuple(args.embed_origins or ())
+    refusal_stats_path = Path(args.refusal_stats) if args.refusal_stats else None
     httpd = serve(
         cfg,
         index,
@@ -177,6 +188,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         rate_limit_per_minute=args.rate_limit,
         cors_origins=cors_origins,
         embed_origins=embed_origins,
+        refusal_stats_path=refusal_stats_path,
     )
     host, port = httpd.server_address[0], httpd.server_address[1]
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
@@ -199,6 +211,11 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         print(
             f"cairn: iframe embedding is ON — allowed origin(s): "
             f"{', '.join(embed_origins)}"
+        )
+    if refusal_stats_path:
+        print(
+            f"cairn: refusal analytics are ON — aggregate counts only, "
+            f"written to {refusal_stats_path}"
         )
     print(
         f"cairn: {index.passage_count} passages, {index.doc_count} documents, "
@@ -402,7 +419,24 @@ def build_parser() -> argparse.ArgumentParser:
             "docs/embedding.md."
         ),
     )
+    p_serve.add_argument(
+        "--refusal-stats",
+        default=None,
+        metavar="PATH",
+        help=(
+            "write aggregate refusal counts, by language and reason, to this "
+            "JSON file (never the question itself). Off by default — see "
+            "`cairn refusals` and cairn/refusal_stats.py."
+        ),
+    )
     p_serve.set_defaults(func=_cmd_serve)
+
+    p_refusals = sub.add_parser(
+        "refusals",
+        help="report the aggregate refusal counts a server wrote with --refusal-stats",
+    )
+    p_refusals.add_argument("path", help="the --refusal-stats JSON file to report on")
+    p_refusals.set_defaults(func=_cmd_refusals)
 
     p_record = sub.add_parser(
         "record",
@@ -451,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
         EngineError,
         RecordError,
         CalibrationError,
+        RefusalStatsError,
     ) as exc:
         print(f"cairn: error: {exc}", file=sys.stderr)
         return 1

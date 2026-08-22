@@ -66,6 +66,15 @@ sends no `Access-Control-Allow-Origin` or refuses framing is not in scope —
 but a way to get a CORS header or embed permission for an origin *not* on a
 configured list, or a wildcard where none was configured, is.
 
+The default also logs nothing about the questions people ask, and that is
+unconditional — there is no flag that turns question logging on. The one
+opt-in exception is `--refusal-stats`, which records an aggregate count per
+(language, reason) pair on a refusal only, never the question, the client,
+or a timestamp (see `docs/refusal-analytics.md`). A way to make a configured
+`--refusal-stats` file carry anything beyond that — question text, a
+client address, per-event data of any kind — is in scope; the absence of
+the flag, or the aggregate counts it does produce by design, are not.
+
 ## Out of scope
 
 - The accuracy of documents an operator puts in the corpus. Cairn quotes what
