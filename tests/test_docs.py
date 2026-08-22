@@ -81,7 +81,7 @@ class CleanCheckout(unittest.TestCase):
         completed = subprocess.run(
             command.replace("python3 ", f"{sys.executable} ", 1),
             shell=True, cwd=self.workspace, env=self.env,
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8",
         )
         self.assertEqual(
             completed.returncode, 0,

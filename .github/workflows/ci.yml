@@ -1,10 +1,17 @@
 # Cairn CI.
 #
-# Four jobs, in deliberate order of dependency:
+# Six jobs, in deliberate order of dependency:
 #
-#   core       install, lint, test. Standard library only, no network needed,
-#              and no auditor: this is the path a contributor runs, and it
-#              must not depend on anything outside this repository.
+#   core            install, lint, test. Standard library only, no network
+#                   needed, and no auditor: this is the path a contributor
+#                   runs, and it must not depend on anything outside this
+#                   repository. Matrixed across supported Python versions, on
+#                   Linux.
+#   core-windows,
+#   core-macos      the same install/lint/test/demo/independence steps as
+#                   `core`, one canary job per non-Linux OS at the newer
+#                   supported Python version — the stdlib-only claim is a
+#                   claim about the package, not about Ubuntu.
 #   interface  the accessibility behaviours that need a real browser.
 #   audit      the merge gate. Resolves the pinned auditor, grades the
 #              recorded evidence, and then holds the result against the
@@ -125,6 +132,103 @@ jobs:
           set -e
           echo "gate exited $code with an unreachable harness"
           test "$code" -eq 4
+
+  # The stdlib-only, no-dependency claim is a claim about the package, not
+  # about Ubuntu — `core` above never left it untested until now. One canary
+  # job per non-Linux OS, at the newer supported Python version, running the
+  # same install/lint/test/demo/independence steps `core` runs. Deliberately
+  # NOT a matrix dimension on `core` itself: this repository's own
+  # tests/test_rulesets.py holds every required-status-check context in
+  # .github/rulesets/main.json against a parser of this file that assumes one
+  # matrix key per job, and a second matrix key (`os`) changes every check
+  # run's name (GitHub folds every matrix key into the name, not just the
+  # ones that vary) — a two-key `core` matrix would need that parser rewritten
+  # to stay honest. Two extra single-OS jobs sidestep that entirely and read
+  # as what they are: "does this also work here", not a second lint/version
+  # sweep.
+  #
+  # No fail-closed drill: that step runs the vendored gate script itself
+  # (`env -u`, `sed`, a `#!/usr/bin/env bash` shebang invoked as
+  # `./plumbline-gate.sh`) and is already covered on `ubuntu-latest` by
+  # `core`, `audit`, and `live`. Running it again here would test Git Bash's
+  # (Windows) or macOS's own bash's shell compatibility, not this repository.
+  core-windows:
+    name: core, windows (install, lint, test — auditor unreachable)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: python -m unittest discover -s tests
+
+      - name: The demo path runs with no install at all
+        run: |
+          python -m cairn index
+          python -m cairn ask "How much is the monthly grocery allowance for one person?"
+          python -m cairn ask --explain "What vaccinations does my dog need?"
+
+      # Bash explicitly: the default shell for a `run:` step is PowerShell on
+      # Windows and this step's syntax (`[ -d ... ]`, `grep`) is POSIX. Every
+      # GitHub-hosted Windows runner ships Git Bash for exactly this.
+      - name: Nothing above resolved the auditor
+        shell: bash
+        run: |
+          if [ -d .plumbline-cache ]; then
+            echo "the core path fetched the auditor; it must not need it" >&2
+            exit 1
+          fi
+          if grep -rnE "^\s*(import|from)\s+plumbline\b" --include="*.py" cairn/; then
+            echo "the engine imports the auditor; it must not" >&2
+            exit 1
+          fi
+
+  core-macos:
+    name: core, macos (install, lint, test — auditor unreachable)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: python3 -m unittest discover -s tests
+
+      - name: The demo path runs with no install at all
+        run: |
+          python3 -m cairn index
+          python3 -m cairn ask "How much is the monthly grocery allowance for one person?"
+          python3 -m cairn ask --explain "What vaccinations does my dog need?"
+
+      - name: Nothing above resolved the auditor
+        run: |
+          if [ -d .plumbline-cache ]; then
+            echo "the core path fetched the auditor; it must not need it" >&2
+            exit 1
+          fi
+          if grep -rnE "^\s*(import|from)\s+plumbline\b" --include="*.py" cairn/; then
+            echo "the engine imports the auditor; it must not" >&2
+            exit 1
+          fi
 
   interface:
     name: interface (accessibility behaviours in Chromium)

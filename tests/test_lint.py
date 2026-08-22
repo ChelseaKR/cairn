@@ -298,7 +298,7 @@ class TestLintCli(unittest.TestCase):
     def test_cairn_lint_on_the_demo_corpus_exits_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "cairn.toml"
-            config.write_text(f'[corpus]\npath = "{DEMO}"\n', encoding="utf-8")
+            config.write_text(f'[corpus]\npath = "{DEMO.as_posix()}"\n', encoding="utf-8")
             code, out, err = self.run_cli(config, "lint")
             self.assertEqual(code, 0, err)
             self.assertIn("No issues found.", out)
@@ -309,7 +309,7 @@ class TestLintCli(unittest.TestCase):
             corpus.mkdir()
             write_doc(corpus, "bad.md", front_matter="id: b\ntitle: T", body="X.\n")
             config = Path(tmp) / "cairn.toml"
-            config.write_text(f'[corpus]\npath = "{corpus}"\n', encoding="utf-8")
+            config.write_text(f'[corpus]\npath = "{corpus.as_posix()}"\n', encoding="utf-8")
             code, out, err = self.run_cli(config, "lint")
             self.assertEqual(code, 1)
             self.assertIn("error(s)", out)
@@ -317,7 +317,7 @@ class TestLintCli(unittest.TestCase):
     def test_max_age_days_flag_is_off_by_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "cairn.toml"
-            config.write_text(f'[corpus]\npath = "{DEMO}"\n', encoding="utf-8")
+            config.write_text(f'[corpus]\npath = "{DEMO.as_posix()}"\n', encoding="utf-8")
             code, out, err = self.run_cli(config, "lint")
             self.assertEqual(code, 0, err)
             self.assertIn("No issues found.", out)
@@ -325,7 +325,7 @@ class TestLintCli(unittest.TestCase):
     def test_max_age_days_flag_surfaces_missing_reviewed_at(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "cairn.toml"
-            config.write_text(f'[corpus]\npath = "{DEMO}"\n', encoding="utf-8")
+            config.write_text(f'[corpus]\npath = "{DEMO.as_posix()}"\n', encoding="utf-8")
             code, out, err = self.run_cli(config, "lint", "--max-age-days", "30")
             self.assertEqual(code, 0, err)  # warnings only, not errors
             self.assertIn("no 'reviewed_at'", out)
@@ -336,7 +336,8 @@ class TestLintCli(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "cairn.toml"
             config.write_text(
-                f'[corpus]\npath = "{DEMO}"\n[index]\npath = "{Path(tmp) / "nope.json"}"\n',
+                f'[corpus]\npath = "{DEMO.as_posix()}"\n'
+                f'[index]\npath = "{(Path(tmp) / "nope.json").as_posix()}"\n',
                 encoding="utf-8",
             )
             code, _, err = self.run_cli(config, "lint")

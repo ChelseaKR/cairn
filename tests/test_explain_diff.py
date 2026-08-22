@@ -62,7 +62,10 @@ class TestCompareCli(unittest.TestCase):
 
     def _config(self, workspace: Path, name: str, index_path: Path, **retrieval) -> Path:
         build_and_write(DEMO, index_path)
-        lines = [f'[corpus]\npath = "{DEMO}"\n[index]\npath = "{index_path}"\n']
+        lines = [
+            f'[corpus]\npath = "{DEMO.as_posix()}"\n'
+            f'[index]\npath = "{index_path.as_posix()}"\n'
+        ]
         if retrieval:
             lines.append("[retrieval]\n")
             lines += [f"{k} = {v}\n" for k, v in retrieval.items()]

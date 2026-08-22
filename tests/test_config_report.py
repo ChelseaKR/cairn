@@ -77,7 +77,7 @@ class TestConfigCli(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "cairn.toml"
             config.write_text(
-                f'[index]\npath = "{Path(tmp) / "nope.json"}"\n', encoding="utf-8"
+                f'[index]\npath = "{(Path(tmp) / "nope.json").as_posix()}"\n', encoding="utf-8"
             )
             code, _, err = self.run_cli(config, "config")
             self.assertEqual(code, 0, err)

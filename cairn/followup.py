@@ -59,7 +59,7 @@ class FollowupStore:
         line = json.dumps(entry, ensure_ascii=False, sort_keys=True)
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            with self.path.open("a", encoding="utf-8") as handle:
+            with self.path.open("a", encoding="utf-8", newline="\n") as handle:
                 handle.write(line + "\n")
 
 

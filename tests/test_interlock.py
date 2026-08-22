@@ -25,6 +25,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -141,6 +142,14 @@ class TestTheAuditorIsNotADependency(unittest.TestCase):
         self.assertEqual(tracked.strip(), "")
 
 
+@unittest.skipIf(
+    sys.platform == "win32",
+    "plumbline-gate.sh is invoked as ./plumbline-gate.sh, relying on the "
+    "OS to read its #!/usr/bin/env bash shebang and dispatch to bash — a "
+    "POSIX exec behaviour Windows does not have outside a shell. This is a "
+    "gap in what this platform can prove about the fail-closed claim, "
+    "stated rather than hidden: it is proved on Linux and macOS.",
+)
 class TestItFailsClosed(unittest.TestCase):
     """The runner, run for real, against pins that cannot resolve."""
 
@@ -271,9 +280,13 @@ class TestTheEvidenceIsIntact(unittest.TestCase):
         self.assertEqual(recorded["bundle_sha256"], recomputed["bundle_sha256"])
 
     def test_every_recorded_response_belongs_to_an_item(self):
-        items = [json.loads(line) for line in (BUNDLE / "items.jsonl").read_text().splitlines()]
+        items = [
+            json.loads(line)
+            for line in (BUNDLE / "items.jsonl").read_text(encoding="utf-8").splitlines()
+        ]
         responses = [
-            json.loads(line) for line in (BUNDLE / "responses.jsonl").read_text().splitlines()
+            json.loads(line)
+            for line in (BUNDLE / "responses.jsonl").read_text(encoding="utf-8").splitlines()
         ]
         # Two empty files satisfy `[] == []` and `all([])`, which is the
         # whole check. The population is the committed question set.
@@ -284,11 +297,11 @@ class TestTheEvidenceIsIntact(unittest.TestCase):
     def test_every_citation_resolves_to_a_declared_source(self):
         sources = {
             json.loads(line)["id"]
-            for line in (BUNDLE / "sources.jsonl").read_text().splitlines()
+            for line in (BUNDLE / "sources.jsonl").read_text(encoding="utf-8").splitlines()
         }
         citation = re.compile(r"\[([A-Za-z][A-Za-z0-9._:-]*)\]")
         cited = set()
-        for line in (BUNDLE / "responses.jsonl").read_text().splitlines():
+        for line in (BUNDLE / "responses.jsonl").read_text(encoding="utf-8").splitlines():
             cited.update(citation.findall(json.loads(line)["response"]))
         self.assertTrue(cited, "the evidence should contain citations")
         self.assertLessEqual(cited, sources, "a response cites a source that does not exist")
