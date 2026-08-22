@@ -19,7 +19,7 @@ import unittest
 import urllib.error
 import urllib.parse
 import urllib.request
-from html import escape
+from html import escape, unescape
 from html.parser import HTMLParser
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -419,6 +419,52 @@ class TestAnswering(ServerHarness):
         served = self.post_json({"question": question, "lang": "es"})
         local = ask(question, self.index, self.cfg, lang="es").answer.to_payload()
         self.assertEqual(served, local, "one engine, one answer")
+
+
+class TestCopyExportControl(ServerHarness):
+    """A read-only, always-visible way to get a grounded answer out of the
+    page with its citations intact — no JavaScript required. See
+    `cairn/ui/page.py`, `_copy_export`."""
+
+    def test_a_grounded_answer_gets_a_copy_export_control(self):
+        markup = self.post_form(
+            {"question": "How much is the monthly grocery allowance?", "lang": "en"}
+        )
+        self.assertIn('<details class="copy-answer">', markup)
+        self.assertIn("<summary>", markup)
+        self.assertIn("Copy answer text", markup)
+        self.assertIn("<textarea readonly", markup)
+        self.assertIn('aria-label="Copy answer text"', markup)
+
+    def test_a_refusal_gets_no_copy_export_control(self):
+        markup = self.post_form({"question": "Is the library open?", "lang": "en"})
+        self.assertNotIn("copy-answer", markup)
+        self.assertNotIn("<textarea readonly", markup)
+
+    def test_the_textarea_carries_the_full_cited_text_verbatim(self):
+        from cairn.engine import ask
+
+        question = "How much is the monthly grocery allowance?"
+        markup = self.post_form({"question": question, "lang": "en"})
+        answer = ask(question, self.index, self.cfg, lang="en").answer
+        match = re.search(r"<textarea readonly[^>]*>(.*?)</textarea>", markup, re.S)
+        self.assertIsNotNone(match)
+        self.assertEqual(unescape(match.group(1)), answer.cited_text)
+        self.assertIn("[grocery-allowance-en.2]", unescape(match.group(1)))
+
+    def test_the_control_mints_no_id_that_could_collide_across_turns(self):
+        # `aria-label` labels the textarea instead of a `<label for>`, on
+        # purpose: the server is stateless and the client script accumulates
+        # turns into one page (cairn/ui/static/app.js), so an id minted here
+        # would repeat every time a second grounded answer joins the
+        # transcript. This checks the one turn this stateless server ever
+        # renders at once carries none at all.
+        markup = self.post_form(
+            {"question": "How much is the monthly grocery allowance?", "lang": "en"}
+        )
+        start = markup.index('<details class="copy-answer">')
+        block = markup[start : markup.index("</details>")]
+        self.assertNotIn(" id=", block)
 
 
 class TestWithoutJavaScript(ServerHarness):

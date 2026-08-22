@@ -38,6 +38,10 @@ _DEMO_CONTACTS = {
         "مكتب المساعدة المجتمعية في مقاطعة هاربر على الرقم 555-0142 "
         "(جهة اتصال تجريبية مُختلَقة؛ على المشغّلين ضبط جهة اتصال خاصة بهم)"
     ),
+    "fr": (
+        "le bureau d'Assistance Communautaire du comté de Harbor, au 555-0142 "
+        "(contact fictif de démonstration ; les opérateurs doivent configurer le leur)"
+    ),
 }
 
 
@@ -52,6 +56,15 @@ class Config:
     threshold: float = 0.165
     max_passages: int = 1
     candidates: int = 8
+    # Below this gap between the winning candidate and its runner-up,
+    # explain mode flags the retrieval as a near-tie. Diagnostic only: it
+    # never changes which candidate is accepted or composed, only whether
+    # `--explain` warns about how close the ranking was. 0.02 is comfortably
+    # smaller than the measured calibration gap (0.032-0.043) so it does not
+    # fire on ordinary in-corpus answers, and comfortably larger than zero so
+    # it catches the documented GoPass near-tie (0.008 apart) rather than
+    # only exact ties.
+    margin_warn: float = 0.02
     default_lang: str = "en"
     cross_language_fallback: bool = True
     contact: str = _DEMO_CONTACTS["en"]
@@ -90,18 +103,25 @@ class Config:
             )
         if self.candidates < 1:
             raise ConfigError("retrieval.candidates must be >= 1")
+        if self.margin_warn < 0.0:
+            raise ConfigError(
+                "retrieval.margin_warn must be >= 0: it is a score gap, and a "
+                "negative gap is not a gap"
+            )
         # `language.default` is the language Cairn *speaks* when it cannot
         # tell what was asked — the refusal, the cross-language notice, the
         # interface chrome. It was unvalidated, and the same "bounds at the
         # edge" shape as max_passages: the server checks the selector value
         # against its own list and the engine checks an explicitly requested
         # language against the corpus, so both edges were guarded and the
-        # value that skips both edges was not. `Config(default_lang="fr")`
-        # produced a grounded answer labelled `lang: "fr"` carrying an English
+        # value that skips both edges was not. `Config(default_lang="de")`
+        # produced a grounded answer labelled `lang: "de"` carrying an English
         # cross-language notice, because `messages.catalogue_for` falls back
         # to English for a code it has no catalogue for; with "he" it also
         # came out `dir="rtl"` with an English body. An operator serving
-        # French would write exactly that line.
+        # German would write exactly that line. (French was this example
+        # too, once — `LANGUAGES` has since grown a real `fr` catalogue, so
+        # the bug it demonstrated stopped reproducing for that code.)
         if self.default_lang not in LANGUAGES:
             raise ConfigError(
                 f"language.default must be a language Cairn has system strings "
@@ -188,6 +208,7 @@ def load_config(path: str | Path | None = None) -> Config:
         threshold=_get(retrieval, "threshold", float, defaults.threshold),
         max_passages=_get(retrieval, "max_passages", int, defaults.max_passages),
         candidates=_get(retrieval, "candidates", int, defaults.candidates),
+        margin_warn=_get(retrieval, "margin_warn", float, defaults.margin_warn),
         default_lang=_get(language, "default", str, defaults.default_lang),
         cross_language_fallback=_get(
             language, "cross_language_fallback", bool, defaults.cross_language_fallback

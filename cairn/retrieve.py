@@ -73,6 +73,31 @@ class RetrievalTrace:
         """The terms that could have contributed: everything but the ignored."""
         return tuple(t for t in self.query_terms if t not in set(self.ignored))
 
+    @property
+    def margin(self) -> float | None:
+        """The score gap between the top (accepted) candidate and the next
+        candidate in rank order, accepted or not.
+
+        `None` when nothing is accepted — there is no winner to have a
+        margin — or when the top candidate is the only one scored at all,
+        which has no runner-up to compare against.
+
+        Purely diagnostic: `candidates` is already sorted and scored before
+        this is computed, so reading it changes no accept/reject decision and
+        nothing about `Answer`. A small margin does not mean an answer is
+        wrong; it means the ranking that produced it was close, which is
+        worth an operator's attention for the same reason DESIGN.md's two
+        documented hard cases are: the GoPass cross-document near-tie
+        (0.1965 vs. 0.1885, 0.008 apart, both accepted) and `ck-022`, where
+        the entire ranking among four otherwise-tied passages is decided by
+        one incidental word.
+        """
+        if not self.candidates or not self.candidates[0].accepted:
+            return None
+        if len(self.candidates) < 2:
+            return None
+        return self.candidates[0].score - self.candidates[1].score
+
 
 def _idf(term: str, stats: LanguageStats) -> float:
     """Smoothed IDF within one language, zero for a suppressed term.
@@ -134,6 +159,24 @@ def _matched_terms(
             if passage.term_counts.get(term, 0) and _idf(term, stats) > 0.0
         )
     )
+
+
+def single_term_scores(passage: IndexedPassage, stats: LanguageStats) -> dict[str, float]:
+    """The score `passage` would get from a query consisting of exactly one
+    of its own (title-weighted) terms, for every term it holds.
+
+    Not part of an actual retrieval — nothing calls this during `ask`. It
+    exists for `cairn lint`'s reachability check: the highest value here is
+    the best a single-word question naming any term this passage contains
+    could ever do for it. A passage whose highest single-term score sits
+    below the configured threshold cannot be found by any one-word question,
+    though it may still be reachable through a combination of otherwise-
+    common terms scoring together — see DESIGN.md, `ck-022`, where four
+    passages tied on two shared terms and the ranking among them was decided
+    by a third. This function says nothing about that case; it only answers
+    the single-term question.
+    """
+    return {term: _cosine({term: 1}, passage, stats) for term in passage.term_counts}
 
 
 def retrieve(

@@ -47,6 +47,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "({language}). They are quoted exactly as published."
         ),
         "sources_heading": "Sources:",
+        "copy_answer_summary": "Copy answer text",
         # --- chat interface ---
         "page_title": "Cairn — ask about Harbor County benefits",
         "skip_link": "Skip to the question box",
@@ -104,6 +105,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "({language}). Se citan tal como fueron publicadas."
         ),
         "sources_heading": "Fuentes:",
+        "copy_answer_summary": "Copiar el texto de la respuesta",
         "page_title": "Cairn — preguntas sobre los beneficios del Condado de Harbor",
         "skip_link": "Ir al cuadro de preguntas",
         "heading_main": "Pregunte sobre los beneficios del Condado de Harbor",
@@ -161,6 +163,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "نُشرت تمامًا."
         ),
         "sources_heading": "المصادر:",
+        "copy_answer_summary": "نسخ نص الإجابة",
         "page_title": "كايرن — اسأل عن مساعدات مقاطعة هاربر",
         "skip_link": "انتقل إلى مربع السؤال",
         "heading_main": "اسأل عن مساعدات مقاطعة هاربر",
@@ -198,6 +201,73 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "حدث خطأ أثناء إرسال سؤالك. لم تتم الإجابة على شيء. يرجى المحاولة مرة أخرى."
         ),
         "error_empty_question": "اكتب سؤالًا قبل الإرسال.",
+    },
+    "fr": {
+        "refusal": (
+            "Je n'ai aucune source pour cela, donc je ne peux pas vous aider avec "
+            "cette question. Aucun des documents officiels à partir desquels cet "
+            "assistant est autorisé à répondre ne couvre ce sujet, et je ne vais "
+            "pas deviner.\n"
+            "Pour obtenir de l'aide d'une personne, contactez {contact}."
+        ),
+        "cross_language_notice": (
+            "La seule source dont je dispose pour cela est rédigée dans une autre "
+            "langue ({language}). Elle est citée ci-dessous exactement telle "
+            "qu'elle a été publiée."
+        ),
+        "cross_language_notice_partial": (
+            "Certaines des sources ci-dessous sont rédigées dans une autre langue "
+            "({language}). Elles sont citées exactement telles qu'elles ont été "
+            "publiées."
+        ),
+        "sources_heading": "Sources :",
+        "copy_answer_summary": "Copier le texte de la réponse",
+        "page_title": "Cairn — questions sur les aides du comté de Harbor",
+        "skip_link": "Aller à la zone de question",
+        "heading_main": "Posez une question sur les aides du comté de Harbor",
+        "disclosure_heading": "Ce qu'est cet assistant",
+        "disclosure_ai": (
+            "Vous parlez à un système d'intelligence artificielle, pas à une "
+            "personne. Ce n'est ni un membre du personnel ni un travailleur social."
+        ),
+        "disclosure_sources": (
+            "Il répond uniquement à partir des documents officiels indiqués avec "
+            "chaque réponse. Si ces documents ne couvrent pas votre question, il "
+            "le dira et vous orientera vers une personne plutôt que de deviner."
+        ),
+        "disclosure_limits": (
+            "Il ne peut pas donner de conseil juridique, et il ne peut ni "
+            "consulter ni modifier vos dossiers personnels, vos aides ou vos "
+            "demandes."
+        ),
+        "disclosure_synthetic": (
+            "Cette démonstration répond à partir de documents inventés sur un "
+            "comté inventé. Rien de ce qu'elle dit ne décrit un programme d'aide "
+            "réel."
+        ),
+        "transcript_heading": "Discussion",
+        "transcript_empty": (
+            "Aucune question pour l'instant. Votre conversation apparaîtra ici."
+        ),
+        "form_heading": "Votre question",
+        "input_label": "Saisissez votre question",
+        "input_hint": (
+            "Appuyez sur Entrée pour envoyer. Appuyez sur Maj et Entrée ensemble "
+            "pour un retour à la ligne."
+        ),
+        "send_button": "Envoyer la question",
+        "language_label": "Langue",
+        "you_said": "Vous avez demandé",
+        "assistant_said": "Réponse",
+        "assistant_refused": "Aucune réponse",
+        "status_working": "Traitement de votre question en cours.",
+        "status_answered": "Réponse prête, avec {count} source(s) indiquée(s) ci-dessous.",
+        "status_refused": "Aucune source trouvée. L'assistant n'a pas répondu.",
+        "error_request_failed": (
+            "Une erreur s'est produite lors de l'envoi de votre question. Rien "
+            "n'a été répondu. Veuillez réessayer."
+        ),
+        "error_empty_question": "Veuillez saisir une question avant de l'envoyer.",
     },
 }
 

@@ -3,6 +3,9 @@
 Subcommands:
 
     cairn index            build the local index; report what was indexed
+    cairn lint             check the corpus for problems, without indexing
+    cairn config           show the effective config against built-in defaults
+    cairn diff OLD NEW     compare two corpus directories, advisory only
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
@@ -26,13 +29,25 @@ import sys
 
 from cairn import __version__
 from cairn.config import Config, ConfigError, load_config
+from cairn.config_report import diff_from_defaults
+from cairn.config_report import render as render_config_diff
 from cairn.corpus import CorpusError
+from cairn.corpus_diff import diff_corpora
+from cairn.corpus_diff import render as render_corpus_diff
+from cairn.coverage import coverage_report
+from cairn.coverage import render as render_coverage
 from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import diagnose, render, trace_payload
+from cairn.explain_diff import compare
+from cairn.explain_diff import render as render_explain_diff
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.language import isolate
+from cairn.lint import lint_corpus
+from cairn.lint import render as render_lint_report
 from cairn.messages import text as message
 from cairn.record import DEFAULT_BUNDLE, DEFAULT_QUESTIONS, RecordError, record
+from cairn.record_diff import diff_against_bundle
+from cairn.record_diff import render as render_record_diff
 from cairn.server import serve
 
 
@@ -54,6 +69,26 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     return 0
 
 
+def _cmd_diff(args: argparse.Namespace, cfg: Config) -> int:
+    diffs = diff_corpora(args.old, args.new)
+    print(render_corpus_diff(diffs))
+    return 0
+
+
+def _cmd_config(args: argparse.Namespace, cfg: Config) -> int:
+    print(render_config_diff(diff_from_defaults(cfg)))
+    return 0
+
+
+def _cmd_lint(args: argparse.Namespace, cfg: Config) -> int:
+    report = lint_corpus(cfg.corpus_path, threshold=cfg.threshold)
+    print(render_lint_report(report))
+    # Warnings do not fail the command — they are advisory, not a defect
+    # `cairn index` would itself refuse — but a structural error does, the
+    # same way any other subcommand reports a real problem: exit 1.
+    return 0 if report.ok else 1
+
+
 def _render_answer(result: AskResult) -> str:
     answer = result.answer
     rtl = answer.direction == "rtl"
@@ -72,6 +107,16 @@ def _render_answer(result: AskResult) -> str:
 
 def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path, cfg.corpus_path)
+    if args.compare_config or args.compare_index:
+        # A separate report mode, not layered onto --explain: it runs the
+        # question twice and diffs the two traces, so it needs its own index
+        # and config for the second side rather than the ones just loaded.
+        cfg_b = load_config(args.compare_config) if args.compare_config else cfg
+        index_b_path = args.compare_index or cfg_b.index_path
+        index_b = read_index(index_b_path, cfg_b.corpus_path)
+        comparison = compare(args.question, index, cfg, index_b, cfg_b, lang=args.lang)
+        print(render_explain_diff(comparison))
+        return 0
     result = ask(args.question, index, cfg, lang=args.lang)
     answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
@@ -80,7 +125,7 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
         payload = answer.to_payload()
         if diagnosis is not None:
             payload["explain"] = {
-                **trace_payload(answer.trace),
+                **trace_payload(answer.trace, margin_warn=cfg.margin_warn),
                 "diagnosis": diagnosis.to_payload(),
                 "language": result.detection.to_payload(),
                 "attempts": [a.to_payload() for a in result.attempts],
@@ -94,7 +139,7 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
             f"{index.passage_count} passages from {index.doc_count} documents "
             f"({cfg.index_path})"
         )
-        print(render(result, diagnosis, index_summary=summary))
+        print(render(result, diagnosis, index_summary=summary, margin_warn=cfg.margin_warn))
         print()
     print(_render_answer(result))
     return 0
@@ -120,6 +165,20 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_record(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path, cfg.corpus_path)
+    if args.coverage:
+        # A separate report, not a bundle write: this never touches
+        # `plumbline/bundle` or anything the audit gate reads, so asking for
+        # coverage cannot be mistaken for having recorded evidence.
+        print(render_coverage(coverage_report(index, cfg, questions_path=args.questions)))
+        return 0
+    if args.diff_against is not None:
+        # Also never writes a bundle: a preview of what recording would
+        # produce, diffed against a bundle already on disk.
+        diffs = diff_against_bundle(
+            index, cfg, args.diff_against, questions_path=args.questions
+        )
+        print(render_record_diff(diffs))
+        return 0
     report = record(index, cfg, questions_path=args.questions, out_dir=args.out)
     print(
         f"Recorded {report.item_count} items "
@@ -151,6 +210,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_index = sub.add_parser("index", help="build the local index from the corpus")
     p_index.set_defaults(func=_cmd_index)
 
+    p_lint = sub.add_parser(
+        "lint", help="check the corpus for problems, without building an index"
+    )
+    p_lint.set_defaults(func=_cmd_lint)
+
+    p_config = sub.add_parser(
+        "config", help="show the effective configuration against built-in defaults"
+    )
+    p_config.set_defaults(func=_cmd_config)
+
+    p_diff = sub.add_parser(
+        "diff",
+        help=(
+            "compare two corpus directories: added/removed/changed documents and "
+            "which passage ids now hold different text"
+        ),
+    )
+    p_diff.add_argument("old", help="the earlier corpus directory")
+    p_diff.add_argument("new", help="the later corpus directory")
+    p_diff.set_defaults(func=_cmd_diff)
+
     p_ask = sub.add_parser("ask", help="ask a question against the index")
     p_ask.add_argument("question", help="the question, quoted")
     p_ask.add_argument("--json", action="store_true", help="machine-readable output")
@@ -169,6 +249,25 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "answer in this language and prefer its sources (en, es, ar). "
             "Omit to detect the language from the question."
+        ),
+    )
+    p_ask.add_argument(
+        "--compare-config",
+        metavar="PATH",
+        default=None,
+        help=(
+            "tuning aid: run this question again against a second cairn.toml and "
+            "diff the two traces (verdict, blame stage, accepted set, score deltas). "
+            "Not a substitute for ./plumbline-gate.sh."
+        ),
+    )
+    p_ask.add_argument(
+        "--compare-index",
+        metavar="PATH",
+        default=None,
+        help=(
+            "the second side's index (default: its config's own index.path). "
+            "Implies --compare-config's comparison mode even alone."
         ),
     )
     p_ask.set_defaults(func=_cmd_ask)
@@ -207,6 +306,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_record.add_argument(
         "--out", default=DEFAULT_BUNDLE, help=f"bundle directory (default: {DEFAULT_BUNDLE})"
+    )
+    p_record.add_argument(
+        "--coverage",
+        action="store_true",
+        help=(
+            "report which corpus passages this question set ever retrieves, instead "
+            "of recording a bundle. Not part of the audited evidence path."
+        ),
+    )
+    p_record.add_argument(
+        "--diff-against",
+        metavar="BUNDLE_DIR",
+        default=None,
+        help=(
+            "preview what recording would produce, diffed against a bundle already "
+            "on disk, instead of writing one. Unscored — not a substitute for "
+            "./plumbline-gate.sh."
+        ),
     )
     p_record.set_defaults(func=_cmd_record)
 

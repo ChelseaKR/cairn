@@ -148,6 +148,16 @@ p  { margin-block: 0.5rem; }
 .sources { margin: 0; padding-inline-start: 1.4rem; }
 .sources li { margin-block: 0.2rem; }
 
+.copy-answer { margin-block-start: 0.5rem; }
+.copy-answer summary { cursor: pointer; }
+.copy-answer textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  margin-block-start: 0.35rem;
+}
+
 /* --- the assertive channel: errors only, invisible until there is one --- */
 
 .errors {

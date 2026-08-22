@@ -286,18 +286,17 @@ def bundle_checksums(bundle_dir: Path) -> dict:
     }
 
 
-def record(
-    index: Index,
-    cfg: Config,
-    *,
-    questions_path: str | Path = DEFAULT_QUESTIONS,
-    out_dir: str | Path = DEFAULT_BUNDLE,
-    name: str = "cairn-demo",
-) -> BundleReport:
-    questions = load_questions(questions_path)
-    bundle = Path(out_dir)
-    bundle.mkdir(parents=True, exist_ok=True)
+def build_items_and_responses(
+    index: Index, cfg: Config, questions: list[dict]
+) -> tuple[list[dict], list[dict]]:
+    """The evidence-shaped records :func:`record` writes to `items.jsonl` and
+    `responses.jsonl`, built but not written anywhere.
 
+    Factored out so a dry-run preview (`cairn.record_diff`) can compute
+    exactly what `record()` would produce without a second implementation of
+    what an answer is — the one thing this project is emphatic must never
+    exist for anything evidence-shaped.
+    """
     items: list[dict] = []
     responses: list[dict] = []
     for question in questions:
@@ -313,6 +312,22 @@ def record(
         ]
         items.append(item)
         responses.append({"id": question["id"], "response": answer.cited_text})
+    return items, responses
+
+
+def record(
+    index: Index,
+    cfg: Config,
+    *,
+    questions_path: str | Path = DEFAULT_QUESTIONS,
+    out_dir: str | Path = DEFAULT_BUNDLE,
+    name: str = "cairn-demo",
+) -> BundleReport:
+    questions = load_questions(questions_path)
+    bundle = Path(out_dir)
+    bundle.mkdir(parents=True, exist_ok=True)
+
+    items, responses = build_items_and_responses(index, cfg, questions)
 
     sources = [
         {

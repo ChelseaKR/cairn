@@ -21,10 +21,161 @@ becomes a version section like any other.
 ### Unreleased
 
 Nothing here changes what Cairn answers or how it is graded. Development
-tooling and repository documentation only.
+tooling, repository documentation, and one new read-only operator command.
 
 #### Added
 
+- `cairn lint`: reads the corpus the way `cairn index` would, without writing
+  an index, and reports every problem found rather than stopping at the
+  first one — malformed front matter, a duplicate doc id, a passage that
+  tokenizes to no scoring terms at all (title included, at the weight
+  `cairn index` would use), and a language with too few passages for the
+  document-frequency floor to suppress anything
+  (`LanguageStats.dilution_exempt`, new on `Index`). Advisory: warnings do
+  not fail the command, only a structural error `cairn index` would itself
+  refuse does. See `cairn/lint.py` and DESIGN.md, "The document-frequency
+  floor has one exemption, and it is narrow".
+- `docs/I18N.md`: the scope and flip conditions for language support, in
+  three tiers (corpus language, interface language, right-to-left table
+  entry) — closing the gap the Standards Conformance table named directly.
+- `cairn config`: the effective configuration next to its built-in default,
+  with a one-line rationale pointer into DESIGN.md for load-bearing keys.
+  Read-only; introduces no second config path.
+- `cairn record --coverage`: which corpus passages the recorded question set
+  ever puts in an accepted candidate set, reusing the exact `Candidate`
+  objects the evidence bundle is built from. Writes no bundle; not part of
+  the audited evidence path.
+- `cairn record --diff-against`: an unscored dry-run preview of what
+  recording would produce, diffed by item id against a bundle already on
+  disk. Reuses `record`'s own item-building function (factored out as
+  `record.build_items_and_responses`) rather than a second idea of what an
+  answer is. Never writes or modifies a bundle, and is explicit in its own
+  output that it is not a substitute for `./plumbline-gate.sh`.
+- `cairn ask --explain --compare-config`/`--compare-index`: runs one question
+  through two configs and/or indexes and diffs the two traces — verdict
+  flip, blame-stage flip, accepted-set changes, score deltas on shared
+  candidates. A single-question tuning aid, explicit in its own output that
+  it is not a gate.
+- `RetrievalTrace.margin` and `--explain`'s "Margin:" line: the score gap
+  between the winning candidate and its runner-up, surfaced (and flagged
+  against the new `retrieval.margin_warn`, default `0.02`) so the two
+  documented near-tie hard cases — the GoPass cross-document tie and
+  `ck-022`'s one-word-decided ranking — are visible in one line instead of
+  requiring the subtraction by hand. Purely diagnostic: computed from scores
+  already produced, changes no accept/reject decision, and explain mode
+  stays byte-identical to the answer without it.
+- `cairn lint` gains a per-passage reachability check: whether any single
+  term a passage holds (title included) would clear `retrieval.threshold`
+  on its own. Built on a new `cairn.retrieve.single_term_scores`. Explicit
+  in its own wording that this is not proof of unreachability — a
+  combination of otherwise-common terms can still retrieve a passage
+  together, per `ck-022` — only that no one-word question naming a term the
+  passage holds will find it alone. Quiet on the demo corpus at the shipped
+  default threshold; verified to fire reliably at an artificially strict one.
+- `cairn diff OLD NEW`: compares two corpus directories by document id —
+  added, removed, or changed — and for a changed document, which passage
+  ordinals now hold different text than before. Deliberately positional
+  rather than re-aligned: an inserted paragraph correctly shows every later
+  ordinal as changed, because every later citation id now points at
+  different text, and re-aligning ordinals to hide that would be the same
+  silent judgment call the rejected corpus-alias experiment made about
+  content, applied to passage identity instead. Advisory only; needs no
+  config or index.
+- `docs/authoring.md`: the FAQ-pair convention for closing a `ck-015`-shaped
+  lexical gap without repeating the alias mistake DESIGN.md already
+  measured and reverted — write the question a passage answers into the
+  passage itself, as real prose, rather than as document-level metadata
+  that lifts every passage of a document by the same amount. Documentation
+  only; no code, no lint rule (one is sketched and deliberately left
+  unbuilt, pending measurement).
+- `benchmark_index.py`: dev-only, stdlib-only, not gated in CI — generates a
+  deterministic synthetic corpus at a chosen size and times build, read, and
+  query, to measure where DESIGN.md's "milliseconds on a laptop demo" claim
+  stops holding rather than leaving it asserted forever. Measured
+  2026-08-22: ~44ms median query at 400 passages, ~438ms at 4,000, ~2.2s at
+  20,000 — linear in passage count, because scoring is a full scan with no
+  index structure that skips passages a query cannot match. Written up in
+  DESIGN.md with the concrete (unbuilt) fix sketched: precomputed per-passage
+  vector norms, an additive index-format bump.
+- `import_corpus.py`: dev-only, stdlib-only, never wired into `cairn index`
+  or any runtime path — scaffolds a `.txt`/`.html` file into reviewable
+  front-matter markdown. The doc id is prefixed `review-` and never
+  auto-finalized; a `review: unreviewed` front-matter key (inert to Cairn)
+  marks the file for human review, deliberately kept out of the body text
+  itself, because anything written into the body becomes a real, scored,
+  retrievable passage the moment the file is indexed. After writing, the
+  script loads the scaffold back through `cairn.corpus.load_document` — the
+  exact function `cairn index` calls — and prints the passage boundaries
+  that call produced, so the chunk preview cannot drift from what indexing
+  would actually do. Caught and fixed a real bug while testing it by hand:
+  the HTML `<title>` extractor was swallowing the title text because
+  `<title>` lives inside `<head>`, which the extractor also uses to suppress
+  body text — now regression-tested.
+- French (`fr`) as a fourth interface language: a full `LANGUAGES` entry
+  and `messages.py` catalogue, left-to-right, passing every message-catalogue
+  test (key parity, no untranslated copies, matching placeholders). Shipped
+  deliberately with **no French corpus content** — the same "translated
+  interface outruns translated documents" reality already demonstrated for
+  the English-only GoPass document, played out for a whole language. A
+  French question falls back across languages or refuses in French, exactly
+  like any other interface language with no matching source. Two historical
+  code comments and a test that used `Config(default_lang="fr")` as the
+  demonstrative *unsupported*-language example were updated to `"de"`, since
+  `"fr"` stopped being an example of that. `docs/I18N.md` names explicitly
+  what this addition does *not* do: no French corpus document was added, no
+  evidence item was recorded, and `plumbline/baseline.json` was not
+  regenerated — that step needs the network-resolved Plumbline harness,
+  unavailable here. `cairn record --diff-against plumbline/bundle` confirms
+  the committed evidence bundle is byte-for-byte unmoved by this change.
+- `.github/workflows/ruleset-check.yml`: a weekly (plus `workflow_dispatch`)
+  job that asks the GitHub API directly whether an active ruleset currently
+  enforces `.github/rulesets/main.json`'s required checks, and opens (or
+  updates) a tracking issue for as long as the answer is no, closing it
+  automatically once it is not. Converts the fact that the merge gate is
+  advisory from a prose claim, checked whenever someone happens to reread
+  the README, into something re-verified against the live repository on a
+  schedule — the same discipline `audit_guard.py` already applies to a
+  suite's score, applied here to whether the gate can block a merge at all.
+  It never applies the ruleset itself; that stays an admin action nobody but
+  the maintainer can take (`.github/rulesets/README.md`). Untested beyond
+  YAML validity and manual review — it needs a real GitHub Actions run
+  against the live repository and `issues: write` permission to verify
+  end to end, neither available in this environment.
+- `tests/test_performance.py`, gated in `make verify` like any other test:
+  a page-weight budget (deterministic — page plus `app.css` plus `app.js`,
+  no timing involved, budgeted at roughly 2x the ~21KB measured baseline
+  across all four interface languages) and a demo-corpus query-latency
+  budget (deliberately loose — two orders of magnitude above the ~3.3ms
+  measured, so ordinary CI runner noise cannot trip it while a genuine
+  algorithmic regression still would). Closes the exact gap the Performance
+  Standards Conformance row used to name: "no latency or page-weight budget
+  is measured and none is gated."
+- A copy/export control in the chat interface: a read-only `<textarea>`
+  inside a native `<details>`/`<summary>` disclosure, carrying
+  `Answer.cited_text` (the same string the plain-text and JSON forms already
+  carry), for a grounded answer only. No JavaScript required — the no-JS
+  page renders it directly (`cairn/ui/page.py`, `_copy_export`) and the
+  client script mirrors it exactly for the accumulating-transcript path
+  (`cairn/ui/static/app.js`, `addTurn`). Labelled with `aria-label` rather
+  than `<label for>` so no `id` is minted that could collide once a second
+  turn joins the transcript. Deliberately the smallest of the interactive-UI
+  ideas considered: no live-region interaction, no focus movement, no
+  clipboard API. The larger ones (keyboard shortcuts, an in-page
+  explain-mode toggle, a corpus-browsing page) were not built — this
+  project's own stated priority is a real screen-reader session before any
+  further interactive surface ships, and that session has not happened.
+  **Regenerated the evidence bundle** (`cairn record`) and `site/index.html`
+  (`site_build.py`) to match: this change alters the served page and its
+  embedded strings, which `plumbline/bundle/interface.html` snapshots.
+  `items.jsonl`, `responses.jsonl`, `sources.jsonl`, `manifest.json`, and
+  `DATASET.md` came back byte-identical — only `interface.html` and
+  `checksums.json` changed — confirming no answer, citation, or refusal
+  changed, only the interface snapshot. The dataset id and bundle sha256
+  shown in README.md and docs/demo.md are updated to match. **The audit
+  gate itself was not re-run** (`./plumbline-gate.sh` needs the
+  network-resolved Plumbline harness, unavailable in this environment), so
+  `plumbline/baseline.json` is not regenerated; a maintainer with gate
+  access should run it before relying on this as a graded change.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
