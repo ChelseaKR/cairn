@@ -59,11 +59,12 @@ cairn/                  the package
   server.py             the localhost demo server behind `cairn serve`
   network.py            opt-in auth, rate limiting, CORS + embed origins for `serve`
   refusal_stats.py      opt-in aggregate refusal counters, never question text
+  followup.py           opt-in "request a follow-up" — real contact info, on consent
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
   cli.py                subcommands: index, lint, config, diff, calibrate, ask, serve,
-                        refusals, record
+                        refusals, followups, record
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 docs/demo.md            the walkthrough, with executed (not asserted) output
@@ -84,6 +85,7 @@ docs/I18N.md            language support: scope and flip conditions, by tier
 docs/deployment.md      exposing `cairn serve` past a single laptop, safely
 docs/embedding.md       putting Cairn in an agency's own site: iframe, CORS
 docs/refusal-analytics.md  finding corpus gaps from refusals, no questions kept
+docs/followup.md        a real refusal-to-human handoff, opt-in and on consent
 ```
 
 `engine.ask` is the only entry point that answers a question. The CLI and the
@@ -1156,6 +1158,52 @@ misuse to read something back. The read side runs as its own CLI
 subcommand, entirely separate from serving traffic, in `DOES_NOT_ANSWER`
 alongside `diff` and `config` in `tests/test_freshness.py` because it
 touches neither the corpus nor the index — only the file an operator names.
+
+### A real follow-up handoff: consent decided per submission, not by the flag
+
+`--refusal-stats` above earns the stronger claim — the counter is
+*structurally* incapable of holding a question. `--followup-store`
+(`cairn/followup.py`) cannot make that claim and does not try to: a
+follow-up has to name someone to hand off to, so it stores real contact
+information the moment an operator turns the flag on at all. What it
+narrows instead is *who decides* whether the question travels with that
+contact information, and the answer is: the asker, on that one submission,
+never the operator's flag.
+
+That is why `include_question` lives on the HTML form itself
+(`cairn/ui/page.py`'s `_followup_form`) rather than being a second
+`cairn serve` flag ("also store questions: yes/no"). A flag would decide
+the policy for every submission a server ever receives for as long as it
+runs; a per-submission checkbox, unchecked by default, means the asker who
+wants only a callback and the asker who wants staff to have context are
+both making their own choice, turn by turn, and neither choice is the
+operator's to make for them. `_handle_followup` in `cairn/server.py` reads
+that one field and nothing else decides what gets written —
+`question=question if include_question else None`, not a config lookup.
+
+The hidden `question` field on the hidden form is not itself the consent
+boundary — it always carries what was asked, checked or not, the same way
+`/ask`'s own `question` field already did moments earlier from the same
+origin. The boundary is entirely in what `FollowupStore.record()` is
+*told* to write, which is why the docstring on that call site spells out
+the distinction explicitly: `None` for "did not opt in," never an empty
+string standing in for it, because an empty string would be
+indistinguishable from "the asker said no" when it actually means "the
+field was empty" — a different fact this design does not conflate.
+
+The form itself follows `_copy_export`'s established shape as closely as
+possible rather than inventing new interaction patterns: a closed
+`<details>`/`<summary>` disclosure, implicit `<label>` wrapping (no `for`/
+`id` pair to collide across a refusal recurring more than once in one
+session — the same problem `_copy_export`'s own docstring names), and a
+plain HTML form with no `fetch()`/`preventDefault()` behind it at all. A
+form that just submits, the way the page's very first `/ask` form did
+before any JavaScript existed on it, needed no new focus-management or
+live-region behavior to get right — and `cairn/ui/static/app.js`'s
+`addTurn` mirrors the exact same static markup for the JS-enhanced
+transcript, so the page stays true to `turn_markup`'s own invariant: the
+announced transcript and the no-JavaScript page are the same page, for
+this control too.
 
 ## The audit interlock
 

@@ -156,11 +156,63 @@ def _copy_export(answer: Answer, lang: str) -> str:
     </details>"""
 
 
-def turn_markup(question: str, result: AskResult, lang: str) -> str:
+def _followup_form(question: str, lang: str) -> str:
+    """The opt-in "request a follow-up" action on a refusal, only.
+
+    A native `<details>`/`<summary>` disclosure again — see `_copy_export`
+    for why that widget rather than an always-open form: closed by default,
+    keyboard-operable, and announced correctly with no ARIA authored for it.
+
+    Both the contact field and the checkbox use an *implicit* label — the
+    whole `<label>` wraps the control, so there is no `for`/`id` pair to
+    collide the way `_copy_export`'s control would have across repeated
+    transcript turns (see that function's docstring). A refusal can recur
+    more than once in one session, and each occurrence gets its own,
+    independently addressable form this way with zero ids minted anywhere.
+
+    The question is carried in a hidden field so `/follow-up` can be handed
+    it — the same trust boundary as the `question` field `/ask` already
+    reads from this same origin — but whether it is ever *stored* is a
+    decision `cairn/server.py` makes strictly from the `include_question`
+    checkbox on this specific submission, never from this field's mere
+    presence. See `cairn/followup.py`'s module docstring.
+    """
+    explanation = escape(message("followup_explanation", lang))
+    contact_label = escape(message("followup_contact_label", lang))
+    include_label = escape(message("followup_include_question_label", lang))
+    submit_label = escape(message("followup_submit_button", lang))
+    return f"""    <details class="followup">
+      <summary>{escape(message("followup_heading", lang))}</summary>
+      <p>{explanation}</p>
+      <form method="post" action="/follow-up">
+        <input type="hidden" name="lang" value="{escape(lang)}">
+        <input type="hidden" name="question" value="{escape(question)}">
+        <label class="field">
+          {contact_label}
+          <input type="text" name="contact" required>
+        </label>
+        <label class="field checkbox-field">
+          <input type="checkbox" name="include_question" value="yes">
+          {include_label}
+        </label>
+        <button type="submit" class="send">{submit_label}</button>
+      </form>
+    </details>"""
+
+
+def turn_markup(
+    question: str, result: AskResult, lang: str, *, followup_enabled: bool = False
+) -> str:
     """One question and its answer, as the transcript holds them.
 
     The client script builds the identical structure, so the announced
     transcript and the no-JavaScript page are the same page.
+
+    `followup_enabled` is off by default — the only path this function
+    reaches without an operator running `cairn serve --followup-store`. On,
+    it adds `_followup_form` to a refusal turn only: a grounded answer
+    already names sources an asker can act on, and the whole point of the
+    form is a channel for the case where nothing here answered.
     """
     answer = result.answer
     label = message(
@@ -171,6 +223,11 @@ def turn_markup(question: str, result: AskResult, lang: str) -> str:
         if answer.notice
         else ""
     )
+    followup = (
+        f"\n{_followup_form(question, lang)}"
+        if followup_enabled and answer.kind == "refusal"
+        else ""
+    )
     return f"""  <li class="turn turn-asked">
     <h3 class="turn-label">{escape(message("you_said", lang))}</h3>
     <p class="asked" {_attrs(lang)}>{escape(question)}</p>
@@ -179,7 +236,7 @@ def turn_markup(question: str, result: AskResult, lang: str) -> str:
     <h3 class="turn-label">{escape(label)}</h3>
 {notice}{_answer_blocks(answer)}
 {_sources(answer, lang)}
-{_copy_export(answer, lang)}
+{_copy_export(answer, lang)}{followup}
   </li>"""
 
 
@@ -235,11 +292,30 @@ def _embedded_strings(lang: str) -> str:
     return payload.replace("<", "\\u003c")
 
 
-def render_page(lang: str, *, turns: str = "", status: str = "") -> str:
-    """The whole document. ``turns`` is pre-rendered transcript markup."""
+def render_page(
+    lang: str, *, turns: str = "", status: str = "", followup_notice: str = ""
+) -> str:
+    """The whole document. ``turns`` is pre-rendered transcript markup.
+
+    ``followup_notice``, when given, is a plain visible confirmation shown
+    at the top of the page — the response to a `/follow-up` submission,
+    which (like `/ask` without JavaScript) is a full page reload, not a
+    live-region update. It is deliberately *not* rendered into the existing
+    ``#status`` live region: that region's content is only ever announced on
+    a change after the page has already loaded, which a fresh page load is
+    not, so relying on it here would give some readers no confirmation at
+    all. A plain, visible paragraph in normal document order is read by
+    everyone regardless of how their browser or assistive technology
+    happens to handle a live region present at load time.
+    """
     direction = direction_of(lang)
     empty = escape(message("transcript_empty", lang))
     body = turns or f'  <li class="turn turn-empty"><p>{empty}</p></li>'
+    notice_block = (
+        f'\n      <p class="page-notice" role="status">{escape(followup_notice)}</p>'
+        if followup_notice
+        else ""
+    )
     return f"""<!DOCTYPE html>
 <html lang="{escape(lang)}" dir="{direction}">
 <head>
@@ -254,7 +330,7 @@ def render_page(lang: str, *, turns: str = "", status: str = "") -> str:
     <header>
       <h1>{escape(message("heading_main", lang))}</h1>
     </header>
-    <main>
+    <main>{notice_block}
 {_disclosure(lang)}
 
       <h2 id="transcript-heading">{escape(message("transcript_heading", lang))}</h2>

@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 556 tests plus 63 browser behaviour checks, standard library only,
+server. 586 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -238,7 +238,12 @@ of the deployment flags above; see
 [`docs/embedding.md`](docs/embedding.md). A third opt-in, `--refusal-stats`,
 turns refusals into an aggregate, local signal for finding corpus gaps —
 language and reason only, never the question — see
-[`docs/refusal-analytics.md`](docs/refusal-analytics.md).
+[`docs/refusal-analytics.md`](docs/refusal-analytics.md). A fourth,
+`--followup-store`, adds a real "request a follow-up" action to a
+refusal — the asker's own contact info, and their question only if they
+separately choose to include it — a real handoff past the static contact
+string a refusal has always named; see
+[`docs/followup.md`](docs/followup.md).
 
 **No person has driven this page with a screen reader.** The browser checks
 verify the plumbing one depends on — the roles, the politeness settings, that
@@ -301,10 +306,10 @@ a separate project, pinned to an exact commit in
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 53a7df3bf877c407a3b4c31e19a4373a79b20eb284fef9e9ebafdef1b0d700cf
+Bundle sha256: 167b79ba6076b8fb9796cd64e44be690a07af397941d26103c03b186a62297cc
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 53a7df3bf877, run ...
+GATE: PASS — target cairn-demo, dataset 167b79ba6076, run ...
 all 14 suites passed:
   ...
   multilingual           score 0.9630  floor 0.95  PASS  n=27  ci 0.817-0.993  mde 0.144
@@ -493,7 +498,7 @@ page argues against.
 | Accessibility | Applies — WCAG 2.2 AA as behaviour rather than attributes, checked in two layers: `tests/test_ui.py` for markup, semantics, and computed contrast offline, and `tests/browser/` for what only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. **No person has driven this page with a screen reader**, that session has not happened, and no automated check here stands in for it. | `tests/test_ui.py`, `tests/browser/`, `cairn/ui/contrast.py` |
 | Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French ships with no bundled corpus content, deliberately — see "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
 | AI Evaluation | N/A — there is no model. Retrieval is deterministic lexical scoring over a corpus the operator supplies, and answers are passages quoted verbatim rather than generated, so there is no prompt, no sampling, and nothing to evaluate as a model. | The runtime has zero dependencies, which makes the no-model claim mechanically checkable; `tests/test_answering.py` holds every answer to its source text. |
-| Documentation | Applies — and the pages are tested, which is the part that matters. `tests/test_docs.py` executes every command block in [docs/demo.md](docs/demo.md) and holds its output byte for byte, and executes the README's blocks under a looser rule that still forbids showing a word the command never printed. | This README, [DESIGN.md](DESIGN.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [WORKLOG.md](WORKLOG.md), [docs/I18N.md](docs/I18N.md), [docs/authoring.md](docs/authoring.md), [docs/onboarding.md](docs/onboarding.md), [docs/deployment.md](docs/deployment.md), [docs/embedding.md](docs/embedding.md), [docs/refusal-analytics.md](docs/refusal-analytics.md), and the ADR log at [docs/adr/](docs/adr/). |
+| Documentation | Applies — and the pages are tested, which is the part that matters. `tests/test_docs.py` executes every command block in [docs/demo.md](docs/demo.md) and holds its output byte for byte, and executes the README's blocks under a looser rule that still forbids showing a word the command never printed. | This README, [DESIGN.md](DESIGN.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [WORKLOG.md](WORKLOG.md), [docs/I18N.md](docs/I18N.md), [docs/authoring.md](docs/authoring.md), [docs/onboarding.md](docs/onboarding.md), [docs/deployment.md](docs/deployment.md), [docs/embedding.md](docs/embedding.md), [docs/refusal-analytics.md](docs/refusal-analytics.md), [docs/followup.md](docs/followup.md), and the ADR log at [docs/adr/](docs/adr/). |
 | Quality & Metrics | Applies — the floors are measured rather than aspirational, and a floor that differs from the auditor's own default must carry a written reason that `audit_guard.py` enforces against the pinned harness's source. The guard also catches what a floor cannot: a score that moved without breaching one, in either direction. | `plumbline/target.toml`, `audit_guard.py`, `tests/test_audit_guard.py`, and the 85% branch-coverage floor in `pyproject.toml`. |
 | AI Development Measurement | Applies — no AI-development baseline is recorded in this repository, and no activity counter is tracked or gated. The gates that exist are outcome-side: `make verify` locally, and an external auditor grading recorded behaviour at merge. | `Makefile`, `.github/workflows/ci.yml` |
 | Incident Response | Applies — private reporting with a seven-day acknowledgement expectation, and a scope section that names what is and is not a report for a tool with no deployment. No incident has been recorded, so there is no `docs/incidents/` directory yet. | [SECURITY.md](SECURITY.md) |

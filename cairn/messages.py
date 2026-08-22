@@ -88,6 +88,25 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "Please try again."
         ),
         "error_empty_question": "Please type a question before sending.",
+        # --- opt-in follow-up request, on a refusal only ---
+        "followup_heading": "Request a follow-up",
+        "followup_explanation": (
+            "Leave your contact information and staff will follow up with you "
+            "directly. This is not automatic: nothing is sent anywhere else, and "
+            "no one is contacted unless you submit this form."
+        ),
+        "followup_contact_label": "Your email or phone number",
+        "followup_include_question_label": (
+            "Include the question I asked, so staff have context"
+        ),
+        "followup_submit_button": "Request follow-up",
+        "followup_confirmation": (
+            "Thank you. Your request has been saved for staff to follow up with "
+            "you directly."
+        ),
+        "error_missing_contact": (
+            "Please provide contact information before requesting a follow-up."
+        ),
     },
     "es": {
         "refusal": (
@@ -147,6 +166,25 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "Inténtelo de nuevo."
         ),
         "error_empty_question": "Escriba una pregunta antes de enviarla.",
+        "followup_heading": "Solicitar seguimiento",
+        "followup_explanation": (
+            "Deje su información de contacto y el personal se pondrá en contacto "
+            "con usted directamente. Esto no es automático: nada se envía a "
+            "ningún otro lugar, y nadie se pondrá en contacto con usted a menos "
+            "que envíe este formulario."
+        ),
+        "followup_contact_label": "Su correo electrónico o número de teléfono",
+        "followup_include_question_label": (
+            "Incluir la pregunta que hice, para que el personal tenga contexto"
+        ),
+        "followup_submit_button": "Solicitar seguimiento",
+        "followup_confirmation": (
+            "Gracias. Su solicitud se ha guardado para que el personal se "
+            "comunique con usted directamente."
+        ),
+        "error_missing_contact": (
+            "Escriba su información de contacto antes de solicitar un seguimiento."
+        ),
     },
     "ar": {
         "refusal": (
@@ -201,6 +239,19 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "حدث خطأ أثناء إرسال سؤالك. لم تتم الإجابة على شيء. يرجى المحاولة مرة أخرى."
         ),
         "error_empty_question": "اكتب سؤالًا قبل الإرسال.",
+        "followup_heading": "طلب متابعة",
+        "followup_explanation": (
+            "اترك معلومات الاتصال الخاصة بك وسيتواصل معك الموظفون مباشرة. هذا "
+            "ليس تلقائيًا: لا يُرسَل أي شيء إلى أي مكان آخر، ولن يتواصل معك أحد "
+            "إلا إذا أرسلت هذا النموذج."
+        ),
+        "followup_contact_label": "بريدك الإلكتروني أو رقم هاتفك",
+        "followup_include_question_label": (
+            "تضمين السؤال الذي طرحته، ليكون لدى الموظفين السياق اللازم"
+        ),
+        "followup_submit_button": "طلب متابعة",
+        "followup_confirmation": "شكرًا لك. تم حفظ طلبك ليتواصل معك الموظفون مباشرة.",
+        "error_missing_contact": "يرجى كتابة معلومات الاتصال الخاصة بك قبل طلب المتابعة.",
     },
     "fr": {
         "refusal": (
@@ -268,6 +319,26 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "n'a été répondu. Veuillez réessayer."
         ),
         "error_empty_question": "Veuillez saisir une question avant de l'envoyer.",
+        "followup_heading": "Demander un suivi",
+        "followup_explanation": (
+            "Laissez vos coordonnées et le personnel vous recontactera "
+            "directement. Ce n'est pas automatique : rien n'est envoyé ailleurs, "
+            "et personne ne vous contactera à moins que vous ne soumettiez ce "
+            "formulaire."
+        ),
+        "followup_contact_label": "Votre adresse e-mail ou numéro de téléphone",
+        "followup_include_question_label": (
+            "Inclure la question que j'ai posée, pour que le personnel ait le "
+            "contexte"
+        ),
+        "followup_submit_button": "Demander un suivi",
+        "followup_confirmation": (
+            "Merci. Votre demande a été enregistrée afin que le personnel vous "
+            "recontacte directement."
+        ),
+        "error_missing_contact": (
+            "Veuillez saisir vos coordonnées avant de demander un suivi."
+        ),
     },
 }
 

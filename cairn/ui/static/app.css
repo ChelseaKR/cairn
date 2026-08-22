@@ -158,6 +158,51 @@ p  { margin-block: 0.5rem; }
   margin-block-start: 0.35rem;
 }
 
+/* --- opt-in follow-up request, on a refusal only --- */
+
+.followup { margin-block-start: 0.5rem; }
+.followup summary { cursor: pointer; }
+.followup form { margin-block-start: 0.6rem; }
+.followup .field input[type="text"] {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-block-start: 0.3rem;
+}
+
+/* The checkbox's own label sits inline with generous vertical padding, so
+   the whole clickable label — not just the small native checkbox box — is
+   comfortably past the 24px target-size minimum. */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  padding-block: 0.4rem;
+}
+.checkbox-field input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+/* A confirmation shown after a plain-HTML /follow-up submission reloads the
+   page — the same visual treatment as .notice, since both are Cairn's own
+   voice rather than corpus content. */
+.page-notice {
+  background: var(--notice-bg);
+  border-inline-start: 4px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
 /* --- the assertive channel: errors only, invisible until there is one --- */
 
 .errors {

@@ -171,6 +171,74 @@
       details.appendChild(textarea);
       answered.appendChild(details);
     }
+    /* The opt-in "request a follow-up" action — see cairn/ui/page.py's
+       `_followup_form`, which this mirrors exactly, structurally and
+       string-for-string. Present only when the server says the operator
+       has --followup-store on (payload.follow_up_available), and only for
+       a refusal: the same two conditions _followup_form itself checks.
+       This form is never wired to fetch()/preventDefault() the way the
+       question form above is — it submits as a plain HTML form (a full
+       page reload showing the confirmation), identically whether or not
+       this script ever ran. */
+    if (payload.follow_up_available) {
+      var followupDetails = document.createElement("details");
+      followupDetails.className = "followup";
+      followupDetails.appendChild(
+        element("summary", null, say("followup_heading"))
+      );
+      followupDetails.appendChild(
+        element("p", null, say("followup_explanation"))
+      );
+
+      var followupForm = document.createElement("form");
+      followupForm.method = "post";
+      followupForm.action = "/follow-up";
+
+      var hiddenLang = document.createElement("input");
+      hiddenLang.type = "hidden";
+      hiddenLang.name = "lang";
+      hiddenLang.value = lang;
+      followupForm.appendChild(hiddenLang);
+
+      var hiddenQuestion = document.createElement("input");
+      hiddenQuestion.type = "hidden";
+      hiddenQuestion.name = "question";
+      hiddenQuestion.value = question;
+      followupForm.appendChild(hiddenQuestion);
+
+      var contactLabel = document.createElement("label");
+      contactLabel.className = "field";
+      contactLabel.appendChild(
+        document.createTextNode(say("followup_contact_label"))
+      );
+      var contactInput = document.createElement("input");
+      contactInput.type = "text";
+      contactInput.name = "contact";
+      contactInput.required = true;
+      contactLabel.appendChild(contactInput);
+      followupForm.appendChild(contactLabel);
+
+      var checkboxLabel = document.createElement("label");
+      checkboxLabel.className = "field checkbox-field";
+      var checkboxInput = document.createElement("input");
+      checkboxInput.type = "checkbox";
+      checkboxInput.name = "include_question";
+      checkboxInput.value = "yes";
+      checkboxLabel.appendChild(checkboxInput);
+      checkboxLabel.appendChild(
+        document.createTextNode(say("followup_include_question_label"))
+      );
+      followupForm.appendChild(checkboxLabel);
+
+      var followupSubmit = document.createElement("button");
+      followupSubmit.type = "submit";
+      followupSubmit.className = "send";
+      followupSubmit.textContent = say("followup_submit_button");
+      followupForm.appendChild(followupSubmit);
+
+      followupDetails.appendChild(followupForm);
+      answered.appendChild(followupDetails);
+    }
     turns.appendChild(answered);
     transcript.scrollTop = transcript.scrollHeight;
 

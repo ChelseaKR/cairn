@@ -277,6 +277,45 @@ tooling, repository documentation, and one new read-only operator command.
   as before. `docs/refusal-analytics.md` covers the feature and states its
   limits plainly (not a query log, not real-time); `SECURITY.md`'s server
   section is extended to describe its scope.
+- `cairn serve --followup-store PATH` and `cairn followups PATH`: a real
+  refusal-to-human handoff — an opt-in "Request a follow-up" action on a
+  refusal, only, that captures the asker's own contact information and,
+  only if they separately check a box on that specific submission, the
+  question they asked. The static `refusal.contact` text a refusal has
+  always carried is unchanged and still shown either way; this is an
+  additional channel, not a replacement. New `cairn/followup.py`
+  (`FollowupStore` for the write side, `load`/`render` for the read side,
+  behind `cairn followups`); `cairn/ui/page.py`'s `_followup_form` and
+  `cairn/ui/static/app.js`'s mirrored markup in `addTurn`, following
+  `_copy_export`'s established shape (implicit `<label>`s, no ids to
+  collide across a repeated refusal, a plain HTML form with no
+  `fetch()`/`preventDefault()` behind it — a full page reload, identically
+  whether or not JavaScript ran). Off by default: with no
+  `--followup-store` flag, the form never renders, `/follow-up` 404s, and
+  a refusal's response is byte-for-byte what it was before this existed.
+  `docs/followup.md` covers the feature and draws the line against
+  `docs/refusal-analytics.md`'s strictly aggregate, PII-free counterpart;
+  `SECURITY.md`'s server section is extended to describe its scope.
+  `render_page()` gains an optional `followup_notice` parameter for the
+  plain-HTML confirmation/error banner a `/follow-up` submission's full
+  page reload shows, deliberately not routed through the existing
+  JS-oriented `#status` live region (present-at-load content in a live
+  region is not reliably announced by assistive technology, unlike a
+  plain paragraph in normal document order).
+  **Regenerated the evidence bundle** (`cairn record`) and `site/index.html`
+  (`site_build.py`) to match: the new message-catalogue keys this feature
+  adds (`followup_heading` and friends) are embedded in every served page
+  via `_embedded_strings`, which changes `interface.html`'s bytes even
+  with `--followup-store` off. `items.jsonl`, `responses.jsonl`,
+  `sources.jsonl`, `manifest.json`, and `DATASET.md` came back
+  byte-identical — only `interface.html` and `checksums.json` changed —
+  confirming no answer, citation, or refusal changed, only the interface
+  snapshot's embedded strings. The dataset id and bundle sha256 shown in
+  README.md and docs/demo.md are updated to match. **The audit gate itself
+  was not re-run** (`./plumbline-gate.sh` needs the network-resolved
+  Plumbline harness, unavailable in this environment), so
+  `plumbline/baseline.json` is not regenerated; a maintainer with gate
+  access should run it before relying on this as a graded change.
 
 #### Changed
 

@@ -75,6 +75,22 @@ or a timestamp (see `docs/refusal-analytics.md`). A way to make a configured
 client address, per-event data of any kind — is in scope; the absence of
 the flag, or the aggregate counts it does produce by design, are not.
 
+A second opt-in, `--followup-store`, is a deliberately different shape: it
+exists specifically to capture a real person's own contact information on a
+refusal, for a human handoff (see `docs/followup.md`). That is not a
+question-logging leak — the asker submits it themselves, on a form that
+states what happens to it, and nothing is ever contacted automatically.
+What is in scope: a way to make `--followup-store` record a question
+without that submission's own "include the question" box having been
+checked; a way to reach `/follow-up` or get its contact data written
+anywhere when `--followup-store` was never set; or a way to make the stored
+question differ from what the asker actually submitted. The store file
+containing real contact information at all, when an operator explicitly
+configured the flag, is the feature working as designed, not a report —
+protecting that file (permissions, backups, retention) is the operator's
+responsibility for any file this server is told to write, the same as for
+`--refusal-stats` or an operator's own `cairn.toml`.
+
 ## Out of scope
 
 - The accuracy of documents an operator puts in the corpus. Cairn quotes what

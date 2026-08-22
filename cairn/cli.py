@@ -11,6 +11,7 @@ Subcommands:
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
     cairn refusals PATH    report aggregate refusal counts from --refusal-stats
+    cairn followups PATH   list follow-up requests from --followup-store
     cairn record           record an evidence bundle for the pinned auditor
 
 Exit codes: 0 for success — including refusals, which are a first-class
@@ -46,6 +47,9 @@ from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import diagnose, render, trace_payload
 from cairn.explain_diff import compare
 from cairn.explain_diff import render as render_explain_diff
+from cairn.followup import FollowupStoreError
+from cairn.followup import load as load_followups
+from cairn.followup import render as render_followups
 from cairn.index import IndexError_, build_and_write, read_index
 from cairn.language import isolate
 from cairn.lint import lint_corpus
@@ -91,6 +95,11 @@ def _cmd_config(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_refusals(args: argparse.Namespace, cfg: Config) -> int:
     print(render_refusal_stats(refusal_report(Path(args.path))))
+    return 0
+
+
+def _cmd_followups(args: argparse.Namespace, cfg: Config) -> int:
+    print(render_followups(load_followups(Path(args.path))))
     return 0
 
 
@@ -178,6 +187,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
     cors_origins = tuple(args.cors_origins or ())
     embed_origins = tuple(args.embed_origins or ())
     refusal_stats_path = Path(args.refusal_stats) if args.refusal_stats else None
+    followup_store_path = Path(args.followup_store) if args.followup_store else None
     httpd = serve(
         cfg,
         index,
@@ -189,6 +199,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         cors_origins=cors_origins,
         embed_origins=embed_origins,
         refusal_stats_path=refusal_stats_path,
+        followup_store_path=followup_store_path,
     )
     host, port = httpd.server_address[0], httpd.server_address[1]
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
@@ -216,6 +227,11 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         print(
             f"cairn: refusal analytics are ON — aggregate counts only, "
             f"written to {refusal_stats_path}"
+        )
+    if followup_store_path:
+        print(
+            f"cairn: refusal follow-up requests are ON — written to "
+            f"{followup_store_path}; see 'cairn followups'"
         )
     print(
         f"cairn: {index.passage_count} passages, {index.doc_count} documents, "
@@ -429,6 +445,17 @@ def build_parser() -> argparse.ArgumentParser:
             "`cairn refusals` and cairn/refusal_stats.py."
         ),
     )
+    p_serve.add_argument(
+        "--followup-store",
+        default=None,
+        metavar="PATH",
+        help=(
+            "enable a 'request a follow-up' action on a refusal, storing "
+            "submitted contact info (and the question, only if the asker "
+            "opts in) to this file. Off by default — see `cairn followups` "
+            "and cairn/followup.py."
+        ),
+    )
     p_serve.set_defaults(func=_cmd_serve)
 
     p_refusals = sub.add_parser(
@@ -437,6 +464,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_refusals.add_argument("path", help="the --refusal-stats JSON file to report on")
     p_refusals.set_defaults(func=_cmd_refusals)
+
+    p_followups = sub.add_parser(
+        "followups",
+        help="list the follow-up requests a server wrote with --followup-store",
+    )
+    p_followups.add_argument("path", help="the --followup-store JSONL file to report on")
+    p_followups.set_defaults(func=_cmd_followups)
 
     p_record = sub.add_parser(
         "record",
@@ -486,6 +520,7 @@ def main(argv: list[str] | None = None) -> int:
         RecordError,
         CalibrationError,
         RefusalStatsError,
+        FollowupStoreError,
     ) as exc:
         print(f"cairn: error: {exc}", file=sys.stderr)
         return 1
