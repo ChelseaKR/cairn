@@ -43,12 +43,19 @@ project claims:
 
 ## The server
 
-`cairn serve` binds a loopback HTTP server for local use. It has no
-authentication, no TLS, and no rate limiting, and it is not intended to be
-exposed to a network. That is a documented boundary, not an oversight, so
-"the server has no auth" is not a report. A way to reach it from off the host
-when it was told to bind loopback, or to escape the corpus directory through a
-request path, is.
+`cairn serve` binds a loopback HTTP server for local use, with no
+authentication, no TLS, and no rate limiting by default — and that default is
+not intended to be exposed to a network. That is a documented boundary, not
+an oversight, so "the default server has no auth" is not a report. A way to
+reach it from off the host when it was told to bind loopback, or to escape
+the corpus directory through a request path, is.
+
+An operator who does need to expose it can opt into bearer-token auth and a
+request-rate limit (`--auth-token`/`CAIRN_AUTH_TOKEN` and `--rate-limit`; see
+`docs/deployment.md`). Both are off unless explicitly configured, so a report
+against the *default* server about missing auth or rate limiting is still not
+in scope — but a way to bypass a *configured* token check (other than trying
+tokens), or to make a configured rate limit not apply, is.
 
 ## Out of scope
 

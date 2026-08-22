@@ -231,6 +231,22 @@ tooling, repository documentation, and one new read-only operator command.
   corpus document changing since the last `cairn index`; this is the
   companion gap it cannot see, a document that is unchanged and simply
   wrong relative to the world it describes.
+- `cairn serve --auth-token`/`CAIRN_AUTH_TOKEN` and `--rate-limit`: opt-in
+  bearer-token auth (constant-time comparison) and a per-client-address
+  request-rate limit, both off by default so the server's existing
+  loopback-only, no-auth behaviour is unchanged unless an operator asks for
+  more. New `cairn/network.py` holds both primitives; `cairn/server.py`
+  gates every route — GET, HEAD, and POST — through one check, auth before
+  rate limit, so an unauthenticated client is never told it would also have
+  been rate limited. The token is CLI-flag-or-environment-variable only —
+  it never enters `cairn.toml` — and the flag wins if both are set, so a
+  real deployment never has to put a secret on a command line another
+  process on the same host could read out of `/proc`. `docs/deployment.md`
+  covers a reverse proxy for TLS (Caddy and nginx examples), a systemd
+  unit, and a container example, and states plainly what this is not: not
+  TLS, not a login system, not a firewall, and not `X-Forwarded-For`-aware.
+  `SECURITY.md`'s server section is updated to describe the opt-in path
+  alongside the unchanged default.
 
 #### Changed
 

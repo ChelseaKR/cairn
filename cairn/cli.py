@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from cairn import __version__
@@ -159,9 +160,32 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path, cfg.corpus_path)
-    httpd = serve(cfg, index, host=args.host, port=args.port, quiet=args.quiet)
+    # The flag wins if given; CAIRN_AUTH_TOKEN is there so a real deployment
+    # never has to write a secret into a command line another process on the
+    # same machine can read from /proc. Neither set: auth stays off, which is
+    # the only path this command has ever taken before this existed.
+    auth_token = args.auth_token or os.environ.get("CAIRN_AUTH_TOKEN", "")
+    httpd = serve(
+        cfg,
+        index,
+        host=args.host,
+        port=args.port,
+        quiet=args.quiet,
+        auth_token=auth_token,
+        rate_limit_per_minute=args.rate_limit,
+    )
     host, port = httpd.server_address[0], httpd.server_address[1]
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
+    if auth_token:
+        print(
+            "cairn: bearer-token auth is ON — every request needs "
+            "'Authorization: Bearer <token>'"
+        )
+    if args.rate_limit > 0:
+        print(
+            f"cairn: rate limiting is ON — {args.rate_limit} request(s)/minute "
+            "per client address"
+        )
     print(
         f"cairn: {index.passage_count} passages, {index.doc_count} documents, "
         f"languages {', '.join(index.language_codes)}"
@@ -323,6 +347,23 @@ def build_parser() -> argparse.ArgumentParser:
             "logged either way; this silences the request lines so an automated "
             "run against the server reads as its own output."
         ),
+    )
+    p_serve.add_argument(
+        "--auth-token",
+        default=None,
+        metavar="TOKEN",
+        help=(
+            "require this bearer token on every request (also read from "
+            "CAIRN_AUTH_TOKEN if this is omitted). Off by default — see "
+            "docs/deployment.md before exposing this server to any network."
+        ),
+    )
+    p_serve.add_argument(
+        "--rate-limit",
+        type=int,
+        default=0,
+        metavar="N",
+        help="max requests per minute per client address (default: 0, unlimited)",
     )
     p_serve.set_defaults(func=_cmd_serve)
 

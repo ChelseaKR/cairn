@@ -24,6 +24,7 @@ from cairn.config import Config
 from cairn.engine import EngineError, ask
 from cairn.index import Index
 from cairn.messages import CATALOGUE
+from cairn.network import RateLimiter, check_token
 from cairn.ui.page import SELECTABLE, render_page, turn_markup
 
 STATIC = Path(__file__).resolve().parent / "ui" / "static"
@@ -42,8 +43,21 @@ def _resolve_lang(raw: str | None, default: str) -> str:
     return raw if raw in SELECTABLE else default
 
 
-def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
-    """A request handler class bound to one configuration and index."""
+def build_handler(
+    cfg: Config,
+    index: Index,
+    *,
+    quiet: bool = False,
+    auth_token: str = "",
+    rate_limiter: RateLimiter | None = None,
+):
+    """A request handler class bound to one configuration and index.
+
+    `auth_token` and `rate_limiter` are both off by default (empty token,
+    `None` limiter), which is the only path `cairn serve` reaches without
+    an operator explicitly opting into networked deployment — see
+    `cairn/network.py` and `docs/deployment.md`.
+    """
 
     class CairnHandler(BaseHTTPRequestHandler):
         server_version = f"cairn/{__version__}"
@@ -54,6 +68,39 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
         def log_message(self, fmt, *args):  # noqa: A002 - stdlib signature
             if not quiet:
                 super().log_message(fmt, *args)
+
+        def _gate(self) -> bool:
+            """Auth then rate limit, in that order — an unauthenticated
+            client should never learn it was also about to be rate
+            limited. Writes the error response itself and returns `False`
+            when the request should stop here; every route checks this
+            first and returns immediately if it does.
+            """
+            if auth_token and not check_token(
+                self.headers.get("Authorization"), auth_token
+            ):
+                body = json.dumps({"error": "unauthorized"}).encode("utf-8")
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", "Bearer")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+                return False
+            if rate_limiter is not None and not rate_limiter.allow(self.client_address[0]):
+                body = json.dumps({"error": "rate limit exceeded"}).encode("utf-8")
+                self.send_response(429)
+                self.send_header("Retry-After", "60")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+                return False
+            return True
 
         def _send(self, status: int, body: bytes, content_type: str) -> None:
             self.send_response(status)
@@ -121,6 +168,8 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
         # --- routes -----------------------------------------------------
 
         def do_GET(self):  # noqa: N802 - stdlib naming
+            if not self._gate():
+                return
             route = urlparse(self.path)
             if route.path == "/":
                 query = parse_qs(route.query)
@@ -142,6 +191,8 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
         do_HEAD = do_GET
 
         def do_POST(self):  # noqa: N802 - stdlib naming
+            if not self._gate():
+                return
             if urlparse(self.path).path != "/ask":
                 self._html("<h1>404</h1>", status=404)
                 return
@@ -196,7 +247,27 @@ def build_handler(cfg: Config, index: Index, *, quiet: bool = False):
     return CairnHandler
 
 
-def serve(cfg: Config, index: Index, *, host: str = "127.0.0.1", port: int = 8765,
-          quiet: bool = False):
-    """Build a server. The caller decides when to start serving."""
-    return ThreadingHTTPServer((host, port), build_handler(cfg, index, quiet=quiet))
+def serve(
+    cfg: Config,
+    index: Index,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    quiet: bool = False,
+    auth_token: str = "",
+    rate_limit_per_minute: int = 0,
+):
+    """Build a server. The caller decides when to start serving.
+
+    `auth_token` and `rate_limit_per_minute` are both off by default (see
+    `cairn/network.py`) — passing neither reproduces exactly the server
+    this project has always shipped.
+    """
+    handler = build_handler(
+        cfg,
+        index,
+        quiet=quiet,
+        auth_token=auth_token,
+        rate_limiter=RateLimiter(rate_limit_per_minute) if rate_limit_per_minute > 0 else None,
+    )
+    return ThreadingHTTPServer((host, port), handler)
