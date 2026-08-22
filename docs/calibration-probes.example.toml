@@ -1,0 +1,53 @@
+# Example probe file for `cairn calibrate`, written against the bundled
+# synthetic demo corpus. Copy this shape for a real corpus: real questions a
+# person who has read *that* corpus expects answered, and real questions —
+# plausible, not adversarial nonsense — it should refuse.
+#
+# Fields:
+#   question   the probe, quoted exactly as someone would ask it
+#   behavior   "answer" or "refuse": what a correctly calibrated threshold
+#              should do with it
+#   lang       optional; omit to let Cairn detect the language the same way
+#              `cairn ask` does
+#
+# A probe set this small (eight items) is illustrative, not sufficient — see
+# `tests/probes.py` for the shape a real calibration measurement takes: 15
+# in-corpus probes and 20 off-topic probes, each covering different facts,
+# phrasings, and languages, because a threshold measured against four
+# questions is a threshold measured against four questions.
+
+[[probe]]
+question = "How much is the monthly grocery allowance for one person?"
+behavior = "answer"
+
+[[probe]]
+question = "How much unpaid rent does the housing relief grant cover?"
+behavior = "answer"
+
+[[probe]]
+question = "Cuanto recibe un hogar de una persona del subsidio de alimentos?"
+behavior = "answer"
+lang = "es"
+
+[[probe]]
+question = "كم تحصل الأسرة المكونة من شخص واحد شهريًا من مخصص البقالة؟"
+behavior = "answer"
+lang = "ar"
+
+[[probe]]
+question = "Can you help me renew my drivers license?"
+behavior = "refuse"
+
+[[probe]]
+question = "What vaccinations does my dog need?"
+behavior = "refuse"
+
+[[probe]]
+question = "Cual es la capital de Francia?"
+behavior = "refuse"
+lang = "es"
+
+[[probe]]
+question = "أين أسجل للتصويت؟"
+behavior = "refuse"
+lang = "ar"

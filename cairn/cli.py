@@ -6,6 +6,7 @@ Subcommands:
     cairn lint             check the corpus for problems, without indexing
     cairn config           show the effective config against built-in defaults
     cairn diff OLD NEW     compare two corpus directories, advisory only
+    cairn calibrate        check retrieval.threshold against real probe questions
     cairn ask "QUESTION"   answer from the index, or refuse with no sources
     cairn ask --explain    the same, plus the operator retrieval trace
     cairn serve            the accessible chat interface, on localhost
@@ -28,6 +29,8 @@ import json
 import sys
 
 from cairn import __version__
+from cairn.calibrate import CalibrationError, calibrate
+from cairn.calibrate import render as render_calibration
 from cairn.config import Config, ConfigError, load_config
 from cairn.config_report import diff_from_defaults
 from cairn.config_report import render as render_config_diff
@@ -78,6 +81,13 @@ def _cmd_diff(args: argparse.Namespace, cfg: Config) -> int:
 def _cmd_config(args: argparse.Namespace, cfg: Config) -> int:
     print(render_config_diff(diff_from_defaults(cfg)))
     return 0
+
+
+def _cmd_calibrate(args: argparse.Namespace, cfg: Config) -> int:
+    index = read_index(cfg.index_path, cfg.corpus_path)
+    report = calibrate(index, cfg, args.probes)
+    print(render_calibration(report))
+    return 0 if report.safe else 1
 
 
 def _cmd_lint(args: argparse.Namespace, cfg: Config) -> int:
@@ -231,6 +241,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_diff.add_argument("new", help="the later corpus directory")
     p_diff.set_defaults(func=_cmd_diff)
 
+    p_calibrate = sub.add_parser(
+        "calibrate",
+        help="check retrieval.threshold against a real probe question set",
+    )
+    p_calibrate.add_argument(
+        "--probes", required=True, metavar="PATH", help="TOML file of [[probe]] entries"
+    )
+    p_calibrate.set_defaults(func=_cmd_calibrate)
+
     p_ask = sub.add_parser("ask", help="ask a question against the index")
     p_ask.add_argument("question", help="the question, quoted")
     p_ask.add_argument("--json", action="store_true", help="machine-readable output")
@@ -335,7 +354,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cfg = load_config(args.config)
         return args.func(args, cfg)
-    except (ConfigError, CorpusError, IndexError_, EngineError, RecordError) as exc:
+    except (
+        ConfigError,
+        CorpusError,
+        IndexError_,
+        EngineError,
+        RecordError,
+        CalibrationError,
+    ) as exc:
         print(f"cairn: error: {exc}", file=sys.stderr)
         return 1
 

@@ -196,6 +196,20 @@ tooling, repository documentation, and one new read-only operator command.
 - A Standards Conformance table in the README, with every standard declared
   and the three real gaps (mypy strict, the complexity rule, no i18n
   declaration) named rather than left out.
+- `cairn calibrate --probes PATH`: checks `retrieval.threshold` against a
+  real, operator-authored probe question set (a plain TOML file of
+  question/behavior pairs — the same answer/refuse split `tests/probes.py`
+  already measures the shipped default from, made runnable against any
+  corpus, not only the demo one). Reports the worst accepted score, the best
+  rejected score, the gap between them, a suggested midpoint threshold, and
+  — the part that matters — whether the *currently configured* threshold
+  actually gets every probe right. Exits 1 when it does not, or when the
+  probe set has no positive gap to vouch for any threshold at all. Advisory:
+  never edits `cairn.toml`. `docs/calibration-probes.example.toml` is a
+  worked example against the demo corpus. Closes the gap DESIGN.md's own
+  calibration note names: the threshold is "set empirically against the
+  demo corpus... re-check it against probe questions when the corpus
+  changes" — a re-check that, until now, existed only as a sentence.
 
 #### Changed
 

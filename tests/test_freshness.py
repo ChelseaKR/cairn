@@ -322,6 +322,7 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
         "lint": [],
         "config": [],
         "diff": [str(DEMO), str(DEMO)],
+        "calibrate": ["--probes", str(ROOT / "docs" / "calibration-probes.example.toml")],
         "ask": ["a question"],
         "serve": ["--port", "0"],
         "record": [],  # --out is added per-run, into the temp workspace

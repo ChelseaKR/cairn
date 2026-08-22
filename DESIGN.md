@@ -43,6 +43,7 @@ cairn/                  the package
   index.py              build/read the on-disk index; deterministic serialization
   lint.py               read-only corpus checks an author runs before indexing
   corpus_diff.py        what changed between two corpus directories, advisory
+  calibrate.py          check retrieval.threshold against real probe questions
   retrieve.py           TF-IDF cosine scoring, threshold gate, retrieval trace
   language.py           language registry, writing direction, bidi isolates, detection
   messages.py           every string Cairn says in its own voice, per language
@@ -59,7 +60,7 @@ cairn/                  the package
   ui/page.py            the served page, built as a string
   ui/static/            app.css, app.js — the only two assets, both same-origin
   ui/contrast.py        the page's colour pairs, read from the stylesheet
-  cli.py                subcommands: index, lint, config, diff, ask, serve, record
+  cli.py                subcommands: index, lint, config, diff, calibrate, ask, serve, record
   __main__.py           `python3 -m cairn` entry point
 corpus/demo/            bundled synthetic demo corpus (clearly labeled synthetic)
 docs/demo.md            the walkthrough, with executed (not asserted) output
@@ -666,6 +667,22 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 > `tests/probes.py`, which carries the two band edges as constants, and the gap
 > is re-measured on every test run, so the
 > calibration cannot rot into a stale comment.
+
+**This measurement is only ever repeated by hand, and only against the demo
+corpus, until `cairn calibrate`.** Everything above is exactly right for the
+corpus it was measured against and says nothing about anyone else's. A real
+agency's corpus has different document lengths, different vocabulary
+overlap between programs, a different number of languages — the whole
+reason `tests/probes.py` exists as a *measurement* rather than a constant
+is that this number cannot be assumed to transfer. `cairn calibrate --probes
+PATH` runs an operator-supplied probe file (the same answer/refuse split as
+`tests/probes.py`, in a plain TOML an operator writes without reading this
+file) against their own configured index, reports the worst accepted score
+and the best rejected one, and states whether the configured threshold sits
+safely between them — the same computation this note performs by hand,
+turned into something that runs against a real corpus instead of only this
+one. It changes nothing in `cairn.toml`; picking a new threshold is still
+the operator's decision, informed instead of unmeasured.
 
 Writing direction is deliberately **not** configurable: it is a property of a
 language, not of a deployment, and lives only in `language.py`. Two places to
