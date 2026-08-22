@@ -195,6 +195,99 @@ class TestLintCorpus(unittest.TestCase):
             self.assertIn("1 error(s), 0 warning(s)", dirty)
 
 
+class TestStaleness(unittest.TestCase):
+    """`--max-age-days` is opt-in: off by default, so a corpus that has
+    never adopted `reviewed_at` stays exactly as quiet as before."""
+
+    def test_off_by_default_even_with_no_reviewed_at_anywhere(self):
+        report = lint_corpus(DEMO)  # no max_age_days passed
+        self.assertTrue(report.ok)
+        self.assertEqual(report.warning_count, 0)
+
+    def test_missing_reviewed_at_is_a_warning_once_opted_in(self):
+        report = lint_corpus(DEMO, max_age_days=30)
+        self.assertTrue(report.ok, "still only warnings")
+        self.assertEqual(report.warning_count, 10, "one per demo document")
+        self.assertTrue(
+            all("no 'reviewed_at'" in i.message for i in report.issues)
+        )
+
+    def test_a_recent_reviewed_at_is_quiet(self):
+        from datetime import date
+
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp)
+            write_doc(
+                corpus, "a.md",
+                front_matter="id: a\ntitle: A\nlang: en\nreviewed_at: 2026-01-01",
+                body=(
+                    "Some content about a benefits program for residents.\n\n"
+                    "Additional details about eligibility and application deadlines "
+                    "apply here.\n"
+                ),
+            )
+            report = lint_corpus(
+                corpus, max_age_days=30, as_of=date(2026, 1, 15)
+            )
+            self.assertEqual(report.warning_count, 0)
+
+    def test_a_stale_reviewed_at_is_a_warning(self):
+        from datetime import date
+
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp)
+            write_doc(
+                corpus, "a.md",
+                front_matter="id: a\ntitle: A\nlang: en\nreviewed_at: 2026-01-01",
+                body=(
+                    "Some content about a benefits program for residents.\n\n"
+                    "Additional details about eligibility and application deadlines "
+                    "apply here.\n"
+                ),
+            )
+            report = lint_corpus(
+                corpus, max_age_days=30, as_of=date(2026, 6, 1)
+            )
+            self.assertEqual(report.warning_count, 1)
+            issue = report.issues[0]
+            self.assertIn("last reviewed on 2026-01-01", issue.message)
+            self.assertIn("over the 30-day staleness window", issue.message)
+
+    def test_a_malformed_reviewed_at_is_a_warning_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp)
+            write_doc(
+                corpus, "a.md",
+                front_matter="id: a\ntitle: A\nlang: en\nreviewed_at: not-a-date",
+                body=(
+                    "Some content about a benefits program for residents.\n\n"
+                    "Additional details about eligibility and application deadlines "
+                    "apply here.\n"
+                ),
+            )
+            report = lint_corpus(corpus, max_age_days=30)
+            self.assertEqual(report.warning_count, 1)
+            self.assertIn("not a valid ISO date", report.issues[0].message)
+
+    def test_staleness_runs_alongside_structural_errors(self):
+        # Independent of the reachability checks, which are skipped when a
+        # structural error stands elsewhere — staleness needs only front
+        # matter, so it should not be held hostage by an unrelated bad file.
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp)
+            write_doc(
+                corpus, "good.md",
+                front_matter="id: good\ntitle: Good\nlang: en",
+                body="Fine content about a program.\n",
+            )
+            write_doc(corpus, "bad.md", front_matter="id: bad\ntitle: T", body="X.\n")
+            report = lint_corpus(corpus, max_age_days=30)
+            self.assertFalse(report.ok)  # the structural error still stands
+            self.assertTrue(
+                any("no 'reviewed_at'" in i.message for i in report.issues)
+            )
+
+
 class TestLintCli(unittest.TestCase):
     def run_cli(self, config_path: Path, *argv: str):
         out, err = io.StringIO(), io.StringIO()
@@ -220,6 +313,22 @@ class TestLintCli(unittest.TestCase):
             code, out, err = self.run_cli(config, "lint")
             self.assertEqual(code, 1)
             self.assertIn("error(s)", out)
+
+    def test_max_age_days_flag_is_off_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "cairn.toml"
+            config.write_text(f'[corpus]\npath = "{DEMO}"\n', encoding="utf-8")
+            code, out, err = self.run_cli(config, "lint")
+            self.assertEqual(code, 0, err)
+            self.assertIn("No issues found.", out)
+
+    def test_max_age_days_flag_surfaces_missing_reviewed_at(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "cairn.toml"
+            config.write_text(f'[corpus]\npath = "{DEMO}"\n', encoding="utf-8")
+            code, out, err = self.run_cli(config, "lint", "--max-age-days", "30")
+            self.assertEqual(code, 0, err)  # warnings only, not errors
+            self.assertIn("no 'reviewed_at'", out)
 
     def test_cairn_lint_does_not_require_an_index(self):
         # Unlike `ask`, `serve`, and `record`, `lint` reads the corpus only —

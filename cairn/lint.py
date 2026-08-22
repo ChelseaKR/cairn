@@ -23,6 +23,7 @@ without a question in hand: structure, and reachability.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from cairn.config import Config
@@ -101,7 +102,61 @@ def _load_documents(corpus_dir: str | Path) -> tuple[list[Document], list[LintIs
     return docs, issues
 
 
-def lint_corpus(corpus_dir: str | Path, *, threshold: float = DEFAULT_THRESHOLD) -> LintReport:
+def _staleness_issues(
+    docs: list[Document], *, max_age_days: int, as_of: date
+) -> list[LintIssue]:
+    """`reviewed_at` is optional and inert to everything that answers a
+    question (see `cairn.corpus`'s module docstring) — this is the one thing
+    that reads it, and only when an operator explicitly asks by passing
+    `--max-age-days`. Silence by default: a corpus that has never adopted the
+    convention should not get a warning per document just for existing.
+    """
+    issues: list[LintIssue] = []
+    for doc in docs:
+        if doc.reviewed_at is None:
+            issues.append(
+                LintIssue(
+                    "warning",
+                    doc.path,
+                    "no 'reviewed_at' front-matter key: staleness cannot be tracked for "
+                    "this document. Add 'reviewed_at: YYYY-MM-DD' the next time it is "
+                    "checked against its real source.",
+                )
+            )
+            continue
+        try:
+            reviewed = date.fromisoformat(doc.reviewed_at)
+        except ValueError:
+            issues.append(
+                LintIssue(
+                    "warning",
+                    doc.path,
+                    f"'reviewed_at: {doc.reviewed_at}' is not a valid ISO date "
+                    f"(YYYY-MM-DD); staleness cannot be checked for this document.",
+                )
+            )
+            continue
+        age = (as_of - reviewed).days
+        if age > max_age_days:
+            issues.append(
+                LintIssue(
+                    "warning",
+                    doc.path,
+                    f"last reviewed on {reviewed.isoformat()}, {age} day(s) ago — over "
+                    f"the {max_age_days}-day staleness window. Confirm it still matches "
+                    f"its real source and update 'reviewed_at'.",
+                )
+            )
+    return issues
+
+
+def lint_corpus(
+    corpus_dir: str | Path,
+    *,
+    threshold: float = DEFAULT_THRESHOLD,
+    max_age_days: int | None = None,
+    as_of: date | None = None,
+) -> LintReport:
     """Check every document under `corpus_dir`.
 
     Raises `CorpusError` for exactly what `corpus_paths` already refuses —
@@ -112,8 +167,17 @@ def lint_corpus(corpus_dir: str | Path, *, threshold: float = DEFAULT_THRESHOLD)
     `threshold` is `retrieval.threshold` from whatever config the caller is
     actually running — `cairn lint` passes `cfg.threshold` — because the
     reachability check below means nothing against the wrong number.
+
+    `max_age_days` opts into the staleness check (see `_staleness_issues`);
+    `None` (the default) runs none of it, so a corpus with no `reviewed_at`
+    anywhere stays exactly as quiet as it was before this existed. `as_of`
+    exists for tests to pin a date; the CLI passes today's.
     """
     docs, issues = _load_documents(corpus_dir)
+    if max_age_days is not None:
+        issues += _staleness_issues(
+            docs, max_age_days=max_age_days, as_of=as_of or date.today()
+        )
     empty_passages: set[str] = set()
     for doc in docs:
         for passage in doc.passages:

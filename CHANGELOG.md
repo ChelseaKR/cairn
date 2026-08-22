@@ -210,6 +210,27 @@ tooling, repository documentation, and one new read-only operator command.
   calibration note names: the threshold is "set empirically against the
   demo corpus... re-check it against probe questions when the corpus
   changes" — a re-check that, until now, existed only as a sentence.
+- `import_corpus.py --batch INPUT_DIR -o OUTPUT_DIR`: scaffolds every
+  `.txt`/`.html` file in a directory (non-recursive), reusing the exact
+  single-file scaffolding function so batch mode can never become a second,
+  drifting idea of what scaffolding one file does. A file that fails to
+  extract does not stop the rest of the batch; the summary line reports how
+  many succeeded and exits 1 on any partial failure. `--id`/`--title` are
+  rejected in batch mode (they apply to one file, not many). Every review
+  requirement from the single-file path still applies to every file.
+- `Document.reviewed_at` (`cairn/corpus.py`) and `cairn lint --max-age-days`:
+  an optional `reviewed_at: YYYY-MM-DD` front-matter key — inert to
+  retrieval, scoring, and citation, like `import_corpus.py`'s `review`
+  marker — that an author sets the last time they checked a document
+  against its real source. `cairn lint --max-age-days N` flags a document
+  whose `reviewed_at` is missing, unparseable, or older than N days.
+  Strictly opt-in: without the flag, `cairn lint` never looks at
+  `reviewed_at`, so a corpus that has never adopted the convention lints
+  exactly as quietly as before. `docs/onboarding.md` covers both this and
+  the batch-import addition — the index's own fingerprint already catches a
+  corpus document changing since the last `cairn index`; this is the
+  companion gap it cannot see, a document that is unchanged and simply
+  wrong relative to the world it describes.
 
 #### Changed
 

@@ -76,6 +76,7 @@ tests/browser/          Chromium behaviour checks — outside the core dev path
 benchmark_index.py      dev-only: index build/read/query timing at scale
 import_corpus.py        dev-only: .txt/.html to reviewable corpus scaffold
 docs/authoring.md       the FAQ-pair convention for closing a lexical gap
+docs/onboarding.md      bulk import and the reviewed_at staleness convention
 docs/I18N.md            language support: scope and flip conditions, by tier
 ```
 

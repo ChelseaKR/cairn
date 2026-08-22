@@ -12,6 +12,10 @@ Corpus documents are Markdown files carrying a minimal front-matter block:
 
 The front matter is a strict ``key: value`` list between two ``---`` lines at
 the top of the file. Cairn parses it itself; there is no YAML dependency.
+Unrecognized keys are accepted and ignored by everything that answers a
+question — ``reviewed_at`` (an ISO date, ``cairn lint --max-age-days``'s one
+consumer) and ``review`` (``import_corpus.py``'s human-review marker) are two
+such keys, both inert to retrieval and both purely for an author's own use.
 
 Chunking splits the body into passages on blank-line paragraph boundaries.
 Heading-only blocks are merged into the passage that follows them: a heading
@@ -68,6 +72,16 @@ class Document:
     synthetic: bool
     path: str
     passages: tuple[Passage, ...]
+    # An optional front-matter key, never required and never read by
+    # anything that answers a question — retrieval, scoring, and citation
+    # are all indifferent to it. `cairn lint --max-age-days` is the one
+    # consumer: an author-set "I checked this against its real source on
+    # this date" marker, in the same "extra key, inert to the engine" shape
+    # as `import_corpus.py`'s `review: unreviewed`. Stored as the raw string
+    # from front matter, unvalidated here — a malformed date is a lint
+    # finding, not a load-time error, because staleness tracking is opt-in
+    # and a corpus author who never uses it should never see it fail to load.
+    reviewed_at: str | None = None
 
 
 def _parse_front_matter(raw: str, path: Path) -> tuple[dict[str, str], str]:
@@ -149,6 +163,7 @@ def load_document(path: Path) -> Document:
         synthetic=meta.get("synthetic", "").casefold() == "true",
         path=str(path),
         passages=passages,
+        reviewed_at=meta.get("reviewed_at") or None,
     )
 
 

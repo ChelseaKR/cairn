@@ -85,6 +85,35 @@ class TestCorpusLoading(unittest.TestCase):
                 self.assertEqual(doc.lang, "en")
                 self.assertTrue(all(p.lang == "en" for p in doc.passages))
 
+    def test_reviewed_at_is_optional_and_passed_through_raw(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "doc.md"
+            path.write_text(
+                "---\nid: t\ntitle: T\nlang: en\nreviewed_at: 2026-01-15\n---\n"
+                "Body paragraph.\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(load_document(path).reviewed_at, "2026-01-15")
+
+    def test_reviewed_at_defaults_to_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = load_document(self.write_doc(tmp))
+            self.assertIsNone(doc.reviewed_at)
+
+    def test_an_unrecognized_front_matter_key_does_not_break_loading(self):
+        # `reviewed_at` and `review` (import_corpus.py's marker) are two
+        # concrete examples of a broader rule: front matter may carry keys
+        # nothing here reads, and loading must not care.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "doc.md"
+            path.write_text(
+                "---\nid: t\ntitle: T\nlang: en\nsome_future_key: whatever\n---\n"
+                "Body paragraph.\n",
+                encoding="utf-8",
+            )
+            doc = load_document(path)  # must not raise
+            self.assertEqual(doc.doc_id, "t")
+
 
 class TestIndexing(unittest.TestCase):
     def test_build_reports_counts_and_path(self):
