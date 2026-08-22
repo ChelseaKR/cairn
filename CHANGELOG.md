@@ -355,6 +355,23 @@ tooling, repository documentation, and one new read-only operator command.
   pytest, coverage) instead of bare names, and gains mypy, coverage, and
   complexity configuration.
 
+#### Fixed
+
+- `ci.yml`'s "Nothing above resolved the auditor" guard — meant to catch the
+  answering engine importing the audit harness it must stay independent of —
+  matched the bare substring `plumbline` anywhere in `cairn/*.py` and grew an
+  exclusion list of allowed non-import mentions (`plumbline-bundle`,
+  `plumbline.pin`, and so on) as legitimate references accumulated. The
+  list never caught up: `./plumbline-gate.sh`, named in CLI help text added
+  across three earlier PRs (`cairn/cli.py`, `cairn/record_diff.py`,
+  `cairn/explain_diff.py`), was never added to it, and every one of those
+  PRs merged with this job silently red — nothing enforced it, since no
+  branch-protection ruleset is applied yet. The guard now matches what its
+  own name says: an actual `import plumbline` or `from plumbline import`
+  statement, anchored to the start of a line. This catches the real failure
+  mode precisely and permanently, rather than adding one more string to an
+  allow-list the next help-text mention will outrun again.
+
 ## 0.1.0 — 2026-08-16
 
 First citable version. Everything the functional specification asks for is
