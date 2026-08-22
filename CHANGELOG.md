@@ -111,6 +111,22 @@ tooling, repository documentation, and one new read-only operator command.
   the HTML `<title>` extractor was swallowing the title text because
   `<title>` lives inside `<head>`, which the extractor also uses to suppress
   body text — now regression-tested.
+- French (`fr`) as a fourth interface language: a full `LANGUAGES` entry
+  and `messages.py` catalogue, left-to-right, passing every message-catalogue
+  test (key parity, no untranslated copies, matching placeholders). Shipped
+  deliberately with **no French corpus content** — the same "translated
+  interface outruns translated documents" reality already demonstrated for
+  the English-only GoPass document, played out for a whole language. A
+  French question falls back across languages or refuses in French, exactly
+  like any other interface language with no matching source. Two historical
+  code comments and a test that used `Config(default_lang="fr")` as the
+  demonstrative *unsupported*-language example were updated to `"de"`, since
+  `"fr"` stopped being an example of that. `docs/I18N.md` names explicitly
+  what this addition does *not* do: no French corpus document was added, no
+  evidence item was recorded, and `plumbline/baseline.json` was not
+  regenerated — that step needs the network-resolved Plumbline harness,
+  unavailable here. `cairn record --diff-against plumbline/bundle` confirms
+  the committed evidence bundle is byte-for-byte unmoved by this change.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays

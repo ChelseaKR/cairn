@@ -38,6 +38,10 @@ _DEMO_CONTACTS = {
         "مكتب المساعدة المجتمعية في مقاطعة هاربر على الرقم 555-0142 "
         "(جهة اتصال تجريبية مُختلَقة؛ على المشغّلين ضبط جهة اتصال خاصة بهم)"
     ),
+    "fr": (
+        "le bureau d'Assistance Communautaire du comté de Harbor, au 555-0142 "
+        "(contact fictif de démonstration ; les opérateurs doivent configurer le leur)"
+    ),
 }
 
 
@@ -110,12 +114,14 @@ class Config:
         # edge" shape as max_passages: the server checks the selector value
         # against its own list and the engine checks an explicitly requested
         # language against the corpus, so both edges were guarded and the
-        # value that skips both edges was not. `Config(default_lang="fr")`
-        # produced a grounded answer labelled `lang: "fr"` carrying an English
+        # value that skips both edges was not. `Config(default_lang="de")`
+        # produced a grounded answer labelled `lang: "de"` carrying an English
         # cross-language notice, because `messages.catalogue_for` falls back
         # to English for a code it has no catalogue for; with "he" it also
         # came out `dir="rtl"` with an English body. An operator serving
-        # French would write exactly that line.
+        # German would write exactly that line. (French was this example
+        # too, once — `LANGUAGES` has since grown a real `fr` catalogue, so
+        # the bug it demonstrated stopped reproducing for that code.)
         if self.default_lang not in LANGUAGES:
             raise ConfigError(
                 f"language.default must be a language Cairn has system strings "

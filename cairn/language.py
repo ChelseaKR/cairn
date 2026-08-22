@@ -51,6 +51,7 @@ LANGUAGES: dict[str, Language] = {
     "en": Language("en", "English", "English", "ltr"),
     "es": Language("es", "Español", "Spanish", "ltr"),
     "ar": Language("ar", "العربية", "Arabic", "rtl"),
+    "fr": Language("fr", "Français", "French", "ltr"),
 }
 
 # Right-to-left language codes, for corpus languages beyond the interface set.

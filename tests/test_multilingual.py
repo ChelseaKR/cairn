@@ -232,10 +232,11 @@ class TestLocalizedVoice(MultilingualHarness):
     def test_refusals_speak_the_language_of_the_question(self):
         refusals = {
             lang: self.ask("What vaccinations does my dog need?", lang=lang).answer.text
-            for lang in ("en", "es", "ar")
+            for lang in ("en", "es", "ar", "fr")
         }
         self.assertNotEqual(refusals["en"], refusals["es"])
         self.assertNotEqual(refusals["en"], refusals["ar"])
+        self.assertNotEqual(refusals["en"], refusals["fr"])
         self.assertEqual(dominant_script(refusals["ar"]), "arabic")
         # Against the configured table, not against `contact_for` — which is
         # the same lookup with the same fallback, so both sides of the old
@@ -316,12 +317,14 @@ class TestTheNoticeDescribesWhatIsActuallyQuoted(MultilingualHarness):
         # server's selector and the engine's explicit-language check — were
         # guarded, which is the same shape as the max_passages bug: the value
         # that skips both edges was the one nothing checked.
-        # `Config(default_lang="fr")` produced a grounded answer labelled
-        # `lang: "fr"` carrying an English cross-language notice, because the
+        # `Config(default_lang="de")` produced a grounded answer labelled
+        # `lang: "de"` carrying an English cross-language notice, because the
         # message catalogue falls back to English for a code it cannot speak.
+        # (French was this example too, once, before `LANGUAGES` grew a real
+        # `fr` catalogue — see `cairn/config.py`.)
         from cairn.config import ConfigError
 
-        for code in ("fr", "he", "xx", ""):
+        for code in ("de", "he", "xx", ""):
             with self.subTest(code=code), self.assertRaises(ConfigError):
                 Config(default_lang=code)
         for code in LANGUAGES:
@@ -469,6 +472,42 @@ class TestASmallLanguageIsStillARetrievableLanguage(unittest.TestCase):
         for code, expected in self.SUPPRESSED.items():
             with self.subTest(lang=code):
                 self.assertEqual(index.stats_for(code).suppressed, frozenset(expected))
+
+
+class TestFrenchAsAnInterfaceLanguageWithNoCorpusContent(MultilingualHarness):
+    """French is a full interface language (`LANGUAGES`, a complete
+    `messages.py` catalogue) with **no** French corpus content shipped —
+    deliberately, the same shape as the GoPass document existing only in
+    English (`corpus/demo/README.md`): a real agency's translated interface
+    always outruns its translated documents. An interface language needs no
+    corpus behind it to be answerable at all; see `engine.available_languages`.
+    """
+
+    def test_a_french_question_with_an_english_answer_falls_back_and_says_so(self):
+        result = self.ask(ENGLISH_ONLY_QUESTION, lang="fr")
+        answer = result.answer
+        self.assertEqual(answer.kind, "grounded")
+        self.assertEqual(answer.lang, "fr")
+        self.assertTrue(result.cross_language)
+        self.assertTrue(all(s.lang == "en" for s in answer.sources))
+        self.assertIsNotNone(answer.notice)
+        self.assertIn(endonym_of("en"), answer.notice)
+        self.assertIn("autre langue", answer.notice, "the notice is in French")
+
+    def test_a_french_refusal_is_written_in_french_and_points_to_the_french_contact(self):
+        result = self.ask("What vaccinations does my dog need?", lang="fr")
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertIn("Je n'ai aucune source", result.answer.text)
+        self.assertIn(CFG.contact_by_language["fr"].split(" (")[0][:20], result.answer.text)
+
+    def test_french_is_offered_without_indexing_any_french_document(self):
+        langs = {d.lang for d in load_corpus(DEMO)}
+        self.assertNotIn("fr", langs, "the whole point: no French corpus content ships")
+        self.assertIn("fr", available_languages(self.index))
+
+    def test_french_direction_is_left_to_right(self):
+        self.assertEqual(direction_of("fr"), "ltr")
+        self.assertEqual(LANGUAGES["fr"].direction, "ltr")
 
 
 if __name__ == "__main__":

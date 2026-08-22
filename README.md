@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 444 tests plus 63 browser behaviour checks, standard library only,
+server. 448 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -141,6 +141,17 @@ rely on detection. Arabic is right-to-left in the way that matters: direction
 comes from the language code, and Latin runs inside an Arabic line — passage
 ids, phone numbers — are wrapped in Unicode bidi isolates so a terminal or a
 browser does not reorder them.
+
+A fourth interface language, French (`fr`), ships too — a full `messages.py`
+catalogue and language-table entry, selectable with `--lang fr` or the web
+selector — with **no French corpus content bundled**. That is not an
+oversight; it is the same "translated interface outruns translated
+documents" reality the GoPass example below demonstrates for a single
+document, played out for a whole language: a French question either falls
+back across languages the way the GoPass example does, or refuses, in
+French, exactly as an English or Spanish question with no matching source
+would. See [`docs/I18N.md`](docs/I18N.md) for what shipping an interface
+language does and does not require.
 
 Corpus coverage is deliberately uneven, because real agencies' translations
 lag. Ask in Spanish about a document that exists only in English and Cairn
@@ -466,7 +477,7 @@ page argues against.
 | Observability | Applies — this is a local tool with no service to instrument, so the observable surface is the evidence rather than telemetry. `cairn record` writes what the real engine answered, `--explain` attributes a bad answer to the stage that caused it, and the audit report and committed baseline make a score change visible in a diff. Nothing phones home and there is no analytics anywhere. | `plumbline/bundle`, `plumbline/baseline.json`, `audit_guard.py`, [`site/index.html`](site/index.html) |
 | Performance | Applies — the served page is one small static document with no external resource of any kind, and retrieval is lexical over a local index with no model call in the path. **Not yet enforced:** no latency or page-weight budget is measured and none is gated. | `cairn.toml` bounds the retrieval work; there is no performance evidence beyond that. |
 | Accessibility | Applies — WCAG 2.2 AA as behaviour rather than attributes, checked in two layers: `tests/test_ui.py` for markup, semantics, and computed contrast offline, and `tests/browser/` for what only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. **No person has driven this page with a screen reader**, that session has not happened, and no automated check here stands in for it. | `tests/test_ui.py`, `tests/browser/`, `cairn/ui/contrast.py` |
-| Internationalization | Applies — three interface languages ship (`en`, `es`, `ar`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. [`docs/I18N.md`](docs/I18N.md) declares the scope beyond those three: a corpus document may be in any language with no code change, a fourth interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
+| Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French ships with no bundled corpus content, deliberately — see "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
 | AI Evaluation | N/A — there is no model. Retrieval is deterministic lexical scoring over a corpus the operator supplies, and answers are passages quoted verbatim rather than generated, so there is no prompt, no sampling, and nothing to evaluate as a model. | The runtime has zero dependencies, which makes the no-model claim mechanically checkable; `tests/test_answering.py` holds every answer to its source text. |
 | Documentation | Applies — and the pages are tested, which is the part that matters. `tests/test_docs.py` executes every command block in [docs/demo.md](docs/demo.md) and holds its output byte for byte, and executes the README's blocks under a looser rule that still forbids showing a word the command never printed. | This README, [DESIGN.md](DESIGN.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [WORKLOG.md](WORKLOG.md), [docs/I18N.md](docs/I18N.md), [docs/authoring.md](docs/authoring.md), and the ADR log at [docs/adr/](docs/adr/). |
 | Quality & Metrics | Applies — the floors are measured rather than aspirational, and a floor that differs from the auditor's own default must carry a written reason that `audit_guard.py` enforces against the pinned harness's source. The guard also catches what a floor cannot: a score that moved without breaching one, in either direction. | `plumbline/target.toml`, `audit_guard.py`, `tests/test_audit_guard.py`, and the 85% branch-coverage floor in `pyproject.toml`. |
