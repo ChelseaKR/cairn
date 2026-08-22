@@ -19,9 +19,10 @@
 # other having been run.
 #
 # Pages must be enabled in repository settings (Settings > Pages > Source:
-# GitHub Actions) before this can deploy. It is NOT enabled as of 2026-08-16.
-# Until it is, this workflow runs the verification and the deploy step fails,
-# which is the correct report for "the site is not published".
+# GitHub Actions) before this can deploy. It was enabled on 2026-08-16 and the
+# first deploy succeeded the same day. If it is ever disabled again, this
+# workflow still runs the verification and the deploy step fails, which is
+# the correct report for "the site is not published".
 #
 # Every action is pinned to a commit rather than a tag. The argument is
 # plumbline.pin's, applied here: a tag can be moved, and a green deploy today
