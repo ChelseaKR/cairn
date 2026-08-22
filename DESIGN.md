@@ -73,6 +73,7 @@ plumbline/baseline.json the committed bar: one line per suite, harness-written
 tests/                  stdlib unittest suite (runs with zero third-party deps)
 tests/browser/          Chromium behaviour checks — outside the core dev path
 benchmark_index.py      dev-only: index build/read/query timing at scale
+import_corpus.py        dev-only: .txt/.html to reviewable corpus scaffold
 docs/authoring.md       the FAQ-pair convention for closing a lexical gap
 docs/I18N.md            language support: scope and flip conditions, by tier
 ```

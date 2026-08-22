@@ -97,6 +97,20 @@ tooling, repository documentation, and one new read-only operator command.
   index structure that skips passages a query cannot match. Written up in
   DESIGN.md with the concrete (unbuilt) fix sketched: precomputed per-passage
   vector norms, an additive index-format bump.
+- `import_corpus.py`: dev-only, stdlib-only, never wired into `cairn index`
+  or any runtime path — scaffolds a `.txt`/`.html` file into reviewable
+  front-matter markdown. The doc id is prefixed `review-` and never
+  auto-finalized; a `review: unreviewed` front-matter key (inert to Cairn)
+  marks the file for human review, deliberately kept out of the body text
+  itself, because anything written into the body becomes a real, scored,
+  retrievable passage the moment the file is indexed. After writing, the
+  script loads the scaffold back through `cairn.corpus.load_document` — the
+  exact function `cairn index` calls — and prints the passage boundaries
+  that call produced, so the chunk preview cannot drift from what indexing
+  would actually do. Caught and fixed a real bug while testing it by hand:
+  the HTML `<title>` extractor was swallowing the title text because
+  `<title>` lives inside `<head>`, which the extractor also uses to suppress
+  body text — now regression-tested.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
