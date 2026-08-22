@@ -88,6 +88,15 @@ tooling, repository documentation, and one new read-only operator command.
   that lifts every passage of a document by the same amount. Documentation
   only; no code, no lint rule (one is sketched and deliberately left
   unbuilt, pending measurement).
+- `benchmark_index.py`: dev-only, stdlib-only, not gated in CI — generates a
+  deterministic synthetic corpus at a chosen size and times build, read, and
+  query, to measure where DESIGN.md's "milliseconds on a laptop demo" claim
+  stops holding rather than leaving it asserted forever. Measured
+  2026-08-22: ~44ms median query at 400 passages, ~438ms at 4,000, ~2.2s at
+  20,000 — linear in passage count, because scoring is a full scan with no
+  index structure that skips passages a query cannot match. Written up in
+  DESIGN.md with the concrete (unbuilt) fix sketched: precomputed per-passage
+  vector norms, an additive index-format bump.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
