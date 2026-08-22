@@ -47,6 +47,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "({language}). They are quoted exactly as published."
         ),
         "sources_heading": "Sources:",
+        "copy_answer_summary": "Copy answer text",
         # --- chat interface ---
         "page_title": "Cairn — ask about Harbor County benefits",
         "skip_link": "Skip to the question box",
@@ -104,6 +105,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "({language}). Se citan tal como fueron publicadas."
         ),
         "sources_heading": "Fuentes:",
+        "copy_answer_summary": "Copiar el texto de la respuesta",
         "page_title": "Cairn — preguntas sobre los beneficios del Condado de Harbor",
         "skip_link": "Ir al cuadro de preguntas",
         "heading_main": "Pregunte sobre los beneficios del Condado de Harbor",
@@ -161,6 +163,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "نُشرت تمامًا."
         ),
         "sources_heading": "المصادر:",
+        "copy_answer_summary": "نسخ نص الإجابة",
         "page_title": "كايرن — اسأل عن مساعدات مقاطعة هاربر",
         "skip_link": "انتقل إلى مربع السؤال",
         "heading_main": "اسأل عن مساعدات مقاطعة هاربر",
@@ -218,6 +221,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "publiées."
         ),
         "sources_heading": "Sources :",
+        "copy_answer_summary": "Copier le texte de la réponse",
         "page_title": "Cairn — questions sur les aides du comté de Harbor",
         "skip_link": "Aller à la zone de question",
         "heading_main": "Posez une question sur les aides du comté de Harbor",

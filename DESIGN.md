@@ -949,6 +949,22 @@ state, no storage, nothing logged about the questions people ask.
 - **Contrast is computed, not eyeballed.** `tests/test_ui.py` parses the
   stylesheet's own custom properties and checks every pair in both
   presentations against AA.
+- **A grounded answer can be copied out of the page with its citations
+  intact, with no JavaScript required.** A read-only `<textarea>` inside a
+  native `<details>`/`<summary>` disclosure, carrying `Answer.cited_text` —
+  the same string the plain-text and JSON forms already carry, so this adds
+  no third idea of what "the answer" is. Deliberately the smallest surface
+  of the interactive-UI ideas considered alongside it: no live-region
+  interaction (labelled by `aria-label`, not a `<label for>`, so no `id` is
+  minted that could collide when the client script accumulates a second
+  turn into the same transcript — see `cairn/ui/page.py`, `_copy_export`),
+  no focus movement, no clipboard API, nothing that could go wrong that a
+  plain readonly form control cannot already be trusted to get right. The
+  other ideas in that set — keyboard shortcuts, an in-page explain-mode
+  toggle, a corpus-browsing page — were deliberately not built: this
+  project's own stated priority is a real screen-reader session before any
+  further interactive surface ships, that session has not happened, and
+  nothing in this environment could run one.
 
 ### Two layers of accessibility checking
 

@@ -130,6 +130,32 @@ def _sources(answer: Answer, lang: str) -> str:
     )
 
 
+def _copy_export(answer: Answer, lang: str) -> str:
+    """A read-only, always-visible way to get the answer out of the page
+    with its citations intact — no JavaScript required, no live region
+    touched, no `id` minted (a `<label for>` would collide across repeated
+    transcript turns; `aria-label` on the control needs none).
+
+    `<details>`/`<summary>` is a native disclosure widget: keyboard-operable
+    and announced correctly with no ARIA authored for it, so the transcript
+    stays compact by default without adding an interaction the markup layer
+    has to get right on its own.
+
+    Only for a grounded answer. A refusal has no sources to preserve, and
+    `Answer.cited_text` for one is just `Answer.text` again (see
+    `cairn/answer.py`) — nothing this control would add over the refusal
+    text already on the page.
+    """
+    if not answer.sources:
+        return ""
+    label = escape(message("copy_answer_summary", lang))
+    body = escape(answer.cited_text)
+    return f"""    <details class="copy-answer">
+      <summary>{label}</summary>
+      <textarea readonly rows="4" {_attrs(answer.lang)} aria-label="{label}">{body}</textarea>
+    </details>"""
+
+
 def turn_markup(question: str, result: AskResult, lang: str) -> str:
     """One question and its answer, as the transcript holds them.
 
@@ -153,6 +179,7 @@ def turn_markup(question: str, result: AskResult, lang: str) -> str:
     <h3 class="turn-label">{escape(label)}</h3>
 {notice}{_answer_blocks(answer)}
 {_sources(answer, lang)}
+{_copy_export(answer, lang)}
   </li>"""
 
 

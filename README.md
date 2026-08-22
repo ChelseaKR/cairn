@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 453 tests plus 63 browser behaviour checks, standard library only,
+server. 457 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -287,10 +287,10 @@ a separate project, pinned to an exact commit in
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 81ca3d7003f072ea60885f6ea4adcc7706e0ebe43abef4aa250167fc3ca2734d
+Bundle sha256: 53a7df3bf877c407a3b4c31e19a4373a79b20eb284fef9e9ebafdef1b0d700cf
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 81ca3d7003f0, run ...
+GATE: PASS — target cairn-demo, dataset 53a7df3bf877, run ...
 all 14 suites passed:
   ...
   multilingual           score 0.9630  floor 0.95  PASS  n=27  ci 0.817-0.993  mde 0.144

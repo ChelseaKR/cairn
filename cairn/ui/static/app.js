@@ -150,6 +150,27 @@
       });
       answered.appendChild(list);
     }
+    /* A read-only, always-visible way to get the answer out of the page
+       with its citations intact — see cairn/ui/page.py's `_copy_export`,
+       which this mirrors. Only for a grounded answer: a refusal has no
+       sources to preserve, and `cited_text` for one is just `text` again. */
+    if (payload.sources.length) {
+      var details = document.createElement("details");
+      details.className = "copy-answer";
+      details.appendChild(element("summary", null, say("copy_answer_summary")));
+      var textarea = element(
+        "textarea",
+        null,
+        payload.cited_text,
+        payload.lang,
+        payload.dir
+      );
+      textarea.readOnly = true;
+      textarea.rows = 4;
+      textarea.setAttribute("aria-label", say("copy_answer_summary"));
+      details.appendChild(textarea);
+      answered.appendChild(details);
+    }
     turns.appendChild(answered);
     transcript.scrollTop = transcript.scrollHeight;
 

@@ -288,10 +288,10 @@ in [`plumbline.pin`](../plumbline.pin).
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
 Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 81ca3d7003f072ea60885f6ea4adcc7706e0ebe43abef4aa250167fc3ca2734d
+Bundle sha256: 53a7df3bf877c407a3b4c31e19a4373a79b20eb284fef9e9ebafdef1b0d700cf
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
-GATE: PASS — target cairn-demo, dataset 81ca3d7003f0, run ...
+GATE: PASS — target cairn-demo, dataset 53a7df3bf877, run ...
 all 14 suites passed:
   ...
   passage_attribution    score 0.9412  floor 0.90  PASS  n=17  ci 0.730-0.990  mde 0.226  3 unverifiable

@@ -150,6 +150,32 @@ tooling, repository documentation, and one new read-only operator command.
   algorithmic regression still would). Closes the exact gap the Performance
   Standards Conformance row used to name: "no latency or page-weight budget
   is measured and none is gated."
+- A copy/export control in the chat interface: a read-only `<textarea>`
+  inside a native `<details>`/`<summary>` disclosure, carrying
+  `Answer.cited_text` (the same string the plain-text and JSON forms already
+  carry), for a grounded answer only. No JavaScript required — the no-JS
+  page renders it directly (`cairn/ui/page.py`, `_copy_export`) and the
+  client script mirrors it exactly for the accumulating-transcript path
+  (`cairn/ui/static/app.js`, `addTurn`). Labelled with `aria-label` rather
+  than `<label for>` so no `id` is minted that could collide once a second
+  turn joins the transcript. Deliberately the smallest of the interactive-UI
+  ideas considered: no live-region interaction, no focus movement, no
+  clipboard API. The larger ones (keyboard shortcuts, an in-page
+  explain-mode toggle, a corpus-browsing page) were not built — this
+  project's own stated priority is a real screen-reader session before any
+  further interactive surface ships, and that session has not happened.
+  **Regenerated the evidence bundle** (`cairn record`) and `site/index.html`
+  (`site_build.py`) to match: this change alters the served page and its
+  embedded strings, which `plumbline/bundle/interface.html` snapshots.
+  `items.jsonl`, `responses.jsonl`, `sources.jsonl`, `manifest.json`, and
+  `DATASET.md` came back byte-identical — only `interface.html` and
+  `checksums.json` changed — confirming no answer, citation, or refusal
+  changed, only the interface snapshot. The dataset id and bundle sha256
+  shown in README.md and docs/demo.md are updated to match. **The audit
+  gate itself was not re-run** (`./plumbline-gate.sh` needs the
+  network-resolved Plumbline harness, unavailable in this environment), so
+  `plumbline/baseline.json` is not regenerated; a maintainer with gate
+  access should run it before relying on this as a graded change.
 - `Makefile`: `make verify` is the local gate — lockfile check, ruff, mypy, and
   the test suite under coverage with an 85% branch floor (measured 89%). It is
   deliberately not a wrapper around `./plumbline-gate.sh`; the merge gate stays
