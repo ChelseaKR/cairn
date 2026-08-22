@@ -86,6 +86,7 @@ docs/deployment.md      exposing `cairn serve` past a single laptop, safely
 docs/embedding.md       putting Cairn in an agency's own site: iframe, CORS
 docs/refusal-analytics.md  finding corpus gaps from refusals, no questions kept
 docs/followup.md        a real refusal-to-human handoff, opt-in and on consent
+docs/compliance.md      security, data handling, retention, for a procurement review
 ```
 
 `engine.ask` is the only entry point that answers a question. The CLI and the

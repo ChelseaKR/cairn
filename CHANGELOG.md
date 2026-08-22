@@ -316,6 +316,20 @@ tooling, repository documentation, and one new read-only operator command.
   Plumbline harness, unavailable in this environment), so
   `plumbline/baseline.json` is not regenerated; a maintainer with gate
   access should run it before relying on this as a graded change.
+- `docs/compliance.md`: a compliance/procurement readiness summary for a
+  privacy officer, security reviewer, or procurement analyst — not a
+  developer configuring the software. Draws together security posture,
+  data handling (including the two opt-in server features that hold real
+  data, `--refusal-stats` and `--followup-store`, and how they differ),
+  and accessibility status from where each is already established
+  (SECURITY.md, README.md's Standards Conformance table, DESIGN.md), and
+  adds the one thing stated nowhere else as plainly: Cairn enforces no
+  retention period on any file it writes, for any feature — stated
+  per-file, with `--followup-store`'s real personal data named as the one
+  piece that needs a written retention decision before it is turned on.
+  Also states the support-and-maintenance reality plainly (one unpaid
+  maintainer, no SLA) for a procurement risk register. README.md's
+  Incident Response and Data Governance rows cross-reference it.
 
 #### Changed
 
