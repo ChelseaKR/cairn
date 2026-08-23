@@ -183,13 +183,36 @@ def load_sources(path: str | Path) -> SourceList:
 Fetcher = Callable[[str], tuple[int, bytes]]
 
 
+#: Schemes this script will open. `urllib` also understands `file:`, `ftp:` and
+#: `data:`, so a URL from a source list could make this read a local path and
+#: write it into the corpus as if it came from a government site. The source
+#: loader refuses such a URL already; this is the same refusal at the call,
+#: so a caller that skips the loader gets it too (`live_check.py` does the
+#: same for the served page).
+FETCHABLE_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+
+
 def fetch_url(url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> tuple[int, bytes]:
     """One GET. Returns `(status, body)`; an HTTP error is returned as its
     status with whatever body came with it rather than raised, because the
-    manifest wants the status either way."""
+    manifest wants the status either way. A URL whose scheme is not http or
+    https is refused with a `ValueError` before anything is opened."""
+    parts = urlparse(url)
+    if parts.scheme not in FETCHABLE_SCHEMES or not parts.netloc:
+        raise ValueError(
+            f"refusing to fetch {url!r}: only {', '.join(sorted(FETCHABLE_SCHEMES))} "
+            f"URLs with a host are fetchable"
+        )
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+        # The rule below asks that dynamic urllib calls be audited so a caller
+        # cannot control the scheme. That audit is the FETCHABLE_SCHEMES check
+        # above, which refuses anything but http and https with a host before
+        # this line is reached. The rule matches on the value being dynamic and
+        # cannot see the guard, so it is suppressed at this call rather than
+        # repo-wide. The refusal is covered by a test.
+        # nosemgrep: dynamic-urllib-use-detected
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read() if exc.fp else b""
@@ -357,7 +380,7 @@ def run(
         }
         try:
             status, body = fetcher(page.url)
-        except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
             status, body = 0, b""
             entry["error"] = str(exc)
         entry["status"] = status

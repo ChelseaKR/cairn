@@ -65,6 +65,17 @@ class TestFileStem(unittest.TestCase):
         )
 
 
+class TestFetchUrlRefusesNonHttp(unittest.TestCase):
+    """The guard at the call, not only in the loader: `urllib` would happily
+    open `file:///etc/passwd` and this script would write it into the corpus
+    with a government URL in its front matter."""
+
+    def test_file_scheme_is_refused_before_anything_is_opened(self):
+        for url in ("file:///etc/passwd", "ftp://example.gov/x", "data:text/html,hi", "https:///nohost"):
+            with self.assertRaises(ValueError, msg=url):
+                fetch_pages.fetch_url(url)
+
+
 class TestLoadSources(unittest.TestCase):
     def test_good_list(self):
         with tempfile.TemporaryDirectory() as tmp:
