@@ -18,6 +18,19 @@ section describes a release that does not exist is worse than one that is
 behind. So unreleased work waits at `###` until the version is bumped, and then
 becomes a version section like any other.
 
+### Unreleased
+
+#### Added
+
+- `collect_queries.py`: candidate questions for the pilot from public
+  sources of questions nobody wrote for Cairn — MS MARCO's real search
+  queries (non-commercial research), filtered to the pilot's programs and
+  drawn with a seed, and Stack Exchange questions (CC BY-SA, attributed).
+  `corpus/pilot-ca/candidates.toml` holds 564 of them, unlabelled, which
+  `cairn record` refuses until a person labels them. This replaces the
+  elicitation form as the primary source, because the form needs people to
+  send it to; `docs/pilot-ca.md` says what the replacement costs.
+
 ## 0.3.0 — 2026-08-23
 
 The real-corpus pilot, started. Nothing here changes how a grounded answer

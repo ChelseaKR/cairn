@@ -160,27 +160,59 @@ the county layer. Its General Relief, IHSS and hours questions are not.
 
 ## The question set
 
+The first plan's primary source was eight to twelve people writing questions
+to a form (`docs/pilot-ca-elicitation.md`). That needs eight to twelve
+people, and on 2026-08-23 there were none to ask. What replaced it is
+better in volume and arguably in realism, and worse in two specific ways
+that are written down rather than waved at.
+
 Three sources, tagged, kept separate in analysis:
 
-- **Elicited (primary, ~150).** Eight to twelve people, none of them
-  domain experts, none of them shown the pages, asked what they or someone
-  they know would actually ask about these programs — by the program name
-  they know. `docs/pilot-ca-elicitation.md` is the form. Whether people say
-  "food stamps" or "CalFresh" unprompted is itself data.
-- **Forum-derived (~100).** Question titles transcribed verbatim from
-  public forums where Californians ask about EDD, DMV, CalFresh and
-  Medi-Cal. Whether these are committed or held locally and reported in
-  aggregate is a decision to make before collecting them, not after.
-- **Agency FAQ (control, ~50).** Questions as the agencies phrase them —
-  EDD's and DMV's FAQ pages, SSA's. Expected to answer at near 100%; if this
-  set underperforms, the problem is not vocabulary.
+- **Search queries (primary).** MS MARCO is about a million real,
+  anonymised Bing queries released by Microsoft for non-commercial
+  research. Filtered by the vocabulary of the pilot's programs — "food
+  stamps", "medi-cal", "drivers license", "green card", in the words people
+  type — about 12,000 match, and `collect_queries.py` draws a stratified,
+  seeded sample: forty per topic plus every query that names California
+  (79 of them). What this buys: phrasings nobody wrote for Cairn, from
+  people typing into a box — "how long does it take to get food stamps",
+  "what is the income guideline for wic", "ages to collect social security
+  benefits". What it costs: the queries are **nationwide** (a query about
+  Michigan's tax refund is a *refusal* case for a California corpus, and
+  `names_other_state` flags those so the labeller sees it), **dated**
+  (2016–2018; a query naming a year is naming that year), and **attributable
+  to nobody's county** — so the `county` label means "the corpus this
+  question is asked of", not "where the asker lives", and every question is
+  asked of all three. `location_dependent` is still labelled from the
+  question itself ("where do I apply" is; "what is the income limit" is
+  not).
+- **Stack Exchange (secondary).** Top-voted questions on
+  money.stackexchange and law.stackexchange matching the same vocabulary,
+  via the public API, CC BY-SA 4.0 with the URL and asker each item
+  carries. Longer and more formal than a county caller, from people more
+  financially literate than the median — the reason they are secondary.
+- **Agency FAQ (control, ~50).** Questions as the agencies phrase them.
+  Expected to answer at near 100%; if this set underperforms, the problem
+  is not vocabulary.
 
-Every question is a `cairn record` item (`plumbline/questions.toml` is the
-template): `behavior`, `answering_sources` naming the passage a person
-says answers it, `expected`, `load_bearing` and `fact_id` where a number is
-the answer. Four fields the recorder does not read and `sweep.py` splits
-on: `source` (above), `jurisdiction` (`federal` | `california` | `county` —
-the level the *correct* answer lives at), `county`, and
+`corpus/pilot-ca/candidates.toml` holds 564 candidates (372 search queries,
+192 Stack Exchange), verbatim, with `source`, `topic`, `names_california`,
+`names_other_state` and the attribution each source's terms require — and
+**no** `behavior` or `answering_sources`, so `cairn record` refuses the
+file, as it should. The collector's draw is seeded, so re-running it is a
+diff. The elicitation form stays in `docs/` as the thing to run if people
+become available; its questions would be tagged `elicited` and would be
+the only ones with a real county attached.
+
+A candidate becomes a question when a person labels it: `lang`,
+`behavior`, `answering_sources` naming the passage a person says answers
+it, `expected`, `load_bearing` and `fact_id` where a number is the answer
+(`plumbline/questions.toml` is the template). A candidate that is
+off-topic, or a real question the corpus cannot answer, is a `refuse` item,
+not a discarded one — "who won medicare competitive bidding" is a real
+thing someone typed. Four fields the recorder does not read and `sweep.py`
+splits on: `source` (above), `jurisdiction` (`federal` | `california` |
+`county` — the level the *correct* answer lives at), `county`, and
 `location_dependent` (whether the correct answer changes by county: an
 office address yes, a CalFresh income limit no).
 
@@ -389,7 +421,7 @@ Two more numbers, reported beside the rate:
 |---|---|---|
 | URL lists, terms check, fetch, extractor, browser saves | 24 | Done for the draft lists: 58-county terms survey, counties re-chosen; 136 URLs listed, 132 fetched or browser-saved (43 federal, 35 California, 17 San Mateo, 17 Sonoma, 20 Siskiyou), 131 scaffolded. Four URLs 404 and come off the lists. Growing the lists toward the targets (~130 / ~170 / ~25 each) is the remaining work |
 | Corpus review (~370 docs) | 40 | 0 |
-| Questions (elicitation, forums, FAQ) | 16 | Form written |
+| Questions (search queries, Stack Exchange, FAQ) | 16 | 564 candidates collected and committed; agency FAQ set not yet drawn |
 | Labelling (+20% double-label) | 30 | 0 |
 | Tooling (fetch, assemble, sweep, probes converter) | 9 | Done, tested |
 | Runs (3 per-county + combined, 6 arms) | 18 | 0 |
@@ -402,5 +434,7 @@ Arabic labeller is lined up. San Mateo and Sonoma publish in Spanish and
 (San Mateo) Chinese and Tagalog, none of which is an interface language
 beyond Spanish.
 
-Forum-derived questions: decided 2026-08-23 — committed verbatim, question
-titles only, no usernames, no post bodies, with the forum and date noted.
+Forum-derived questions: decided 2026-08-23 — committed verbatim, titles
+only, with attribution — and then superseded the same day by the search-
+query and Stack Exchange sources above, which have clear terms and needed no
+scraping of a site that forbids it.

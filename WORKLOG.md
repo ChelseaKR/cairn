@@ -1075,3 +1075,19 @@ One line per implementation session: date, what was built, from what input.
   every county corpus assembles at ~95 documents; Siskiyou, whose layer
   was empty two hours earlier, answers "How do I license my dog?" with
   the county's phone number.
+
+- 2026-08-23 — Session 18 (AI implementation session). Input: this
+  repository's own state; the MS MARCO query release and the Stack
+  Exchange API, read as any user would. The maintainer could not run the
+  elicitation form (it needs people), so the pilot's primary question
+  source is now real search queries: `collect_queries.py` filters a
+  million MS MARCO queries to the pilot's programs — about 12,000 match,
+  79 naming California — and draws a seeded sample, plus top-voted Stack
+  Exchange questions with the attribution CC BY-SA requires. 564
+  candidates committed, verbatim, unlabelled, refused by `cairn record`
+  until a person labels them. What it costs is written in the doc:
+  nationwide, 2016–2018, nobody's county. The elicitation page is marked
+  optional and kept. Also this session, earlier: PR #47 merged, 0.3.0
+  released to PyPI and GHCR on the maintainer's instruction and confirmed
+  against both registries; `docs/release.md`'s "by hand" sentence is now
+  one release out of date.
