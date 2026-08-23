@@ -637,3 +637,32 @@ One line per implementation session: date, what was built, from what input.
   Not done, still: the branch-protection ruleset is committed and **not
   applied**, no `v0.1.0` tag exists, the screen-reader pass has not happened,
   and `ck-015` and `ck-022` behave exactly as recorded.
+
+- 2026-08-22 — Session 11 (AI implementation session). Input: a stashed,
+  uncommitted six-feature expansion built in an earlier session against an
+  older `main`, consumed as source material rather than applied wholesale —
+  `main` had since gained 24 merged pull requests the stash never saw,
+  including the branch-protection ruleset actually being applied and
+  `v0.2.0` actually being tagged and published. Landing all six at once
+  would have meant six different concerns arriving as one diff; landed
+  first, and alone: hybrid retrieval.
+
+  `cairn/embed.py`: deterministic hashed character-n-gram embeddings —
+  BLAKE2B feature hashing, never Python's salted `hash()`, so the vector is
+  reproducible across processes (a test runs a child interpreter under three
+  different `PYTHONHASHSEED` values to prove it). Fused into `cairn.retrieve`
+  behind `retrieval.dense_weight`, default 0. Two safety properties, both
+  tested: the dense channel never ranks a passage sharing zero lexical terms
+  with the question, and at `dense_weight == 0` the fused scorer is
+  byte-for-byte the plain lexical one — confirmed by `cairn record
+  --diff-against plumbline/bundle` reporting no difference, not only by the
+  default value being zero. The weight-sweep measurement that keeps it
+  opt-in (w = 0.25 turns the known colloquial refusal into a confident wrong
+  answer) is published in DESIGN.md, "Hybrid retrieval: a dense channel,
+  opt-in".
+
+  The other five — query-understanding passes, structured corpus tables,
+  streaming, multi-turn sessions, and a second pinned adversarial harness
+  (`gauntlet`) — remain stashed, unlanded, each its own future session's
+  input. `make verify`: ruff, mypy, 615 tests, 93% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged.
