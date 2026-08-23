@@ -70,6 +70,11 @@ class Config:
     # what it trades off; 0 is lexical-only and byte-identical to the
     # channel not existing at all.
     dense_weight: float = 0.0
+    # Score each sentence of a multi-part question separately and merge by
+    # best score per passage, rather than scoring the whole question as one
+    # diluted query. Off by default: it changes which passages win on
+    # questions this corpus already answers. See cairn.query.split_intents.
+    split_intents: bool = False
     default_lang: str = "en"
     cross_language_fallback: bool = True
     contact: str = _DEMO_CONTACTS["en"]
@@ -222,6 +227,7 @@ def load_config(path: str | Path | None = None) -> Config:
         candidates=_get(retrieval, "candidates", int, defaults.candidates),
         margin_warn=_get(retrieval, "margin_warn", float, defaults.margin_warn),
         dense_weight=_get(retrieval, "dense_weight", float, defaults.dense_weight),
+        split_intents=_get(retrieval, "split_intents", bool, defaults.split_intents),
         default_lang=_get(language, "default", str, defaults.default_lang),
         cross_language_fallback=_get(
             language, "cross_language_fallback", bool, defaults.cross_language_fallback
