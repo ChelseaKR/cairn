@@ -131,7 +131,13 @@ class TestSplitting(unittest.TestCase):
 
         part_terms: set[str] = set()
         for part in self.trace().intents:
-            part_trace = retrieve(part, self.index, threshold=self.cfg.threshold, candidates=self.cfg.candidates, lang="en")
+            part_trace = retrieve(
+                part,
+                self.index,
+                threshold=self.cfg.threshold,
+                candidates=self.cfg.candidates,
+                lang="en",
+            )
             part_terms.update(part_trace.query_terms)
 
         trace = self.trace()
@@ -141,7 +147,8 @@ class TestSplitting(unittest.TestCase):
         top = trace.candidates[0]
         self.assertTrue(
             set(top.matched) <= set(trace.query_terms),
-            f"top candidate matched terms {top.matched} not contained in query terms {trace.query_terms}",
+            f"top candidate matched terms {top.matched} not contained "
+            f"in query terms {trace.query_terms}",
         )
 
     def test_split_function_matches_the_engine_path(self):
