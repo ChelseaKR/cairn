@@ -454,6 +454,43 @@ tooling, repository documentation, and one new read-only operator command.
   `str(self.index_path)` — a `Path` object's own platform-native string
   form, backslashes on Windows. Fixed by comparing against
   `self.index_path.as_posix()` instead, the form the CLI actually echoes.
+- `Dockerfile`, `.dockerignore`, and `.github/workflows/release.yml`: a
+  PyPI + container release path, item 5 of the second deployment-value
+  expansion round. `release.yml` fires on a published GitHub Release with
+  two independent jobs — `pypi` publishes the sdist and wheel via PyPI
+  trusted publishing (`id-token: write`, no API token stored as a secret;
+  a step checks the release tag against `cairn.__version__` before building
+  anything, so a mistagged release fails loudly rather than publishing
+  mislabelled), and `container` builds and pushes `ghcr.io/chelseakr/cairn`
+  to GHCR using the repository's own `GITHUB_TOKEN`. Neither has ever run
+  for real — no release has been cut — but both are exercised continuously
+  by two new `ci.yml` jobs, `image` and `package`, which build the same
+  artifacts release.yml would publish and run each end to end (the
+  container over real HTTP, the wheel installed into a clean venv) against
+  the demo corpus on every change, so release day is not the first time
+  either build is tried. The `Dockerfile` itself was actually built and run
+  during development — not just written — surfacing one real gap in what
+  had only ever been an illustrative snippet in docs/deployment.md: it had
+  no step baking an index, so `cairn serve` would have refused on its first
+  request in a container built exactly as documented. Fixed by adding
+  `python -m cairn index` at build time and a non-root `USER` for
+  everything after it (nothing past that point needs root, since `cairn
+  serve` writes nothing in this configuration); docs/deployment.md's fenced
+  block and `pyproject.toml`'s new `release` extra (`build>=1.2`, kept
+  separate from `dev` since neither install has a use for the other's
+  tools) were updated to match. New `docs/release.md` documents the one
+  thing this repository cannot do for itself here either, the same shape
+  as `.github/rulesets/README.md`: registering a PyPI trusted publisher —
+  a *pending* one, since the project has never been published — is a
+  one-time action only the project owner can take on PyPI's own site.
+  `tests/test_container.py` holds the real `Dockerfile` and the docs page's
+  copy of it to the same directives, checks the release workflow's
+  structural claims (OIDC not a stored secret, every action pinned to a
+  commit, the tag-version check present), and confirms `EXPOSE` still
+  matches `cairn serve --port`'s own default. `.github/rulesets/main.json`
+  gains the two new required contexts (nine now, from seven), and
+  README.md's CI/CD conformance row states plainly that nothing has been
+  published yet.
 
 #### Changed
 

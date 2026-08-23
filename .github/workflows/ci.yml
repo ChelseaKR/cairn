@@ -1,6 +1,6 @@
 # Cairn CI.
 #
-# Six jobs, in deliberate order of dependency:
+# Eight jobs, in deliberate order of dependency:
 #
 #   core            install, lint, test. Standard library only, no network
 #                   needed, and no auditor: this is the path a contributor
@@ -12,6 +12,14 @@
 #                   `core`, one canary job per non-Linux OS at the newer
 #                   supported Python version — the stdlib-only claim is a
 #                   claim about the package, not about Ubuntu.
+#   image      builds the container image release.yml pushes to GHCR, and
+#              asks it the demo question over HTTP, on every change — not
+#              only at release time.
+#   package    builds the sdist and wheel release.yml's pypi job publishes,
+#              installs the wheel into a clean environment, and asks it the
+#              demo question too — an editable install (what `core` tests)
+#              proves nothing about whether the distributed artifact is
+#              complete on its own.
 #   interface  the accessibility behaviours that need a real browser.
 #   audit      the merge gate. Resolves the pinned auditor, grades the
 #              recorded evidence, and then holds the result against the
@@ -229,6 +237,78 @@ jobs:
             echo "the engine imports the auditor; it must not" >&2
             exit 1
           fi
+
+  # Builds the image release.yml pushes to GHCR — proves it on every change,
+  # not only at release time, which is the only reason to have this job in
+  # this file rather than only in that one. Does not push anywhere: no
+  # registry credential this job needs, and a required check that could push
+  # on a fork's pull request would be its own kind of hole.
+  image:
+    name: image (the container actually builds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        run: docker build -t cairn:ci .
+      # Not just "the build exited 0" — a container whose entrypoint fails
+      # on its first real request would still build cleanly. Runs the same
+      # question the demo path in `core` and `core-windows`/`core-macos`
+      # already ask, so an answer that drifts from what those jobs got is
+      # this job failing too, not a silent extra path.
+      - name: Run it and ask it the demo question
+        run: |
+          docker run -d --name cairn-ci -p 18765:8765 cairn:ci
+          for _ in $(seq 1 20); do
+            curl -fs http://127.0.0.1:18765/ >/dev/null && break
+            sleep 0.5
+          done
+          out=$(curl -fs http://127.0.0.1:18765/ask \
+            -d 'question=How much is the monthly grocery allowance for one person?' \
+            -d 'lang=en')
+          docker logs cairn-ci
+          echo "$out" | grep -q '\$212' || {
+            echo "the containerized server did not ground the demo question" >&2
+            exit 1
+          }
+
+  # Proves the artifact release.yml's pypi job publishes is actually
+  # installable, on every change — not only when a release makes that job
+  # run for real. `pip install -e ".[dev]"` in `core` never builds a real
+  # sdist or wheel, only an editable install against the checkout; this
+  # does what an operator running `pip install cairn-assistant` will get.
+  package:
+    name: package (the sdist and wheel actually install and run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build the sdist and the wheel
+        run: |
+          pip install --no-cache-dir -e ".[release]"
+          python3 -m build
+
+      # A fresh venv, not the one `pip install -e` above already put cairn
+      # into — installing from an editable checkout would prove nothing
+      # about whether the wheel dist/ just produced is complete on its own.
+      - name: Install the wheel into a clean environment and run it
+        run: |
+          python3 -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install --no-cache-dir dist/*.whl
+          /tmp/wheel-env/bin/cairn index
+          out=$(/tmp/wheel-env/bin/cairn ask \
+            "How much is the monthly grocery allowance for one person?")
+          echo "$out"
+          echo "$out" | grep -q '\$212' || {
+            echo "the installed wheel did not ground the demo question" >&2
+            exit 1
+          }
 
   interface:
     name: interface (accessibility behaviours in Chromium)

@@ -1,0 +1,111 @@
+# What happens when a GitHub Release is published: a source distribution and
+# a wheel go to PyPI, and a container image goes to GHCR. Nothing here cuts
+# the release itself — that is a `git tag` and a "Publish release" click, a
+# human action on purpose (see CHANGELOG.md's own header: "the annotated tag
+# is cut by the maintainer... because tagging is a push and this repository's
+# working rule is that an agent does not push"). This workflow starts only
+# once that has already happened.
+#
+# Two jobs, independent of each other — a PyPI failure should not block the
+# container push or the reverse, since neither is a prerequisite for the
+# other actually being useful to someone.
+#
+# `id-token: write` on the `pypi` job is the whole authentication story:
+# PyPI trusted publishing exchanges GitHub's OIDC token for a scoped,
+# short-lived upload credential, so there is no PyPI API token stored as a
+# repository secret to leak, rotate, or scope wrong. It requires a one-time
+# setup on PyPI's side that this workflow cannot do for itself — see
+# docs/release.md.
+#
+# The container job authenticates with the repository's own GITHUB_TOKEN,
+# scoped by the `packages: write` permission below and nothing else; no
+# secret to configure there at all.
+#
+# Every action is pinned to a commit rather than a tag, matching every other
+# workflow in this repository.
+
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    name: pypi (build and publish via trusted publishing)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/cairn-assistant/
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # A release tagged v0.2.0 that built and published a wheel labelled
+      # 0.3.0 would be a real, silent mislabelling — the tag names one
+      # version, the artifact claims another. tests/test_cli.py already
+      # holds cairn.__version__, pyproject.toml, and CITATION.cff to each
+      # other; this is the fourth place that number has to agree, checked
+      # before anything is built rather than after.
+      - name: The release tag names the version this package actually is
+        if: github.event_name == 'release'
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          version="${tag#v}"
+          declared=$(python3 -c "from cairn import __version__; print(__version__)")
+          if [ "$version" != "$declared" ]; then
+            echo "release tag '$tag' names version '$version', but cairn.__version__ is '$declared'" >&2
+            exit 1
+          fi
+
+      - name: Build the sdist and the wheel
+        run: |
+          pip install --no-cache-dir -e ".[release]"
+          python3 -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+
+  container:
+    name: container (build and push to GHCR)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The release tag alongside `latest`, not instead of it: someone who
+      # pulls `:latest` next month should not silently start running last
+      # month's index-baked-at-build-time demo corpus without a way to tell
+      # it changed, and someone who wants exactly what a security review
+      # looked at should be able to pin the tag that review actually ran.
+      - name: Build and push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/chelseakr/cairn:latest
+            ghcr.io/chelseakr/cairn:${{ github.event_name == 'release' && github.event.release.tag_name || 'manual' }}
