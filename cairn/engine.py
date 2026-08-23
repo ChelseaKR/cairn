@@ -25,12 +25,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from cairn.answer import Answer, compose
+from cairn.answer import Answer, Source, compose
 from cairn.config import Config
 from cairn.index import Index
 from cairn.language import LANGUAGES, Detection, detect, direction_of, endonym_of, isolate
 from cairn.messages import text as message
+from cairn.query import split_intents
 from cairn.retrieve import RetrievalTrace, retrieve
+from cairn.tabular import parse_count_query, render_row, run_count
 
 
 class EngineError(ValueError):
@@ -58,6 +60,11 @@ class AskResult:
     answer: Answer
     detection: Detection
     attempts: tuple[Attempt, ...]
+    # Set only when a structured-table tool produced the answer instead of
+    # passage retrieval (see cairn.tabular). Payload-ready: the CLI's --json
+    # and the server attach it beside the answer so a consumer can tell
+    # "counted from rows" from "quoted from passages".
+    tool: dict | None = None
 
     @property
     def lang(self) -> str:
@@ -76,6 +83,82 @@ def available_languages(index: Index) -> tuple[str, ...]:
     return tuple(sorted(set(LANGUAGES) | set(index.language_codes)))
 
 
+def _answer_from_tables(
+    question: str, index: Index, cfg: Config, *, response_lang: str, detection: Detection
+) -> AskResult | None:
+    """The structured-tool path, or ``None`` to fall through to retrieval.
+
+    Reached only when the parser bound a complete count query (see
+    :func:`cairn.tabular.parse_count_query`), so falling through is the
+    exceptional case — a column that turned out unreadable at run time — and
+    not a second guessing round. A bound query that matches zero rows refuses
+    outright rather than falling through: "how many programs over $100" got
+    its answer ("none") from the table, and answering some adjacent *passage*
+    instead would be answering a different question.
+    """
+    query = parse_count_query(question, index.tables)
+    if query is None:
+        return None
+    executed = run_count(query, index.tables)
+    if executed is None:
+        return None
+    table, matched = executed
+    rtl = direction_of(response_lang) == "rtl"
+    contact = cfg.contact_for(response_lang)
+    refusal_text = message(
+        "refusal", response_lang, contact=isolate(contact) if rtl else contact
+    )
+    trace = RetrievalTrace(query=question, threshold=cfg.threshold, candidates=())
+    tool = {
+        "op": query.op,
+        "table": table.table_id,
+        "column": query.column,
+        "comparator": query.comparator,
+        "value": query.value,
+        "matched_rows": [f"{table.table_id}#{number}" for number in matched],
+    }
+    if not matched:
+        return AskResult(
+            answer=Answer(
+                kind="refusal", text=refusal_text, sources=(), trace=trace,
+                lang=response_lang,
+            ),
+            detection=detection,
+            attempts=(),
+            tool=tool,
+        )
+    rendered = {number: render_row(table, number) for number in matched}
+    sources = tuple(
+        Source(
+            title=table.title,
+            source_id=f"{table.table_id}#{number}",
+            lang=table.lang,
+            text=rendered[number],
+        )
+        for number in matched
+    )
+    notice = message(
+        "table_count_notice",
+        response_lang,
+        count=len(matched),
+        total=table.row_count,
+        title=table.title,
+    )
+    return AskResult(
+        answer=Answer(
+            kind="grounded",
+            text="\n\n".join(rendered[number] for number in matched),
+            sources=sources,
+            trace=trace,
+            lang=response_lang,
+            notice=notice,
+        ),
+        detection=detection,
+        attempts=(),
+        tool=tool,
+    )
+
+
 def ask(question: str, index: Index, cfg: Config, *, lang: str | None = None) -> AskResult:
     languages = available_languages(index)
     if lang is not None and lang not in languages:
@@ -88,18 +171,44 @@ def ask(question: str, index: Index, cfg: Config, *, lang: str | None = None) ->
     response_lang = detection.lang
     rtl = direction_of(response_lang) == "rtl"
 
-    primary = retrieve(
-        question,
-        index,
-        threshold=cfg.threshold,
-        candidates=cfg.candidates,
-        lang=response_lang,
-    )
+    if cfg.tables_enabled and index.tables:
+        table_result = _answer_from_tables(
+            question, index, cfg, response_lang=response_lang, detection=detection
+        )
+        if table_result is not None:
+            return table_result
+
+    # Query understanding pass, opt-in (see cairn.query). Splitting replaces
+    # the primary search; a single-part question is returned from it
+    # untouched, so the default path is byte-identical to plain retrieval.
+    if cfg.split_intents:
+        primary = split_intents(
+            question,
+            index,
+            threshold=cfg.threshold,
+            candidates=cfg.candidates,
+            lang=response_lang,
+            dense_weight=cfg.dense_weight,
+        )
+    else:
+        primary = retrieve(
+            question,
+            index,
+            threshold=cfg.threshold,
+            candidates=cfg.candidates,
+            lang=response_lang,
+            dense_weight=cfg.dense_weight,
+        )
     attempts = [Attempt(scope="language", trace=primary)]
     chosen = primary
     if not primary.grounded and cfg.cross_language_fallback:
         widened = retrieve(
-            question, index, threshold=cfg.threshold, candidates=cfg.candidates, lang=None
+            question,
+            index,
+            threshold=cfg.threshold,
+            candidates=cfg.candidates,
+            lang=None,
+            dense_weight=cfg.dense_weight,
         )
         attempts.append(Attempt(scope="corpus", trace=widened))
         if widened.grounded:

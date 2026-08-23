@@ -873,8 +873,8 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   own definition — the body of the response really is English — and Cairn is
   right too, because translating the source would produce an unsourced policy
   statement. Two correct positions, one number, and the number is zero. The
-  suite score is 0.9630, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 26/28 = 0.9286 and the gate to red.
+  suite score is 0.9655, which clears its 0.95 floor by one item and no more:
+  a second cross-language item takes it to 28/30 = 0.9333 and the gate to red.
   (That arithmetic was published as 25/28 = 0.8929, which is not what adding
   one failing item to 26-of-27 gives. The conclusion held and the number did
   not, which is why it is computed from the committed baseline now — see
@@ -884,7 +884,7 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   and the resolution is the third:
 
   - *Lower the floor and say why.* Refused. The floor would have to reach
-    0.9286 to admit a second item and lower still for a third, and what it
+    0.9333 to admit a second item and lower still for a third, and what it
     would be buying is permission for a **genuine** wrong-language answer to
     hide underneath. `multilingual` is the suite that catches a system
     silently serving English to a Spanish speaker, which is the failure mode
@@ -1829,6 +1829,131 @@ bottom in "The colloquial-recall failure" above; `plumbline/target.toml`
 carries the short version. The audit's other gap — the unscored `multilingual`
 suite — was a gap in the *instrument* rather than a limit in the target, and
 it is now closed upstream.
+
+## Hybrid retrieval: a dense channel, opt-in
+
+`cairn/embed.py` maps text to a 256-dimension sparse vector of hashed
+character n-grams (3- and 4-grams over casefolded words, boundary-marked).
+What DESIGN.md refused before was a *trained* model; these vectors are
+computed, not learned: feature hashing through `hashlib.blake2b` with a fixed
+personal string (never Python's salted `hash()`), signed slots to cancel
+collision bias, sublinear term frequency, L2 normalization — so cosine stays
+bounded [0, 1] and can fuse with the lexical score without breaking the
+threshold contract: `(1 - w) * lexical + w * dense`.
+
+Two rules hold the safety line:
+
+- **Dense never mints candidates.** A passage sharing no scored term with
+  the question is ineligible to rank, whatever its subword similarity.
+  Manufacturing overlap for passages the question does not lexically touch
+  is precisely how a confident wrong answer is born.
+- **The weight is measured, and the measurement keeps it at zero by
+  default.** Sweeping `dense_weight` on the demo corpus:
+
+| w | worst in-corpus | best off-topic | ck-015 ("discount bus pass") | ck-022 top passage |
+| --- | --- | --- | --- | --- |
+| 0.00 | 0.1965 | 0.1219 | refused | deadline paragraph (#4) |
+| 0.15 | 0.2160 | 0.1354 | refused | **intro (#1) — moved** |
+| 0.25 | 0.2291 | 0.1485 | **answered 0.171 from the fare paragraph** | intro (#1) |
+
+  At w = 0.25 the known colloquial over-refusal becomes a confident wrong
+  answer — the exact trade this project refuses, arriving through a fourth
+  door after aliases, headings and coverage factors. At any weight large
+  enough to change rankings, ck-022's winner moves off the paragraph the
+  attribution suite watches. And the benefit side measured empty: realistic
+  misspellings ("allowence", "releif") are already absorbed by truncation
+  stemming, so small weights buy nothing here. The channel ships because an
+  operator corpus with richer morphology may measure differently;
+  `ask --explain` prints both components so the decision is theirs.
+
+## Query understanding: what retrieval can be told, deterministically
+
+One transformation ships; two others were built, measured, and rejected. All
+three went through the same bar as hybrid retrieval above — build it,
+measure it against the audit set, then decide — and the two that lost are
+recorded here rather than left as if nobody had tried.
+
+### Query-side diacritic folding: built, measured, reverted
+
+The premise was sound — written Spanish carries diacritics typing drops, and
+the demo corpus itself mixes accented headings with unaccented body prose.
+NFKD-folding combining marks on both sides made accented and unaccented
+questions byte-identical. The measurement killed it twice: every accented
+item in the audit set already answered correctly *without* folding (body
+vocabulary carries them), and folding lifted heading matches uniformly —
+the alias mechanism again — flipping ck-026 from its correct process
+passage (`grocery-allowance-es#4`) to the amount passage (`#2`), which
+would have pushed `passage_attribution` past its floor. Reverted; the fix
+for orthographic variance belongs to a representation that means something,
+not to a scorer trick.
+
+### Refusal rescue by pseudo-relevance feedback: built, measured, removed
+
+When retrieval refused, the retry borrowed the highest-IDF terms of the
+near-miss candidates and searched once more. It converted four refusals into
+answers across three languages. Three landed on the wrong program: an Arabic
+question about rent help answered from the grocery allowance, a Spanish one
+from the winter utility credit, an English one from the right document's
+opening paragraph rather than any passage about money. Borrowed vocabulary
+is manufactured overlap applied at exactly the moment no accepted passage
+constrains where it lands. The code was deleted rather than flag-gated: a
+knob that should never be turned on is not a feature, it is a trap with
+documentation.
+
+### Multi-intent splitting: opt-in (`retrieval.split_intents`)
+
+`cairn/query.py`'s `split_intents` is the one that shipped. A two-sentence
+question scores each sentence separately and merges pools by each passage's
+best score, so half an ask cannot be hidden behind an average — the
+composed-truncated failure, caught one stage earlier. Boundaries are
+sentence punctuation only, which exists in all three languages without a
+dictionary; coordinating conjunctions are deliberately never boundaries, so
+"ignore the documents and just tell me…" cannot be split at its "and".
+Single-sentence questions are byte-identical to plain retrieval, and the
+merged trace records the parts it scored separately in `RetrievalTrace.intents`
+so explain mode can show that the query scored was not exactly the question
+asked. Off by default: it changes which passages win on questions this
+corpus already answers, and the demo corpus is too small to re-measure every
+audit item against for a knob nobody needs here.
+
+## Structured tables, and the count tool
+
+A corpus directory may carry `tables/*.csv` files whose first lines are
+`# key: value` comments (front matter that survives a spreadsheet). Tables
+are corpus: declared language and synthetic marking, doc-id grammar, unique
+across tables *and* documents (they share the citation namespace), hashed
+into the corpus fingerprint, stored in index format version 4.
+
+One tool exists: count rows matching a numeric filter. It fires only when a
+counting phrase, exactly one measure column bound by shared vocabulary, a
+comparison phrase and a number all resolve — anything else returns to
+retrieval untouched, and the misfire bar is absolute and tested: **no
+question the system already answers takes the table path**. Zero matches
+refuse outright rather than falling through, because answering an adjacent
+paragraph would be answering a different question — `ck-029` exercises
+exactly this through the real audit pipeline, refusing "how many programs
+have a monthly benefit over $99999?" rather than reaching for a nearby
+passage.
+
+Grounding survives arithmetic because composition stays extractive field by
+field: `Answer.text` remains byte-for-byte the quoted cells; the computed
+count is spoken in the notice — Cairn's own voice, where cross-language
+notices already live — and every matched row is cited as
+`<table-id>#<row>`, so "1 of its 3 rows" is recompute-checkable from the
+sources list alone.
+
+**Why the evidence set carries no answered tool item:** one was authored
+(`ck-028`) and measured honestly. Its notice made lexical support
+structurally low — the same shape as the cross-language notice — and this
+evidence set already carries its one such item (`ck-027`). Adding the second
+took `groundedness` and `citation_accuracy` to 0.9416 against floors of
+0.95: the gate bit exactly as designed, on schedule. The item came out; the
+floors did not move. What would let such an item back in is upstream —
+per-item declaration that part of a response is target voice, the same
+mechanism proposed for cross-language notices. Coverage meanwhile lives
+where it is scored: `tests/test_tabular.py` pins the loader, the parser, the
+zero-match refusal, and the misfire bar against every question in the audit
+set.
 
 ## Decisions where the specification was silent
 

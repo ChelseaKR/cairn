@@ -306,10 +306,20 @@ def build_items_and_responses(
         for field in AUTHORED_FIELDS:
             if question.get(field) not in (None, [], {}):
                 item[field] = question[field]
-        item["sources"] = [
-            source_id(candidate.passage.passage_id)
-            for candidate in answer.trace.accepted
-        ]
+        # "Source ids retrieved for this item" — the passages composition
+        # chose from on the retrieval path, or the table rows the tool quoted
+        # when a structured tool produced the answer. A tool answer records
+        # no retrieval candidates (none ran), and leaving `sources` empty
+        # would make its citations unresolvable in the bundle's own index.
+        if result.tool is not None:
+            item["sources"] = [
+                source_id(sid) for sid in result.tool.get("matched_rows", [])
+            ]
+        else:
+            item["sources"] = [
+                source_id(candidate.passage.passage_id)
+                for candidate in answer.trace.accepted
+            ]
         items.append(item)
         responses.append({"id": question["id"], "response": answer.cited_text})
     return items, responses
@@ -337,6 +347,19 @@ def record(
         }
         for passage in index.passages
     ]
+    # Table rows join the bundle's resolvable-source universe: a citation to
+    # `<table-id>.<row>` must resolve exactly like one to a passage.
+    from cairn.tabular import render_row
+
+    sources.extend(
+        {
+            "id": source_id(f"{table.table_id}#{number}"),
+            "title": f"{table.title} (row {number})",
+            "text": render_row(table, number),
+        }
+        for table in index.tables
+        for number in range(1, table.row_count + 1)
+    )
 
     _jsonl(bundle / "items.jsonl", items)
     _jsonl(bundle / "responses.jsonl", responses)

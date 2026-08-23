@@ -23,6 +23,7 @@ from cairn.config import Config
 from cairn.engine import ask
 from cairn.index import build_index
 from cairn.record import RecordError, load_questions
+from cairn.tabular import render_row
 
 ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS = ROOT / "plumbline" / "questions.toml"
@@ -66,7 +67,15 @@ class TestTheAuthoredGroundTruth(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.questions = questions()
-        cls.passages = {p.passage_id for p in build_index(DEMO).passages}
+        built = build_index(DEMO)
+        # Table rows are citable sources too (`<table-id>#<row>`), so the
+        # universe an `answering_sources` declaration can name is passages
+        # plus rows.
+        cls.passages = {p.passage_id for p in built.passages} | {
+            f"{t.table_id}#{number}"
+            for t in built.tables
+            for number in range(1, t.row_count + 1)
+        }
 
     def test_every_answer_item_declares_one(self):
         undeclared = [q["id"] for q in self.questions
@@ -93,6 +102,14 @@ class TestTheAuthoredGroundTruth(unittest.TestCase):
         # passage does not contain the amount the item expects is either the
         # wrong passage or the wrong expectation.
         passages = {p.passage_id: p.text for p in build_index(DEMO).passages}
+        built = build_index(DEMO)
+        passages.update(
+            {
+                f"{t.table_id}#{number}": render_row(t, number)
+                for t in built.tables
+                for number in range(1, t.row_count + 1)
+            }
+        )
         exercised = []
         for question in self.questions:
             declared = question.get("answering_sources") or []
