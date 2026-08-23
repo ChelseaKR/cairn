@@ -63,20 +63,32 @@ extend-exclude = [".plumbline-cache"]
 select = ["E", "F", "W", "I", "B", "UP"]
 
 # The complexity limit is configured, and `C90` is deliberately not in `select`
-# yet, because four functions are over it today and would fail the lint step:
-# audit_guard.py `suite_defaults` (12), `regression_findings` (11) and
-# `render_terminal` (11), and cairn/server.py `build_handler` (26). Turning the
-# rule on is a refactor, not a configuration change, so it is a separate piece
-# of work rather than four silent per-file ignores. The number here is the bar
-# that refactor is aiming at.
+# yet, because eight functions are over it today and would fail the lint step:
+# audit_guard.py `harness_defaults` (11), `regression_findings` (11), and
+# `render_terminal` (11); cairn/lint.py `lint_corpus` (11);
+# cairn/tabular.py `parse_count_query` (11); cairn/session.py
+# `_retry_with_context` (18); cairn/server.py `_handle_ask` (19) and
+# `build_handler` (56). Six features landed in one session (2026-08-22, see
+# WORKLOG.md sessions 11-16) roughly doubled `build_handler`'s own number by
+# wiring streaming and sessions into the same request handler that already
+# carried tables, follow-ups and refusal analytics — the shape of what this
+# gap actually costs, not a one-time count. Turning the rule on is a
+# refactor, not a configuration change, so it is separate work rather than
+# eight silent per-file ignores. The numbers here are the bar that refactor
+# is aiming at. See the "good first issue" label for individually-scoped
+# pieces of it.
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
-# Not `--strict`. Strict mode reports 28 findings on this tree today, and
-# silencing them to claim a level this repository has not reached would be the
-# opposite of what the rest of it argues for. What runs here is the default
-# check, which is clean, and the gap is written down in the README's conformance
-# table rather than hidden behind a passing badge.
+# Not `--strict`. Strict mode reports 44 findings on this tree today (was 28;
+# five modules landed in one session, 2026-08-22, each adding its own share —
+# see WORKLOG.md sessions 11-16), and silencing them to claim a level this
+# repository has not reached would be the opposite of what the rest of it
+# argues for. What runs here is the default check, which is clean, and the
+# gap is written down in the README's conformance table rather than hidden
+# behind a passing badge. Most of the 44 are mechanical (a missing return
+# type, a bare `dict` needing type arguments) — see the "good first issue"
+# label for bounded slices of it.
 [tool.mypy]
 python_version = "3.12"
 files = ["cairn"]
@@ -90,7 +102,9 @@ source = ["cairn"]
 
 [tool.coverage.report]
 # The floor is a minimum, not the measurement. Measured 89% branch coverage on
-# 2026-08-17; the floor sits below it so a real regression trips the gate
-# without a routine refactor tripping it for no reason.
+# 2026-08-17, 92% on 2026-08-22 after six features landed in one session
+# (WORKLOG.md sessions 11-16); the floor sits below whichever is current so a
+# real regression trips the gate without a routine refactor tripping it for
+# no reason.
 fail_under = 85
 show_missing = true
