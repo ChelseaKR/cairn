@@ -343,6 +343,117 @@ tooling, repository documentation, and one new read-only operator command.
   script is not running the session — and `tests/test_open_items.py`'s
   anchor for "No manual screen-reader pass" is unchanged. DESIGN.md,
   README.md, and docs/compliance.md cross-reference the new page.
+- `ci.yml`: two new jobs, `core-windows` and `core-macos`, running the same
+  install/lint/test/demo/independence-of-the-auditor steps `core` runs, one
+  canary per non-Linux OS at the newer supported Python version. The
+  stdlib-only, zero-dependency claim was a claim about the package, not
+  about Ubuntu, and until now it was only ever checked there. Deliberately
+  two new jobs rather than a second matrix dimension on `core` itself:
+  `tests/test_rulesets.py` holds every required-status-check context in
+  `.github/rulesets/main.json` against a parser of this file that assumes
+  one matrix key per job, and GitHub folds every matrix key into a check
+  run's name — a two-key `core` matrix would rename every existing `core`
+  check (`core (...) (3.11)` becomes `core (...) (ubuntu-latest, 3.11)`) and
+  need that parser rewritten to stay honest. Two single-OS jobs sidestep
+  that: no matrix, so no name change, so no parser change, and the ruleset
+  gains two more required contexts instead of needing four rewritten ones.
+  No fail-closed drill on either new job — that step runs the vendored gate
+  script itself (`env -u`, `sed`, a `#!/usr/bin/env bash` shebang) and is
+  already covered on `ubuntu-latest` by `core`, `audit`, and `live`; running
+  it again would test Git Bash's or macOS's own bash's shell compatibility,
+  not this repository. Found and fixed while reviewing for the
+  Windows/macOS spot-check: three writes (`interface.html` and `DATASET.md`
+  in `cairn/record.py`, the refusal-stats counters file in
+  `cairn/refusal_stats.py`, the follow-up store's append in
+  `cairn/followup.py`) used `write_text`/`open(..., "w"/"a")` without
+  `newline="\n"`, unlike every sibling write in the same modules — on
+  Windows, Python's default text-mode translation would have written `\r\n`
+  where every other file this project writes deliberately writes `\n`. None
+  of the three sit in `core`'s own codepath (`cairn index` and `cairn ask`
+  only), so nothing here was failing; the audit was static, not a CI
+  failure caught live. `.github/rulesets/main.json` gains the two new
+  required contexts, `.github/rulesets/README.md` is reworded from "the
+  five contexts" to "the seven contexts", and README.md's CI/CD
+  conformance row names both new jobs.
+
+  What the static review could not find, `core-windows`'s first real run
+  did: 54 test failures, all traced to three root causes, none in `cairn/`
+  itself — every one was a test-suite assumption that happened to hold on
+  every platform the suite had ever run on.
+  - **The dominant one, ~40 failures:** roughly a dozen test files build a
+    throwaway `cairn.toml` by interpolating an absolute `Path` into a TOML
+    *basic* (double-quoted) string — `f'path = "{some_path}"\n'`. A TOML
+    basic string treats `\` as an escape character; a Windows path
+    (`C:\Users\...`) is not one, so `tomllib` raised
+    `invalid TOML: Unescaped '\\' in a string` and every test built on that
+    config failed before it reached what it meant to check. Fixed by
+    calling `.as_posix()` on every interpolated path, which a TOML basic
+    string handles cleanly and `cairn/config.py` (and Windows itself, which
+    accepts `/` as a path separator) already reads correctly — not by
+    switching to TOML literal (single-quoted) strings, which would have
+    meant rewriting each site's Python string delimiter too.
+  - **Two `.read_text()` calls in `tests/test_interlock.py`** (auditing
+    `sources.jsonl` and `responses.jsonl` for citation integrity) omitted
+    `encoding="utf-8"`, unlike every sibling call in the same file —
+    `UnicodeDecodeError` decoding non-ASCII evidence bytes as Windows'
+    default `cp1252`. A third instance in `tests/test_benchmark.py`
+    (comparing two generated corpus files) was fixed the same way on
+    inspection, ASCII-only today but built on the same missing-encoding
+    assumption. Every text-mode file operation this project's own `cairn/`
+    package performs already specifies `encoding="utf-8"` — this gap was
+    in the tests, not the package.
+  - **`tests/test_docs.py`'s README-output comparison** ran a `cairn ask`
+    subprocess with `text=True` and no `encoding=`, so Python decoded the
+    UTF-8 bytes the child wrote using Windows' locale-preferred `cp1252`
+    instead — `Cuánto` came back `Cu�nto`. `PYTHONIOENCODING=utf-8` was
+    already set for the *child's own* stdout encoding, which is a
+    different thing from how the *parent* decodes what it reads back;
+    fixed by passing `encoding="utf-8"` to `subprocess.run` itself.
+    `tests/test_freshness.py`'s equivalent subprocess call gets the same
+    fix pre-emptively, on the same reasoning, though its own assertions
+    happen to be ASCII-only today.
+  - **`tests/test_live.py`'s `TestTheRunnerCannotFetchItsOwnAuditor`**
+    invokes `./plumbline-live.sh` directly via `subprocess.run([path])` —
+    no shell, relying on the OS to read the `#!/usr/bin/env bash` shebang
+    and dispatch to bash itself, which Windows does not do outside an
+    actual shell: `OSError: [WinError 193] %1 is not a valid Win32
+    application`. `tests/test_interlock.py`'s `TestItFailsClosed` invokes
+    `./plumbline-gate.sh` the identical way and did not fail on this run,
+    but relying on that holding is exactly the kind of environment-quirk
+    dependency this project's own fail-closed philosophy argues against,
+    so both classes now carry a `@unittest.skipIf(sys.platform ==
+    "win32", ...)` stating the gap plainly rather than leaving it to
+    chance — proved on Linux and macOS, both genuinely POSIX and able to
+    exec a shebang script directly; not proved on Windows, which cannot.
+    Skip, not xfail: a script that cannot run this way on this platform is
+    not a test that sometimes fails.
+
+  That push brought the failure count from 54 to 5, and every one of those
+  five traced to a single further cause, deeper than a test-suite
+  assumption: **this repository had no `.gitattributes`.** With none, line
+  endings on checkout follow whatever `core.autocrlf` the checking-out
+  machine has set, and on the Windows runner that meant every text file —
+  corpus documents included — was checked out with `\r\n` where the commit
+  holds `\n`. `cairn.corpus.fingerprint()` and `cairn.record.
+  bundle_checksums()` both hash `path.read_bytes()` specifically so that a
+  whitespace edit moves the hash (each docstring says so directly) — which
+  means they also hash a line-ending difference that was never an edit to
+  the content at all. The corpus fingerprint `cairn index` printed on
+  Windows (`7f46e5c5b629`) differed from the one every document and the
+  committed evidence bundle name (`5bfa70e8cad4`), and the bundle's own
+  `checksums.json` no longer matched files Git had just checked out
+  unedited — not because anything was wrong with the content, but because
+  the bytes on disk were not the bytes in the commit. Added `.gitattributes`
+  — `* text=auto eol=lf`, with no binary file in this repository to exempt
+  — so the checked-out bytes are the committed bytes on every platform,
+  which is what a byte-for-byte fingerprint or checksum has to be able to
+  assume to mean anything. The last two of the five failures were in
+  `tests/test_cli.py`, and were not a fingerprint problem: two assertions
+  compared the CLI's echoed index path (verbatim from `cairn.toml`, which
+  this same round's `.as_posix()` fix now writes with forward slashes) to
+  `str(self.index_path)` — a `Path` object's own platform-native string
+  form, backslashes on Windows. Fixed by comparing against
+  `self.index_path.as_posix()` instead, the form the CLI actually echoes.
 
 #### Changed
 

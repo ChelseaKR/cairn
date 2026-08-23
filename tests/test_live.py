@@ -20,6 +20,7 @@ has, and that every way the comparison can be uninformative is reported as
 import json
 import shutil
 import subprocess
+import sys
 import tomllib
 import unittest
 from pathlib import Path
@@ -319,6 +320,15 @@ class TestTheComparison(ComparisonHarness):
         self.assertEqual(code, live_check.EXIT_CANNOT_RUN)
 
 
+@unittest.skipIf(
+    sys.platform == "win32",
+    "plumbline-live.sh is invoked as ./plumbline-live.sh, relying on the "
+    "OS to read its #!/usr/bin/env bash shebang and dispatch to bash — a "
+    "POSIX exec behaviour Windows does not have outside a shell. This is a "
+    "gap in what this platform can prove about the fail-closed claim, "
+    "stated rather than hidden: it is proved on Linux and macOS, the same "
+    "gap tests/test_interlock.py's TestItFailsClosed states for the gate.",
+)
 class TestTheRunnerCannotFetchItsOwnAuditor(unittest.TestCase):
     """The drill, same shape as the gate's in tests/test_interlock.py.
 

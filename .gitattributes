@@ -1,0 +1,16 @@
+# Every file this repository tracks is text, and one of them is hashed byte
+# for byte: cairn.corpus.fingerprint() reads each corpus document with
+# path.read_bytes() specifically so a whitespace edit moves the fingerprint —
+# see its docstring. That hash is only stable across machines if the bytes
+# Git checks out are the same bytes on every machine, and without this file
+# they are not: a platform whose Git defaults to converting LF to CRLF on
+# checkout (Windows, commonly) hands `read_bytes()` a longer file than Linux
+# or macOS does for the identical commit, and the fingerprint — along with
+# anything that depends on it staying put, including the committed evidence
+# bundle at plumbline/bundle/ — differs by platform for content that never
+# changed.
+#
+# `eol=lf` overrides that per-checkout setting for every text file this
+# repository tracks, so the bytes on disk are the bytes in the commit,
+# everywhere. There is nothing binary in this repository to exempt.
+* text=auto eol=lf

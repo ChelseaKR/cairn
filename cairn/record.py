@@ -341,8 +341,12 @@ def record(
     _jsonl(bundle / "items.jsonl", items)
     _jsonl(bundle / "responses.jsonl", responses)
     _jsonl(bundle / "sources.jsonl", sources)
-    (bundle / "interface.html").write_text(interface_snapshot(), encoding="utf-8")
-    (bundle / "DATASET.md").write_text(dataset_page(items, name), encoding="utf-8")
+    (bundle / "interface.html").write_text(
+        interface_snapshot(), encoding="utf-8", newline="\n"
+    )
+    (bundle / "DATASET.md").write_text(
+        dataset_page(items, name), encoding="utf-8", newline="\n"
+    )
     _json(
         bundle / "manifest.json",
         {

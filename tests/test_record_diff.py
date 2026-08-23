@@ -87,7 +87,8 @@ class TestRecordDiffCli(unittest.TestCase):
             build_and_write(DEMO, index_path)
             config = workspace / "cairn.toml"
             config.write_text(
-                f'[corpus]\npath = "{DEMO}"\n[index]\npath = "{index_path}"\n',
+                f'[corpus]\npath = "{DEMO.as_posix()}"\n'
+                f'[index]\npath = "{index_path.as_posix()}"\n',
                 encoding="utf-8",
             )
             before = sorted(p.name for p in COMMITTED_BUNDLE.iterdir())

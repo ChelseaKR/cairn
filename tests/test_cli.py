@@ -25,9 +25,9 @@ class CliHarness(unittest.TestCase):
         cls.config_path = Path(cls._tmp.name) / "cairn.toml"
         cls.config_path.write_text(
             "[corpus]\n"
-            f'path = "{ROOT / "corpus" / "demo"}"\n'
+            f'path = "{(ROOT / "corpus" / "demo").as_posix()}"\n'
             "[index]\n"
-            f'path = "{cls.index_path}"\n',
+            f'path = "{cls.index_path.as_posix()}"\n',
             encoding="utf-8",
         )
 
@@ -48,7 +48,11 @@ class TestCli(CliHarness):
         self.assertEqual(code, 0)
         self.assertIn("Indexed 40 passages from 10 documents", out)
         self.assertIn("(10 marked synthetic)", out)
-        self.assertIn(str(self.index_path), out)
+        # The path in `out` is what `cairn.toml` says, byte for byte — the
+        # CLI never re-normalizes it through Path — and this harness's own
+        # config writes it out with as_posix() (see setUpClass) so the value
+        # is valid TOML on every platform. Compare against that same form.
+        self.assertIn(self.index_path.as_posix(), out)
 
     def test_02_ask_grounded_json(self):
         self.run_cli("index")
@@ -71,8 +75,8 @@ class TestCli(CliHarness):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp) / "c.toml"
             cfg.write_text(
-                f'[corpus]\npath = "{ROOT / "corpus" / "demo"}"\n'
-                f'[index]\npath = "{Path(tmp) / "missing.json"}"\n',
+                f'[corpus]\npath = "{(ROOT / "corpus" / "demo").as_posix()}"\n'
+                f'[index]\npath = "{(Path(tmp) / "missing.json").as_posix()}"\n',
                 encoding="utf-8",
             )
             out, err = io.StringIO(), io.StringIO()
@@ -92,7 +96,11 @@ class TestCli(CliHarness):
         self.assertIn("Stage 2 - answer:", out)
         self.assertIn("Verdict: GROUNDED", out)
         self.assertIn("Sources:", out, "the answer itself is still printed")
-        self.assertIn(str(self.index_path), out, "the trace names the index it read")
+        # Same reasoning as test_01 above: compare against the form written
+        # into cairn.toml, since that is the form the CLI echoes back.
+        self.assertIn(
+            self.index_path.as_posix(), out, "the trace names the index it read"
+        )
 
     def test_05_ask_explain_json_carries_candidates_and_diagnosis(self):
         self.run_cli("index")

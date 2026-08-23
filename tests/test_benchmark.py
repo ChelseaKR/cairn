@@ -39,7 +39,7 @@ class TestBenchmarkRuns(unittest.TestCase):
             files_b = sorted(Path(tmp_b).glob("*.md"))
             self.assertEqual([f.name for f in files_a], [f.name for f in files_b])
             for a, b in zip(files_a, files_b, strict=True):
-                self.assertEqual(a.read_text(), b.read_text())
+                self.assertEqual(a.read_text(encoding="utf-8"), b.read_text(encoding="utf-8"))
 
     def test_a_benchmark_run_produces_a_real_usable_index(self):
         # Not just "doesn't crash": the corpus it generates has to actually

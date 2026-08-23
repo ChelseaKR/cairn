@@ -165,7 +165,10 @@ class TestCalibrateCli(unittest.TestCase):
     def _config(self, workspace: Path, **retrieval) -> Path:
         index_path = workspace / "index.json"
         build_and_write(DEMO, index_path)
-        lines = [f'[corpus]\npath = "{DEMO}"\n[index]\npath = "{index_path}"\n']
+        lines = [
+            f'[corpus]\npath = "{DEMO.as_posix()}"\n'
+            f'[index]\npath = "{index_path.as_posix()}"\n'
+        ]
         if retrieval:
             lines.append("[retrieval]\n")
             lines += [f"{k} = {v}\n" for k, v in retrieval.items()]
@@ -205,8 +208,8 @@ class TestCalibrateCli(unittest.TestCase):
             workspace = Path(tmp)
             config = workspace / "cairn.toml"
             config.write_text(
-                f'[corpus]\npath = "{DEMO}"\n'
-                f'[index]\npath = "{workspace / "nope.json"}"\n',
+                f'[corpus]\npath = "{DEMO.as_posix()}"\n'
+                f'[index]\npath = "{(workspace / "nope.json").as_posix()}"\n',
                 encoding="utf-8",
             )
             code, out, err = self.run_cli(

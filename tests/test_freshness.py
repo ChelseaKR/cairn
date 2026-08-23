@@ -341,8 +341,8 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
         shutil.copytree(DEMO, cls.corpus)
         cls.config = cls.workspace / "cairn.toml"
         cls.config.write_text(
-            f'[corpus]\npath = "{cls.corpus}"\n'
-            f'[index]\npath = "{cls.workspace / "index.json"}"\n',
+            f'[corpus]\npath = "{cls.corpus.as_posix()}"\n'
+            f'[index]\npath = "{(cls.workspace / "index.json").as_posix()}"\n',
             encoding="utf-8",
         )
         cls.env = dict(os.environ, PYTHONPATH=str(ROOT), PYTHONIOENCODING="utf-8")
@@ -360,7 +360,7 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
             return subprocess.run(
                 [sys.executable, "-m", "cairn", "--config", str(self.config), name, *argv],
                 cwd=self.workspace, env=self.env, capture_output=True, text=True,
-                timeout=30,
+                encoding="utf-8", timeout=30,
             )
         except subprocess.TimeoutExpired:
             self.fail(
