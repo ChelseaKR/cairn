@@ -1,0 +1,36 @@
+# Fresno County layer — BLOCKED by the county's published terms.
+#
+# Read 2026-08-23, https://www.fresnocountyca.gov/Site-Features/Disclaimer,
+# section "Copyright/Trademark":
+#
+#   "Any use of the materials stored on the County's website is prohibited
+#   without the written permission of the County of Fresno. The County of
+#   Fresno retains all intellectual property rights including copyrights on
+#   all text, graphic images and other content. This means that the following
+#   acts or activities are prohibited without prior, written permission from
+#   the County of Fresno: (1) modification and/or re-use of text, images or
+#   other website content from a County server; (2) distribution of the
+#   County's Website content; or (3) 'mirroring' the County's information on
+#   a non-County server."
+#
+# That is an explicit prohibition on exactly what committing a corpus
+# document is. The same page's "Warning Concerning Copyright Restrictions"
+# paragraph names "private study, scholarship, or research" as the condition
+# under which a reproduction is permitted, which is the local-only option in
+# docs/pilot-ca.md, Finding 0. `blocked` stays until a person decides.
+#
+# www.fresnocountyca.gov/Departments/Social-Services answered 200 to this
+# pilot's user agent on 2026-08-23 (the site answers 403 to some other
+# non-browser clients).
+
+layer = "fresno"
+blocked = "fresnocountyca.gov disclaimer prohibits re-use, distribution and mirroring without written permission (read 2026-08-23); see docs/pilot-ca.md Finding 0"
+terms = "https://www.fresnocountyca.gov/Site-Features/Disclaimer"
+terms_checked = "2026-08-23"
+terms_note = "re-use, distribution and mirroring prohibited without written permission"
+
+[[page]]
+url = "https://www.fresnocountyca.gov/Departments/Social-Services"
+lang = "en"
+program = "county-social-services"
+file = "fresno-dss-en"

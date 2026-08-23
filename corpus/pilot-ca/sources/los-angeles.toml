@@ -1,0 +1,42 @@
+# Los Angeles County layer — BLOCKED by the county's published terms.
+#
+# Read 2026-08-23, https://lacounty.gov/user-rights/ (the page dpss.lacounty.gov
+# links as "User Rights"; DPSS's own footer reads "© 2026 DPSS Site. All rights
+# reserved"):
+#
+#   "all contents of this Website, including, without limitation, all text
+#   [...] are owned by us, or by third parties who have licensed such Contents
+#   to us. [...] We, on behalf of ourselves and our licensors, expressly
+#   reserve all rights [...] Access to this Site does not confer, and shall
+#   not be considered as conferring, upon you or any other user of the
+#   Website any license or other rights to the Website, the Contents or the
+#   compilation of Contents."
+#
+# No license is granted, so these pages cannot be committed to a public
+# repository. Reading them for private measurement is a different question
+# from redistributing them, and that option — fetch locally, never commit,
+# report aggregates only — is laid out in docs/pilot-ca.md, Finding 0, beside
+# the option of asking the County for written permission. Until one of those
+# is decided, `blocked` stays and fetch_pages.py refuses this file.
+#
+# The URLs are kept so the decision has something concrete attached.
+# dpss.lacounty.gov/en/food/calfresh.html and /en/food.html answered 200 to
+# this pilot's user agent on 2026-08-23.
+
+layer = "los-angeles"
+blocked = "lacounty.gov/user-rights reserves all rights and grants no license (read 2026-08-23); see docs/pilot-ca.md Finding 0"
+terms = "https://lacounty.gov/user-rights/"
+terms_checked = "2026-08-23"
+terms_note = "all rights reserved, no license granted"
+
+[[page]]
+url = "https://dpss.lacounty.gov/en/food/calfresh.html"
+lang = "en"
+program = "calfresh"
+file = "la-dpss-calfresh-en"
+
+[[page]]
+url = "https://dpss.lacounty.gov/en/food.html"
+lang = "en"
+program = "calfresh"
+file = "la-dpss-food-en"

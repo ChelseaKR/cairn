@@ -1,0 +1,125 @@
+# Sonoma County layer. Chosen on 2026-08-23 after the 58-county terms survey
+# (docs/pilot-ca.md, Finding 0): one of four counties whose terms carry the
+# state's public-domain sentence; ~490,000 people, North Bay, with a large
+# Spanish-speaking population — the Spanish-contrast county the original
+# scope wanted from the Central Valley, whose counties either forbid reuse
+# or refuse automated reading.
+#
+# Terms, read 2026-08-23, https://sonomacounty.gov/terms-of-use,
+# "Ownership": "In general, information presented on this web site, unless
+# otherwise indicated, is considered in the public domain. It may be
+# distributed or copied as permitted by law. However, the County does make
+# use of copyrighted data (e.g., photographs) which may require additional
+# permissions prior to your use."
+#
+# The county moved from sonomacounty.ca.gov to sonomacounty.gov; every URL
+# below answered 200 on the new host on 2026-08-23. The Spanish path tried
+# (/es/...) was 404; the site has a language selector that may serve Spanish
+# another way — to be found. Draft: 17 pages; target ~25.
+
+layer = "sonoma"
+terms = "https://sonomacounty.gov/terms-of-use"
+terms_checked = "2026-08-23"
+terms_note = "public domain unless otherwise indicated (county terms of use, 'Ownership')"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/health-food/calfresh-ebt-food-benefits"
+lang = "en"
+program = "calfresh"
+file = "sonoma-calfresh-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/health-food/calfresh-ebt-food-benefits/keeping-your-benefits"
+lang = "en"
+program = "calfresh"
+file = "sonoma-calfresh-keeping-benefits-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/health-food/medi-cal"
+lang = "en"
+program = "medi-cal"
+file = "sonoma-medi-cal-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/health-food/covered-california"
+lang = "en"
+program = "covered-california"
+file = "sonoma-covered-california-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/health-food/get-food-now-from-food-pantries"
+lang = "en"
+program = "food-pantries"
+file = "sonoma-food-pantries-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/jobs-money/general-assistance-cash-assistance-for-individuals"
+lang = "en"
+program = "general-assistance"
+file = "sonoma-general-assistance-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/jobs-money/sonomaworks-cash-assistance-for-families"
+lang = "en"
+program = "calworks"
+file = "sonoma-sonomaworks-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/jobs-money/capi-cash-assistance-for-immigrants"
+lang = "en"
+program = "capi"
+file = "sonoma-capi-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/jobs-money/rcatcvap-cash-assistance-for-non-citizens"
+lang = "en"
+program = "rca-tcvap"
+file = "sonoma-rca-tcvap-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/call-us-or-visit-us"
+lang = "en"
+program = "county-offices"
+file = "sonoma-call-us-or-visit-us-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/apply-online-at-benefitscal"
+lang = "en"
+program = "county-applications"
+file = "sonoma-apply-online-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/housing-shelter"
+lang = "en"
+program = "housing"
+file = "sonoma-housing-shelter-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/human-services/about-human-services/adult-and-aging-division"
+lang = "en"
+program = "ihss"
+file = "sonoma-adult-and-aging-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/health-services/divisions/public-health/animal-services/license-and-microchip"
+lang = "en"
+program = "animal-licensing"
+file = "sonoma-animal-license-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/health-services/divisions/public-health/office-of-vital-statistics/birth-certificates"
+lang = "en"
+program = "vital-records"
+file = "sonoma-birth-certificates-en"
+
+[[page]]
+url = "https://sonomacounty.gov/health-and-human-services/health-services/divisions/public-health/disease-control/immunizations/community-clinics"
+lang = "en"
+program = "immunizations"
+file = "sonoma-immunization-clinics-en"
+
+[[page]]
+url = "https://sonomacounty.gov/administrative-support-and-fiscal-services/clerk-recorder-assessor-registrar-of-voters/registrar-of-voters"
+lang = "en"
+program = "voter-registration"
+file = "sonoma-registrar-of-voters-en"

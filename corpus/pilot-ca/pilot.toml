@@ -1,0 +1,30 @@
+# The layered real-corpus pilot. Read by assemble_corpus.py; see
+# docs/pilot-ca.md for the design and corpus/pilot-ca/README.md for the
+# workflow.
+#
+# Counties: San Mateo, Sonoma and Siskiyou — the three chosen on 2026-08-23
+# after a survey of every county's website terms found these (and Solano)
+# carrying the state's public-domain sentence. Los Angeles and Fresno, the
+# original picks, stay in sources/ as `blocked` with their terms quoted;
+# they are not counties this pilot assembles. See docs/pilot-ca.md, Finding 0.
+#
+# Contacts are what a refusal points a person at. They name the county
+# agency and its website rather than a phone number, because a phone number
+# typed here on 2026-08-23 is a phone number nobody re-checks; the website
+# is where the current number lives. Before any deployment — which this
+# pilot is not — the contact line is the operator's to write.
+
+[layers]
+shared = ["federal", "california"]
+
+[counties.san-mateo]
+name = "San Mateo County"
+contact = "the San Mateo County Human Services Agency (smcgov.org/hsa)"
+
+[counties.sonoma]
+name = "Sonoma County"
+contact = "the Sonoma County Human Services Department (sonomacounty.gov/health-and-human-services/human-services)"
+
+[counties.siskiyou]
+name = "Siskiyou County"
+contact = "Siskiyou County Health and Human Services (siskiyoucounty.gov)"

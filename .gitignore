@@ -43,3 +43,11 @@ plumbline/audits/
 coverage.xml
 htmlcov/
 .mypy_cache/
+
+# the real-corpus pilot (docs/pilot-ca.md). Fetched pages are third-party
+# bytes with their own terms and are never committed; what is committed is
+# the reviewed markdown under corpus/pilot-ca/layers/ and the manifest-
+# derived provenance in its front matter. Assembled corpora are derived from
+# the layers by assemble_corpus.py and rebuilt on demand.
+source_pages/
+corpus/pilot-ca/assembled/

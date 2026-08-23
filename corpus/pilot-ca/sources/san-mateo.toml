@@ -1,0 +1,126 @@
+# San Mateo County layer. Chosen on 2026-08-23 after a survey of all 58
+# counties' website terms (docs/pilot-ca.md, Finding 0): one of four whose
+# terms carry the state's public-domain sentence, the largest of them
+# (~750,000 people, Bay Area, Spanish / Chinese / Tagalog), and the one whose
+# Human Services Agency site answers this pilot's user agent directly.
+#
+# Terms, read 2026-08-23, https://www.smcgov.org/endorsement-disclaimers,
+# "Ownership": "In general, information presented on this web site is
+# considered in the public domain. It may be distributed or copied as
+# permitted by law. However, the County of San Mateo does make some use of
+# copyrighted data such as photographs which may require additional
+# permissions prior to your use." The footer's "All rights reserved" sits
+# under that sentence, which governs; the review step checks each page for
+# an "otherwise indicated" marking all the same.
+#
+# Every URL answered 200 on 2026-08-23. Elections, assessor and clerk-
+# recorder live on smcacre.org, a separate domain with its own terms, not
+# read — left out. No Spanish edition of the HSA pages was found at the
+# paths tried. Draft: 16 pages; target ~25.
+
+layer = "san-mateo"
+terms = "https://www.smcgov.org/endorsement-disclaimers"
+terms_checked = "2026-08-23"
+terms_note = "public domain in general (county disclaimers page, 'Ownership')"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/food-assistance"
+lang = "en"
+program = "calfresh"
+file = "smc-hsa-food-assistance-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/health-coverage"
+lang = "en"
+program = "medi-cal"
+file = "smc-hsa-health-coverage-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/renew-medi-cal-coverage"
+lang = "en"
+program = "medi-cal"
+file = "smc-hsa-renew-medi-cal-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/calworks"
+lang = "en"
+program = "calworks"
+file = "smc-hsa-calworks-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/general-assistance"
+lang = "en"
+program = "general-assistance"
+file = "smc-hsa-general-assistance-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/cash-assistance-program-immigrants"
+lang = "en"
+program = "capi"
+file = "smc-hsa-capi-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/applications"
+lang = "en"
+program = "county-applications"
+file = "smc-hsa-applications-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/contact-us"
+lang = "en"
+program = "county-offices"
+file = "smc-hsa-contact-us-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/resource-centers"
+lang = "en"
+program = "county-offices"
+file = "smc-hsa-resource-centers-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/your-rights"
+lang = "en"
+program = "county-rights"
+file = "smc-hsa-your-rights-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/core-service-agencies-emergency-safety-net-assistance"
+lang = "en"
+program = "emergency-assistance"
+file = "smc-hsa-core-service-agencies-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/financial-assistance"
+lang = "en"
+program = "county-financial-assistance"
+file = "smc-hsa-financial-assistance-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/child-care"
+lang = "en"
+program = "child-care"
+file = "smc-hsa-child-care-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/employment-services"
+lang = "en"
+program = "employment-services"
+file = "smc-hsa-employment-services-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/public-assistance-programs"
+lang = "en"
+program = "county-programs"
+file = "smc-hsa-public-assistance-programs-en"
+
+[[page]]
+url = "https://www.smcgov.org/hsa/benefit-basics-changes-next-steps"
+lang = "en"
+program = "county-programs"
+file = "smc-hsa-benefit-basics-en"
+
+[[page]]
+url = "https://www.smcgov.org/housing"
+lang = "en"
+program = "housing"
+file = "smc-housing-en"
