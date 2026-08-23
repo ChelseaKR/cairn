@@ -1667,7 +1667,7 @@ Both floors here are the harness's own documented defaults — `multilingual`
 0.95, as `refusal` is 0.90 — deliberately not numbers chosen to fit Cairn's
 scores. The committed baseline pins the measured 1.0000 as the actual bar.
 
-### The multi-turn gap, open, not this repository's to close
+### The multi-turn gap, open, and this repository's to close
 
 `conversational_integrity` **is not scored.** New in the harness at
 `plumbline.pin`'s v0.2.0, it checks whether the property an item is graded
@@ -1680,17 +1680,24 @@ It grades an item only when recorded with a matching `turn_responses` list
 — opt-in per item, not a whole-suite switch, so a corpus that never records
 a conversation is simply outside what it grades rather than failing it.
 
-Unlike `multilingual`, this gap is not upstream's to close. Every item
-`cairn record` produces today is one `ask()` call — the engine has no
-multi-turn conversation feature, so no recorded item could ever carry
-`turns` for this suite to grade. Enabling it now would mean one of two
-dishonest things: every item scoring UNVERIFIABLE, which proves nothing was
-checked, or an *n* of zero dressed as a passing suite. `[suites.conversational_integrity]`
-in `plumbline/target.toml` is disabled with `gap` and `fix_belongs_in`
-declared, same mechanism as `multilingual` was, printed by `audit_guard.py`
-on every run. `fix_belongs_in` names this repository, not Plumbline: a
-multi-turn session feature is the prerequisite, and enabling the suite is
-the same commit that lands it.
+Unlike `multilingual`, this gap is not upstream's to close — it is this
+repository's, and half of it has landed without closing it. `cairn/session.py`
+gives the engine a real multi-turn `Session.ask()`, carrying citation
+vocabulary from earlier turns into a follow-up's retry (see "Sessions"
+above). What has not moved is `cairn record`: it still builds every item
+through the plain `ask()`, one question per call, so nothing the audited
+evidence bundle contains ever runs a conversation — the capability exists
+and the evidence for it does not. Enabling the suite now would mean one of
+two dishonest things: every item scoring UNVERIFIABLE for lack of turns,
+which proves nothing was checked, or an *n* of zero dressed as a passing
+suite. `[suites.conversational_integrity]` in `plumbline/target.toml` stays
+disabled with `gap` and `fix_belongs_in` declared, same mechanism as
+`multilingual` was, printed by `audit_guard.py` on every run — updated to
+say precisely this once `Session` existed and the gap still didn't close:
+landing a capability and recording it in the audited evidence are two
+different commits, and treating the first as though it closed the gap would
+have been the exact "closed on paper, not for real" failure this project
+exists to refuse.
 
 ### The wrong-paragraph gap, closed upstream
 
@@ -1992,6 +1999,39 @@ text path). The CLI's `--stream` frames and the served endpoint's frames are
 produced by the same function, and a test posts to a real socket and holds
 them equal — the second time this repository has welded two surfaces to one
 implementation because they once drifted.
+
+## Sessions
+
+`cairn/session.py` adds multi-turn conversation under the same contract.
+Three rules, each enforced and pinned:
+
+1. Per-turn grounding: every turn clears the threshold on its own retrieved
+   passages; a prior grounded turn cannot warm this one.
+2. Never rewrite a question that already grounds: context-carry fires only
+   after a refusal, so standalone follow-ups and topic switches retrieve
+   exactly what they would alone.
+3. Context comes only from citations: terms are drawn from previously cited
+   passages' titles (counted double) plus body, ranked by weighted IDF,
+   digits excluded — and the retry stands only if its winning passage
+   shares at least one scored term with the *original* question.
+
+Each ranking choice behind rule 3 earned its place by failing a real
+follow-up the other way: idf-times-frequency over body text promoted
+connective tissue ("per", "recei", "month") and answered a household-size
+follow-up from the wrong program; pure unweighted IDF surfaced amounts'
+digits, pinning a deadline follow-up to the amount passage; and without the
+shared-term guard, "What is the capital of France?" after a grounded grocery
+turn was "resolved" by borrowed program vocabulary. Two limitations stand,
+recorded rather than tuned: a follow-up that grounds on its own words is
+never rewritten even when its tie lands wrong, and attribute-switch
+follow-ups in Arabic land on sibling paragraphs more often than English
+ones. History lives client-side; the server reconstructs a session per
+request and stores nothing.
+
+`cairn record` does not use `Session` — every recorded item is still one
+`ask()` call — so this feature exists without the audited evidence bundle
+containing a single conversation. See "The multi-turn gap, open, and this
+repository's to close" above for what that leaves open in the audit.
 
 ## Decisions where the specification was silent
 

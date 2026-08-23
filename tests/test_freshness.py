@@ -345,6 +345,9 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
         "calibrate": ["--probes", str(ROOT / "docs" / "calibration-probes.example.toml")],
         "ask": ["a question"],
         "serve": ["--port", "0"],
+        # The session reads its turns from stdin, but read_index runs before
+        # the first line is read, so a stale corpus refuses exactly like ask.
+        "chat": [],
         "refusals": ["nonexistent-refusal-stats.json"],
         "followups": ["nonexistent-followup-store.jsonl"],
         "record": [],  # --out is added per-run, into the temp workspace
