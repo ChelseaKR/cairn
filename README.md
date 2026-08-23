@@ -327,13 +327,15 @@ all 14 suites passed:
   passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci 0.742-0.990  mde 0.214  3 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
-GUARD: PASS — cairn-demo, run ..., against baseline 38cd1ce582a57150
-declared gaps: none — every implemented suite is enabled.
+GUARD: PASS — cairn-demo, run ..., against baseline 62d02d167796e3a5
+declared gaps (1 suite not scored at all):
+  conversational_integrity: no item in the recorded bundle carries multi-turn
+  conversation data; this release has no feature for the suite to grade
 floors that are not the harness's own (6 suites, each with a recorded reason):
   accuracy: 0.35, LOOSER than the default 0.75
   ...
 suites that could not check everything they were handed:
-  passage_attribution: scored 17 of 20 eligible (no_distractor 3); unverifiable
+  passage_attribution: scored 18 of 21 eligible (no_distractor 3); unverifiable
   items are excluded, never passed
 no suite moved against the committed baseline.
 ```

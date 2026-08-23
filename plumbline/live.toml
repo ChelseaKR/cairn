@@ -140,3 +140,10 @@ floor = 0.90
 [suites.accessibility]
 enabled = true
 floor = 1.0
+
+# Disabled here for the same reason it is disabled in target.toml — see that
+# file's own comment. tests/test_live.py holds the two configs' suites to
+# each other, so this one has to carry the gap too, or a difference between
+# them at exactly this suite would be the one thing this file cannot see.
+[suites.conversational_integrity]
+enabled = false

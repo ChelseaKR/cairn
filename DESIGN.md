@@ -1617,11 +1617,13 @@ way — the guard reports, a person decides.
 
 ### The gap in the audit, closed upstream, and what closing it took
 
-**Now closed.** Every suite in the target is scored — thirteen when this gap
-closed, fourteen today. This section stays because the
-shape of the thing is worth keeping: it is a worked example of a consuming
-repository finding a real gap in its own auditor, being unable to fix it, and
-saying so loudly enough that it got fixed.
+**Closed.** `multilingual` is scored — thirteen suites when this gap closed,
+fourteen of the harness's fifteen implemented suites today (the fifteenth,
+`conversational_integrity`, is a different, open gap — see below). This
+section stays because the shape of the thing is worth keeping: it is a
+worked example of a consuming repository finding a real gap in its own
+auditor, being unable to fix it, and saying so loudly enough that it got
+fixed.
 
 `multilingual` identifies the language of a response and checks it against the
 language the question was asked in. The harness that was pinned at the time
@@ -1664,6 +1666,31 @@ as an open one they hide.
 Both floors here are the harness's own documented defaults — `multilingual`
 0.95, as `refusal` is 0.90 — deliberately not numbers chosen to fit Cairn's
 scores. The committed baseline pins the measured 1.0000 as the actual bar.
+
+### The multi-turn gap, open, not this repository's to close
+
+`conversational_integrity` **is not scored.** New in the harness at
+`plumbline.pin`'s v0.2.0, it checks whether the property an item is graded
+on holds across *every* turn of a conversation, not only the last one —
+whether a forbidden phrase stayed out of every turn, and whether a
+declined item stayed declined once it started, rather than complying on a
+later turn.
+
+It grades an item only when recorded with a matching `turn_responses` list
+— opt-in per item, not a whole-suite switch, so a corpus that never records
+a conversation is simply outside what it grades rather than failing it.
+
+Unlike `multilingual`, this gap is not upstream's to close. Every item
+`cairn record` produces today is one `ask()` call — the engine has no
+multi-turn conversation feature, so no recorded item could ever carry
+`turns` for this suite to grade. Enabling it now would mean one of two
+dishonest things: every item scoring UNVERIFIABLE, which proves nothing was
+checked, or an *n* of zero dressed as a passing suite. `[suites.conversational_integrity]`
+in `plumbline/target.toml` is disabled with `gap` and `fix_belongs_in`
+declared, same mechanism as `multilingual` was, printed by `audit_guard.py`
+on every run. `fix_belongs_in` names this repository, not Plumbline: a
+multi-turn session feature is the prerequisite, and enabling the suite is
+the same commit that lands it.
 
 ### The wrong-paragraph gap, closed upstream
 

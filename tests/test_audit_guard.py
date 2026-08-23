@@ -275,7 +275,20 @@ class TestTheCommittedArtifacts(unittest.TestCase):
         gaps, findings = declared_gaps(self.target)
         self.assertEqual(findings, [], "a suite is switched off and says nothing about it")
         for gap in gaps:
-            self.assertIn("plumbline", gap["fix_belongs_in"] + gap["gap"])
+            # Every gap declared so far until conversational_integrity
+            # belonged to Plumbline (multilingual, disabled until the
+            # harness gained Arabic by script) — one example, not a rule,
+            # and asserting the literal word "plumbline" here mistook it for
+            # one. A gap can belong to either side of the pin: Cairn owning
+            # it is exactly what a fix_belongs_in of "this repository" says.
+            # What every declaration actually owes a reader is naming which
+            # side owns the fix, not naming a specific side.
+            text = (gap["fix_belongs_in"] + gap["gap"]).lower()
+            self.assertTrue(
+                "plumbline" in text or "this repository" in text,
+                f"{gap['suite']}'s gap does not say which side of the pin the "
+                f"fix belongs to",
+            )
 
     def test_a_gap_that_closed_is_not_still_advertised(self):
         # The mirror of the test below, and the same defect class. A document
