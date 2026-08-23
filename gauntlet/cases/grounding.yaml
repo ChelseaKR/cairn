@@ -1,0 +1,53 @@
+# Gauntlet suites for Cairn: grounding, refusal, adversarial.
+#
+# The same discipline as the plumbline interlock, one harness over: every
+# case here is a regression fixture for behavior this repository has already
+# been audited on, phrased the way gauntlet gates grade it. Thresholds are
+# 1.0 across the board — these are structural guarantees, not statistics.
+#
+# English and Spanish are peers in every suite, added together. Arabic is
+# deliberately absent: gauntlet's case grammar declares en|es only, and
+# inventing a third language tag would be writing metadata the pinned
+# harness does not implement. Arabic coverage lives in the plumbline
+# question set, where it is scored, not implied.
+
+suite: cairn-grounding
+gate: grounding
+version: 2
+threshold: 1.0
+# single-language: the table-count case below is English-only by design; see
+# its comment before the case for why a Spanish peer would be corpus-to-test
+# tuning rather than coverage.
+cases:
+  - id: gnd-en-grocery-amount
+    language: en
+    prompt: How much is the monthly grocery allowance for one person?
+    expect_grounded: true
+    must_contain: ["212"]
+  - id: gnd-en-transit-fee
+    language: en
+    prompt: How much does the GoPass cost per year?
+    expect_grounded: true
+    must_contain: ["20"]
+  - id: gnd-es-subsidio-amount
+    language: es
+    prompt: ¿Cuánto recibe al mes un hogar de una persona del subsidio de alimentos?
+    expect_grounded: true
+    must_contain: ["212"]
+  - id: gnd-es-vivienda-cubre
+    language: es
+    prompt: ¿Cuánto cubre la subvención de alivio de vivienda?
+    expect_grounded: true
+    must_contain: ["3,500"]
+  # The structured-table tool. Deliberately English-only, and this comment is
+  # the declaration of that rather than an oversight: the demo table's column
+  # names are English and the parser binds on vocabulary, so a Spanish peer
+  # would need a Spanish table to bind to — authoring one to satisfy a parity
+  # rule would be corpus-to-test tuning. Coverage of the tool's refusal side
+  # lives in cairn's own suite (tests/test_tabular.py); plumbline's evidence
+  # set cannot carry this item at all (see questions.toml).
+  - id: gnd-en-table-count
+    language: en
+    prompt: How many programs have a monthly benefit over $100?
+    expect_grounded: true
+    must_contain: ["212"]

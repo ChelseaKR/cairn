@@ -59,6 +59,9 @@
           },
           {
             "context": "live (the served interface, graded by the pinned harness)"
+          },
+          {
+            "context": "gauntlet (pinned adversarial suites)"
           }
         ]
       }
