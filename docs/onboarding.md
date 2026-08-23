@@ -54,19 +54,27 @@ doc id prefixed `review-` until a human renames it. A batch of ten files is
 ten files someone has to actually read before they answer questions on an
 agency's behalf, not once.
 
-**One specific thing to check on that read: does the source page's own
-heading appear twice — once as the scaffold's `title:` front matter, and
-again as the body's first line?** A page transcribed faithfully often shows
-its own `<title>`/H1 as visible page text, and it is easy to carry that
-line into the body along with everything under it. `docs/pilot-usagov.md`
-found this on a real import and measured what it costs: the title is
-already scored into every passage of the document (`cairn lint`'s own
-description of the title's weight), so a passage that repeats it a second
-time is short, generic, and lexically present in almost any question about
-the page's topic — exactly the shape TF-IDF cosine's length normalization
-rewards, and it out-scored the actual, more specific answering passage on
-more than one real question. Delete the duplicated line; the title is not
-lost, because the front-matter field it lives in was never removed.
+**One thing the scaffold now does for you, and what it still does not.** A
+page transcribed faithfully often shows its own `<title>`/H1 as visible page
+text, and the first version of this script carried that line into the body
+as the first paragraph. `docs/pilot-usagov.md` found what that costs: the
+title is already scored into every passage of the document (`cairn lint`'s
+own description of the title's weight), so a passage that repeats it a
+second time is short, generic, and lexically present in almost any question
+about the page's topic — exactly the shape TF-IDF cosine's length
+normalization rewards — and it out-scored the actual answering passage on
+more than one real question. That was review guidance for one pilot; the
+next pilot (`docs/pilot-ca.md`) found it on nineteen of its first
+twenty-eight pages, so the scaffold drops a first paragraph that restates
+the title itself and says so in its output. It also scopes an HTML page to
+its `<main>` content, writes headings as `##` lines so the chunker attaches
+each to the passage under it, keeps a list or a table together as one
+block, joins a colon-terminated introducer to what it introduces, and drops
+one-or-two-word fragments with no digit — each one a thing a real page did
+that a hand transcription would not. Every one of those is reported in the
+scaffold's output. What review still has to catch: a page that is a form or
+an interactive tool rather than content, a table that should be
+`tables/*.csv`, and chrome the page did not mark as chrome.
 
 What this script explicitly does not do: read PDFs. Its two input formats
 are plain text and HTML, on purpose — adding a PDF library would either
