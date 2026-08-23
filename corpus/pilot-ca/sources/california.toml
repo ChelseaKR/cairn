@@ -1,0 +1,262 @@
+# California state layer: the state agencies that administer the programs the
+# federal layer describes (CalFresh for SNAP, Medi-Cal for Medicaid, CalWORKs
+# for TANF, CalEITC beside the federal EITC), plus the state-only sites with
+# the heaviest real question traffic (DMV, EDD, Covered California, the
+# courts' self-help centre, the Secretary of State's voter pages).
+#
+# Terms: https://www.ca.gov/use/ — "In general, information presented on this
+# website, unless otherwise indicated, is considered in the public domain. It
+# may be distributed or copied as permitted by law." Read 2026-08-23. CDSS's
+# own conditions-of-use page (cdss.ca.gov/conditions-of-use) carries the same
+# sentence. The other agencies below are state sites under the same policy;
+# the review step checks each page for an "otherwise indicated" marking.
+#
+# Every URL answered 200 or a same-site 301 to this pilot's user agent on
+# 2026-08-23. Guessed URLs that did not (DMV fee page, EDD benefit-amount
+# calculator, FTB payment plans, CSAC, CSD/LIHEAP — the state LIHEAP page
+# answered 401) are left out until someone finds the current address.
+#
+# Draft of 2026-08-23: 32 pages. Target is ~170. The CalFresh income-limit
+# table, the Medi-Cal income chart and the DMV fee schedule are the first
+# things to add — they are the numbers the federal layer does not have.
+
+layer = "california"
+terms = "https://www.ca.gov/use/"
+terms_checked = "2026-08-23"
+terms_note = "state content public domain unless otherwise indicated (ca.gov conditions of use)"
+
+# --- CDSS: CalFresh, CalWORKs, IHSS
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/calfresh"
+lang = "en"
+program = "calfresh"
+file = "cdss-calfresh-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/calfresh/eligibility-and-issuance-requirements"
+lang = "en"
+program = "calfresh"
+file = "cdss-calfresh-eligibility-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/calfresh/how-to-apply"
+lang = "en"
+program = "calfresh"
+file = "cdss-calfresh-how-to-apply-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/calfresh/calfresh-income-limits"
+lang = "en"
+program = "calfresh"
+file = "cdss-calfresh-income-limits-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/calworks"
+lang = "en"
+program = "calworks"
+file = "cdss-calworks-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/calworks/eligibility"
+lang = "en"
+program = "calworks"
+file = "cdss-calworks-eligibility-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/ihss"
+lang = "en"
+program = "ihss"
+file = "cdss-ihss-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/inforesources/cdss-programs/cdss-programs-california-food-assistance-program-cfap"
+lang = "en"
+program = "cfap"
+file = "cdss-cfap-en"
+
+[[page]]
+url = "https://www.cdss.ca.gov/county-offices"
+lang = "en"
+program = "county-offices"
+file = "cdss-county-offices-en"
+
+# --- DHCS: Medi-Cal
+[[page]]
+url = "https://www.dhcs.ca.gov/services/medi-cal/Pages/default.aspx"
+lang = "en"
+program = "medi-cal"
+file = "dhcs-medi-cal-en"
+
+[[page]]
+url = "https://www.dhcs.ca.gov/services/medi-cal/eligibility/Pages/default.aspx"
+lang = "en"
+program = "medi-cal"
+file = "dhcs-medi-cal-eligibility-en"
+
+[[page]]
+url = "https://www.dhcs.ca.gov/services/medi-cal/eligibility/Pages/DoYouQualify.aspx"
+lang = "en"
+program = "medi-cal"
+file = "dhcs-medi-cal-do-you-qualify-en"
+
+[[page]]
+url = "https://www.dhcs.ca.gov/services/medi-cal/Pages/ApplyforMedi-Cal.aspx"
+lang = "en"
+program = "medi-cal"
+file = "dhcs-medi-cal-apply-en"
+
+[[page]]
+url = "https://www.dhcs.ca.gov/services/medi-cal/eligibility/Pages/Medi-Cal-Renewals.aspx"
+lang = "en"
+program = "medi-cal"
+file = "dhcs-medi-cal-renewals-en"
+
+# --- DMV
+[[page]]
+url = "https://www.dmv.ca.gov/portal/driver-licenses-identification-cards/real-id/"
+lang = "en"
+program = "real-id"
+file = "dmv-real-id-en"
+
+[[page]]
+url = "https://www.dmv.ca.gov/portal/driver-licenses-identification-cards/renew-your-driver-license/"
+lang = "en"
+program = "driver-license"
+file = "dmv-renew-license-en"
+
+[[page]]
+url = "https://www.dmv.ca.gov/portal/vehicle-registration/registration-fees/"
+lang = "en"
+program = "vehicle-registration"
+file = "dmv-registration-fees-en"
+
+[[page]]
+url = "https://www.dmv.ca.gov/portal/vehicle-registration/new-registration/"
+lang = "en"
+program = "vehicle-registration"
+file = "dmv-new-registration-en"
+
+[[page]]
+url = "https://www.dmv.ca.gov/portal/es/driver-licenses-identification-cards/real-id/"
+lang = "es"
+program = "real-id"
+file = "dmv-real-id-es"
+
+# --- EDD: unemployment, disability, paid family leave
+[[page]]
+url = "https://edd.ca.gov/en/unemployment/"
+lang = "en"
+program = "unemployment-insurance"
+file = "edd-unemployment-en"
+
+[[page]]
+url = "https://edd.ca.gov/en/unemployment/eligibility/"
+lang = "en"
+program = "unemployment-insurance"
+file = "edd-unemployment-eligibility-en"
+
+[[page]]
+url = "https://edd.ca.gov/en/unemployment/filing-a-claim/"
+lang = "en"
+program = "unemployment-insurance"
+file = "edd-unemployment-filing-en"
+
+[[page]]
+url = "https://edd.ca.gov/en/disability/"
+lang = "en"
+program = "state-disability-insurance"
+file = "edd-disability-en"
+
+[[page]]
+url = "https://edd.ca.gov/en/disability/paid-family-leave/"
+lang = "en"
+program = "paid-family-leave"
+file = "edd-paid-family-leave-en"
+
+[[page]]
+url = "https://edd.ca.gov/es/unemployment/"
+lang = "es"
+program = "unemployment-insurance"
+file = "edd-unemployment-es"
+
+[[page]]
+url = "https://edd.ca.gov/es/disability/"
+lang = "es"
+program = "state-disability-insurance"
+file = "edd-disability-es"
+
+# --- Covered California
+[[page]]
+url = "https://www.coveredca.com/apply/"
+lang = "en"
+program = "covered-california"
+file = "coveredca-apply-en"
+
+[[page]]
+url = "https://www.coveredca.com/support/financial-help/"
+lang = "en"
+program = "covered-california"
+file = "coveredca-financial-help-en"
+
+[[page]]
+url = "https://www.coveredca.com/individuals-and-families/getting-covered/special-enrollment/"
+lang = "en"
+program = "covered-california"
+file = "coveredca-special-enrollment-en"
+
+[[page]]
+url = "https://www.coveredca.com/espanol/"
+lang = "es"
+program = "covered-california"
+file = "coveredca-espanol-es"
+
+# --- Franchise Tax Board
+[[page]]
+url = "https://www.ftb.ca.gov/file/personal/credits/california-earned-income-tax-credit.html"
+lang = "en"
+program = "caleitc"
+file = "ftb-caleitc-en"
+
+[[page]]
+url = "https://www.ftb.ca.gov/file/when-to-file/due-dates-personal.html"
+lang = "en"
+program = "state-tax-filing"
+file = "ftb-due-dates-en"
+
+[[page]]
+url = "https://www.ftb.ca.gov/file/personal/filing-status/index.html"
+lang = "en"
+program = "state-tax-filing"
+file = "ftb-filing-status-en"
+
+# --- Courts self-help
+[[page]]
+url = "https://selfhelp.courts.ca.gov/small-claims"
+lang = "en"
+program = "small-claims"
+file = "courts-small-claims-en"
+
+[[page]]
+url = "https://selfhelp.courts.ca.gov/fee-waiver"
+lang = "en"
+program = "court-fee-waiver"
+file = "courts-fee-waiver-en"
+
+[[page]]
+url = "https://selfhelp.courts.ca.gov/es/reclamos-menores"
+lang = "es"
+program = "small-claims"
+file = "courts-small-claims-es"
+
+# --- Secretary of State: voting
+[[page]]
+url = "https://www.sos.ca.gov/elections/voter-registration"
+lang = "en"
+program = "voter-registration"
+file = "sos-voter-registration-en"
+
+[[page]]
+url = "https://www.sos.ca.gov/elections/voting-resources/voting-california/where-and-how-vote"
+lang = "en"
+program = "voting"
+file = "sos-where-and-how-to-vote-en"

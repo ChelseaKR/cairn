@@ -1,0 +1,268 @@
+# Federal layer: the program owners' own pages, not usa.gov's umbrella pages.
+# docs/pilot-usagov.md found that usa.gov overview pages carry no dollar
+# amounts; the agencies that run the programs publish the numbers.
+#
+# Works of the U.S. federal government are not subject to copyright
+# (17 U.S.C. §105). Individual sites may mark third-party content; the review
+# step checks for that. `terms` below is the cross-government statement of
+# the rule; `terms_checked` is the day a person read it for this pilot.
+#
+# Every URL below answered 200 to this pilot's user agent on 2026-08-23
+# unless a comment says otherwise. ssa.gov and fcc.gov answer 403 to every
+# non-browser client; studentaid.gov drops this script's user agent. Those
+# pages are saved from a browser under the `file` name given and registered
+# with `fetch_pages.py ... --hand-saved`.
+#
+# Draft of 2026-08-23: 41 pages. Target for the pilot is ~130; the rest are
+# added the same way — verify, list, fetch, review.
+
+layer = "federal"
+terms = "https://www.usa.gov/government-copyright"
+terms_checked = "2026-08-23"
+terms_note = "U.S. government works are not subject to copyright, 17 U.S.C. §105"
+
+# --- Social Security (hand-saved: ssa.gov answers 403 to every non-browser client)
+[[page]]
+url = "https://www.ssa.gov/retirement"
+lang = "en"
+program = "ssa-retirement"
+file = "ssa-retirement-en"
+
+[[page]]
+url = "https://www.ssa.gov/ssi"
+lang = "en"
+program = "ssi"
+file = "ssa-ssi-en"
+
+[[page]]
+url = "https://www.ssa.gov/ssi/eligibility"
+lang = "en"
+program = "ssi"
+file = "ssa-ssi-eligibility-en"
+
+[[page]]
+url = "https://www.ssa.gov/disability"
+lang = "en"
+program = "ssdi"
+file = "ssa-disability-en"
+
+[[page]]
+url = "https://www.ssa.gov/cola"
+lang = "en"
+program = "ssa-retirement"
+file = "ssa-cola-en"
+
+[[page]]
+url = "https://www.ssa.gov/benefits/survivors"
+lang = "en"
+program = "ssa-survivors"
+file = "ssa-survivors-en"
+
+[[page]]
+url = "https://www.ssa.gov/number-card"
+lang = "en"
+program = "ssn-card"
+file = "ssa-number-card-en"
+
+[[page]]
+url = "https://www.ssa.gov/es/retirement"
+lang = "es"
+program = "ssa-retirement"
+file = "ssa-retirement-es"
+
+[[page]]
+url = "https://www.ssa.gov/es/ssi"
+lang = "es"
+program = "ssi"
+file = "ssa-ssi-es"
+
+[[page]]
+url = "https://www.ssa.gov/es/disability"
+lang = "es"
+program = "ssdi"
+file = "ssa-disability-es"
+
+# --- Medicare
+[[page]]
+url = "https://www.medicare.gov/basics/get-started-with-medicare"
+lang = "en"
+program = "medicare"
+
+[[page]]
+url = "https://www.medicare.gov/basics/costs/medicare-costs"
+lang = "en"
+program = "medicare"
+
+[[page]]
+url = "https://www.medicare.gov/basics/get-started-with-medicare/sign-up/when-does-medicare-coverage-start"
+lang = "en"
+program = "medicare"
+file = "medicare-when-coverage-starts-en"
+
+[[page]]
+url = "https://www.medicare.gov/basics/costs/help/medicare-savings-programs"
+lang = "en"
+program = "medicare-savings-programs"
+
+[[page]]
+url = "https://www.medicare.gov/basics/get-started-with-medicare/get-more-coverage/your-coverage-options"
+lang = "en"
+program = "medicare"
+file = "medicare-coverage-options-en"
+
+[[page]]
+url = "https://www.medicare.gov/health-drug-plans/part-d"
+lang = "en"
+program = "medicare-part-d"
+
+[[page]]
+url = "https://www.medicare.gov/basics/costs/help/drug-costs"
+lang = "en"
+program = "medicare-extra-help"
+
+[[page]]
+url = "https://es.medicare.gov/basics/get-started-with-medicare"
+lang = "es"
+program = "medicare"
+
+[[page]]
+url = "https://es.medicare.gov/basics/costs/medicare-costs"
+lang = "es"
+program = "medicare"
+
+# --- IRS
+[[page]]
+url = "https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit-eitc"
+lang = "en"
+program = "eitc"
+
+[[page]]
+url = "https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/earned-income-and-earned-income-tax-credit-eitc-tables"
+lang = "en"
+program = "eitc"
+file = "irs-eitc-tables-en"
+
+[[page]]
+url = "https://www.irs.gov/credits-deductions/individuals/child-tax-credit"
+lang = "en"
+program = "child-tax-credit"
+
+[[page]]
+url = "https://www.irs.gov/filing/individuals/how-to-file"
+lang = "en"
+program = "federal-tax-filing"
+
+[[page]]
+url = "https://www.irs.gov/help/ita/how-much-is-my-standard-deduction"
+lang = "en"
+program = "federal-tax-filing"
+
+[[page]]
+url = "https://www.irs.gov/payments/payment-plans-installment-agreements"
+lang = "en"
+program = "federal-tax-payment"
+
+[[page]]
+url = "https://www.irs.gov/filing/free-file-do-your-federal-taxes-for-free"
+lang = "en"
+program = "federal-tax-filing"
+
+[[page]]
+url = "https://www.irs.gov/es/credits-deductions/individuals/earned-income-tax-credit-eitc"
+lang = "es"
+program = "eitc"
+
+[[page]]
+url = "https://www.irs.gov/es/credits-deductions/individuals/child-tax-credit"
+lang = "es"
+program = "child-tax-credit"
+
+# --- USCIS
+[[page]]
+url = "https://www.uscis.gov/citizenship/learn-about-citizenship/10-steps-to-naturalization"
+lang = "en"
+program = "naturalization"
+
+[[page]]
+url = "https://www.uscis.gov/g-1055"
+lang = "en"
+program = "uscis-fees"
+
+[[page]]
+url = "https://www.uscis.gov/green-card/green-card-eligibility-categories"
+lang = "en"
+program = "green-card"
+
+[[page]]
+url = "https://www.uscis.gov/green-card/after-we-grant-your-green-card/replace-your-green-card"
+lang = "en"
+program = "green-card"
+file = "uscis-replace-green-card-en"
+
+# --- VA
+[[page]]
+url = "https://www.va.gov/disability/compensation-rates/veteran-rates/"
+lang = "en"
+program = "va-disability"
+
+[[page]]
+url = "https://www.va.gov/disability/eligibility/"
+lang = "en"
+program = "va-disability"
+
+[[page]]
+url = "https://www.va.gov/health-care/eligibility/"
+lang = "en"
+program = "va-health-care"
+
+[[page]]
+url = "https://www.va.gov/education/about-gi-bill-benefits/post-9-11/"
+lang = "en"
+program = "gi-bill"
+
+[[page]]
+url = "https://www.va.gov/pension/eligibility/"
+lang = "en"
+program = "va-pension"
+
+# --- Federal Student Aid (hand-saved: studentaid.gov drops this script's user agent)
+[[page]]
+url = "https://studentaid.gov/h/apply-for-aid/fafsa"
+lang = "en"
+program = "fafsa"
+file = "studentaid-fafsa-en"
+
+[[page]]
+url = "https://studentaid.gov/understand-aid/types/grants/pell"
+lang = "en"
+program = "pell-grant"
+file = "studentaid-pell-en"
+
+[[page]]
+url = "https://studentaid.gov/manage-loans/repayment/plans/income-driven"
+lang = "en"
+program = "student-loan-repayment"
+file = "studentaid-idr-en"
+
+# --- Program-owner pages for the pairs with California
+[[page]]
+url = "https://www.fns.usda.gov/snap/recipient/eligibility"
+lang = "en"
+program = "snap"
+
+[[page]]
+url = "https://www.fns.usda.gov/wic/about-wic"
+lang = "en"
+program = "wic"
+
+[[page]]
+url = "https://www.acf.hhs.gov/ocs/programs/liheap"
+lang = "en"
+program = "liheap"
+
+# --- Lifeline (hand-saved: fcc.gov answers 403 to every non-browser client)
+[[page]]
+url = "https://www.fcc.gov/lifeline-consumers"
+lang = "en"
+program = "lifeline"
+file = "fcc-lifeline-en"

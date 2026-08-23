@@ -1,0 +1,144 @@
+# Siskiyou County layer — the rural county. Kept after the 58-county terms
+# survey (docs/pilot-ca.md, Finding 0): its terms, once readable with a
+# browser user agent, carry the state's public-domain sentence.
+#
+# Terms, read 2026-08-23, https://www.siskiyoucounty.gov/ru/page/website-terms-use
+# (the path the site's language router served; the text is English), "D.
+# Third Party Information": "In general, information presented on this
+# website, unless otherwise indicated, is considered in the public domain.
+# It may be distributed or copied as permitted by law. However, the County
+# does make use of copyrighted data (e.g., photographs), which may require
+# additional permissions prior to your use."
+#
+# The host closes every connection from this script (HTTP/2
+# ENHANCE_YOUR_CALM), so every page here is saved from a browser under the
+# `file` name and registered with `fetch_pages.py ... --hand-saved` —
+# `browser_save.mjs` does that with a headless Chromium, which this host
+# accepts. The paths below were read from the saved homepage's own links on
+# 2026-08-23; the site is Drupal with a language router, so the terms page
+# lives under /ru/ (its text is English).
+
+layer = "siskiyou"
+terms = "https://www.siskiyoucounty.gov/ru/page/website-terms-use"
+terms_checked = "2026-08-23"
+terms_note = "public domain unless otherwise indicated (county website terms of use, D); host refuses scripts — hand-save"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/"
+lang = "en"
+program = "county-home"
+file = "siskiyou-home-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/ru/page/website-terms-use"
+lang = "en"
+program = "county-terms"
+file = "siskiyou-terms-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/socialservices"
+lang = "en"
+program = "county-social-services"
+file = "siskiyou-social-services-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/health-humanservices"
+lang = "en"
+program = "county-hhs"
+file = "siskiyou-hhs-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/publichealth"
+lang = "en"
+program = "public-health"
+file = "siskiyou-public-health-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/publichealth/page/women-infant-children-wic"
+lang = "en"
+program = "wic"
+file = "siskiyou-wic-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/publichealth/page/calfresh-healthy-living"
+lang = "en"
+program = "calfresh"
+file = "siskiyou-calfresh-healthy-living-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/publichealth/page/immunization-program"
+lang = "en"
+program = "immunizations"
+file = "siskiyou-immunizations-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/housingresources"
+lang = "en"
+program = "housing"
+file = "siskiyou-housing-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/animalcontrol/page/dog-licensing"
+lang = "en"
+program = "animal-licensing"
+file = "siskiyou-dog-licensing-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/animalcontrol/page/animal-shelter-lost-found"
+lang = "en"
+program = "animal-services"
+file = "siskiyou-animal-shelter-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/elections"
+lang = "en"
+program = "voting"
+file = "siskiyou-elections-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/clerkregistrar"
+lang = "en"
+program = "vital-records"
+file = "siskiyou-clerk-registrar-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/assessor-recorder"
+lang = "en"
+program = "assessor"
+file = "siskiyou-assessor-recorder-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/assessor-recorder/page/recorder-division"
+lang = "en"
+program = "vital-records"
+file = "siskiyou-recorder-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/behavioralhealth"
+lang = "en"
+program = "behavioral-health"
+file = "siskiyou-behavioral-health-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/behavioralhealth/page/crisis-services"
+lang = "en"
+program = "behavioral-health"
+file = "siskiyou-crisis-services-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/child-support"
+lang = "en"
+program = "child-support"
+file = "siskiyou-child-support-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/contact"
+lang = "en"
+program = "county-offices"
+file = "siskiyou-contact-en"
+
+[[page]]
+url = "https://www.siskiyoucounty.gov/library"
+lang = "en"
+program = "library"
+file = "siskiyou-library-en"

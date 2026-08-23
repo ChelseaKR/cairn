@@ -1,0 +1,21 @@
+# Rendered by assemble_corpus.py into each assembled corpus directory. The
+# three placeholders are mandatory — the script refuses a template missing
+# any of them, so no assembled corpus ever runs on a default contact line.
+#
+# Everything not set here takes cairn.toml's documented default. The
+# threshold is the demo corpus's 0.165 deliberately: the pilot measures the
+# whole curve (sweep.py) and the calibrate run says whether 0.165 classifies
+# the real probes, rather than tuning before measuring.
+
+[corpus]
+path = "{{CORPUS_PATH}}"
+
+[index]
+path = "{{INDEX_PATH}}"
+
+[retrieval]
+threshold = 0.165
+max_passages = 1
+
+[refusal]
+contact = "{{CONTACT}}"
