@@ -88,12 +88,18 @@ class TestTheFingerprintMovesWithTheCorpus(CorpusCopy):
         # Every document, not one of them. A first draft of this test edited
         # the English grocery document only, and a fingerprint hashing just
         # `*.en.md` passed it — the whole Spanish and Arabic corpus could have
-        # been rewritten under an index that called itself current.
+        # been rewritten under an index that called itself current. The same
+        # rule now covers the structured tables one level down: an edited
+        # cell is an edited corpus.
         original = fingerprint(DEMO)
         self.assertRegex(original, r"^[0-9a-f]{64}$")
-        documents = [p.name for p in corpus_paths(DEMO)]
-        self.assertGreaterEqual(len(documents), 3, documents)
-        for name in documents:
+        relatives = [p.relative_to(DEMO).as_posix() for p in corpus_paths(DEMO)]
+        self.assertGreaterEqual(len(relatives), 3, relatives)
+        self.assertTrue(
+            any(name.startswith("tables/") for name in relatives),
+            "the demo corpus stopped exercising table coverage",
+        )
+        for name in relatives:
             with self.subTest(document=name):
                 def edit(corpus, name=name):
                     path = corpus / name
@@ -147,13 +153,21 @@ class TestTheFingerprintMovesWithTheCorpus(CorpusCopy):
 
     def test_it_is_a_fingerprint_of_the_files_the_loader_actually_reads(self):
         # The failure this rules out: a fingerprint over a different set of
-        # files than `load_corpus` opens. It would report "unchanged" across
-        # an edit to an indexed document — the exact case it exists to catch,
-        # now with a check standing behind it.
-        self.assertEqual(
-            sorted(p.name for p in corpus_paths(self.corpus)),
-            sorted(Path(d.path).name for d in load_corpus(self.corpus)),
+        # files than the loaders open. It would report "unchanged" across an
+        # edit to an indexed document — the exact case it exists to catch,
+        # now with a check standing behind it. Markdown goes one way
+        # (load_corpus), structured tables the other (cairn.tabular), and the
+        # fingerprint has to cover exactly their union.
+        from cairn.tabular import load_tables
+
+        hashed = sorted(
+            p.relative_to(self.corpus).as_posix() for p in corpus_paths(self.corpus)
         )
+        loaded = sorted(
+            [Path(d.path).name for d in load_corpus(self.corpus)]
+            + [f"tables/{t.table_id}" for t in load_tables(self.corpus)]
+        )
+        self.assertEqual(len(hashed), len(loaded), (hashed, loaded))
         # A README in the corpus directory is not a corpus document, and the
         # loader skips it. The fingerprint has to skip it too, or every
         # documentation edit would demand a re-index.
@@ -257,8 +271,11 @@ class TestReadingAnIndexRequiresNamingItsCorpus(CorpusCopy):
     def test_an_index_from_before_the_fingerprint_is_refused_by_version(self):
         # A version-2 index cannot prove it is current, because nothing
         # recorded what it was built from. Refusing it is the whole reason the
-        # format version moved.
-        self.assertEqual(INDEX_FORMAT_VERSION, 3)
+        # format version moved. The version has moved twice since — tables
+        # made it 4 — and the test follows the constant, because what it pins
+        # is "an index from before the current format is refused", not the
+        # number itself.
+        self.assertGreaterEqual(INDEX_FORMAT_VERSION, 3)
         build_and_write(self.corpus, self.index_path)
         payload = json.loads(self.index_path.read_text(encoding="utf-8"))
         payload.pop("corpus_fingerprint")

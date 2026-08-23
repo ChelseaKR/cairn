@@ -35,13 +35,14 @@ from functools import cached_property
 from pathlib import Path
 
 from cairn.corpus import CorpusError, fingerprint, load_corpus
+from cairn.tabular import Table, load_tables
 from cairn.text import tokenize
 
 # 2 when per-language statistics replaced the corpus-wide ones; 3 when the
-# corpus fingerprint was added. A format bump is how a version-2 index —
-# which cannot prove it is current, because nothing recorded what it was built
-# from — is refused rather than trusted.
-INDEX_FORMAT_VERSION = 3
+# corpus fingerprint was added; 4 when structured corpus tables joined the
+# index (`cairn.tabular`). A format bump is how an older index — which cannot
+# answer from tables it has never heard of — is refused rather than trusted.
+INDEX_FORMAT_VERSION = 4
 
 # A sha256 hex digest, which is the only thing `corpus.fingerprint` returns.
 FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
@@ -161,6 +162,7 @@ class Index:
     doc_count: int
     synthetic_doc_count: int
     corpus_fingerprint: str
+    tables: tuple[Table, ...] = ()
 
     @property
     def passage_count(self) -> int:
@@ -207,6 +209,16 @@ class Index:
                     f"passage {passage.passage_id!r} has no text: an answer composed "
                     f"from it would cite a source and quote nothing"
                 )
+        # Tables live in the same citation namespace as passages — both emit
+        # `<id>#<ordinal>` markers — so a collision across the two kinds would
+        # make one citation resolve two ways.
+        for table in self.tables:
+            if table.table_id in seen:
+                raise IndexError_(
+                    f"table id {table.table_id!r} collides with a passage or "
+                    f"document id: citations must resolve one way"
+                )
+            seen.add(table.table_id)
         # An unparseable fingerprint has to be an error and not a skipped
         # check. `""` matches no corpus, so `verify_against` would refuse it
         # anyway — but only if something got as far as calling it, and an
@@ -297,6 +309,7 @@ class BuildReport:
     languages: tuple[str, ...]
     index_path: str
     corpus_fingerprint: str
+    table_count: int = 0
 
 
 def build_index(corpus_dir: str | Path) -> Index:
@@ -306,6 +319,7 @@ def build_index(corpus_dir: str | Path) -> Index:
     # already indexed when it may not be.
     corpus_fingerprint = fingerprint(corpus_dir)
     docs = load_corpus(corpus_dir)
+    tables = load_tables(corpus_dir)
     passages: list[IndexedPassage] = []
     doc_freq: dict[str, Counter[str]] = {}
     passage_counts: Counter[str] = Counter()
@@ -345,6 +359,7 @@ def build_index(corpus_dir: str | Path) -> Index:
         doc_count=len(docs),
         synthetic_doc_count=sum(1 for d in docs if d.synthetic),
         corpus_fingerprint=corpus_fingerprint,
+        tables=tables,
     )
 
 
@@ -356,6 +371,16 @@ def write_index(index: Index, index_path: str | Path) -> None:
         "corpus_fingerprint": index.corpus_fingerprint,
         "doc_count": index.doc_count,
         "synthetic_doc_count": index.synthetic_doc_count,
+        "tables": [
+            {
+                "id": t.table_id,
+                "title": t.title,
+                "lang": t.lang,
+                "columns": list(t.columns),
+                "rows": [list(row) for row in t.rows],
+            }
+            for t in index.tables
+        ],
         "languages": {
             lang: {"passage_count": stats.passage_count, "doc_freq": stats.doc_freq}
             for lang, stats in index.languages.items()
@@ -426,6 +451,16 @@ def read_index(index_path: str | Path, corpus_dir: str | Path | None) -> Index:
             doc_count=payload["doc_count"],
             synthetic_doc_count=payload["synthetic_doc_count"],
             corpus_fingerprint=payload["corpus_fingerprint"],
+            tables=tuple(
+                Table(
+                    table_id=t["id"],
+                    title=t["title"],
+                    lang=t["lang"],
+                    columns=tuple(t["columns"]),
+                    rows=tuple(tuple(row) for row in t["rows"]),
+                )
+                for t in payload.get("tables", ())
+            ),
         )
     except IndexError_:
         raise
@@ -449,4 +484,5 @@ def build_and_write(corpus_dir: str | Path, index_path: str | Path) -> BuildRepo
         languages=index.language_codes,
         index_path=str(index_path),
         corpus_fingerprint=index.corpus_fingerprint,
+        table_count=len(index.tables),
     )

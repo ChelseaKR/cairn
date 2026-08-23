@@ -82,7 +82,14 @@ def _load_documents(corpus_dir: str | Path) -> tuple[list[Document], list[LintIs
     issues: list[LintIssue] = []
     docs: list[Document] = []
     seen: dict[str, str] = {}
+    # Markdown only: corpus_paths also names structured tables (cairn.tabular)
+    # since 2026-08-22, so it can be hashed into the corpus fingerprint. This
+    # mirrors load_corpus's own filter — tables have no front matter to lint
+    # against, and a malformed one is refused outright by cairn.tabular at
+    # index time rather than reported here as an advisory issue.
     for path in corpus_paths(corpus_dir):
+        if path.suffix.lower() != ".md":
+            continue
         try:
             doc = load_document(path)
         except CorpusError as exc:

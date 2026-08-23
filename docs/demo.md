@@ -28,8 +28,8 @@ $ cd cairn
 
 ```console
 $ python3 -m cairn index
-Indexed 40 passages from 10 documents (10 marked synthetic) in 3 languages [ar, en, es] -> .cairn/index.json
-Corpus fingerprint: 5bfa70e8cad4 (corpus/demo)
+Indexed 40 passages from 10 documents (10 marked synthetic) and 1 structured table in 3 languages [ar, en, es] -> .cairn/index.json
+Corpus fingerprint: b757efed04dd (corpus/demo)
 ```
 
 The count of synthetic documents is not decoration. Every file in the bundled
@@ -287,14 +287,14 @@ in [`plumbline.pin`](../plumbline.pin).
 
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
-Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 167b79ba6076b8fb9796cd64e44be690a07af397941d26103c03b186a62297cc
+Recorded 29 items (22 answers, 7 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
-GATE: PASS — target cairn-demo, dataset 167b79ba6076, run ...
+GATE: PASS — target cairn-demo, dataset b7a28017910b, run ...
 all 14 suites passed:
   ...
-  passage_attribution    score 0.9412  floor 0.90  PASS  n=17  ci 0.730-0.990  mde 0.226  3 unverifiable
+  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci 0.742-0.990  mde 0.214  3 unverifiable
   ...
 
 $ python3 audit_guard.py             # the check the gate cannot make on itself
