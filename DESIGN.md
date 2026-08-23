@@ -877,8 +877,8 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   own definition — the body of the response really is English — and Cairn is
   right too, because translating the source would produce an unsourced policy
   statement. Two correct positions, one number, and the number is zero. The
-  suite score is 0.9630, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 26/28 = 0.9286 and the gate to red.
+  suite score is 0.9655, which clears its 0.95 floor by one item and no more:
+  a second cross-language item takes it to 28/30 = 0.9333 and the gate to red.
   (That arithmetic was published as 25/28 = 0.8929, which is not what adding
   one failing item to 26-of-27 gives. The conclusion held and the number did
   not, which is why it is computed from the committed baseline now — see
@@ -888,7 +888,7 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   and the resolution is the third:
 
   - *Lower the floor and say why.* Refused. The floor would have to reach
-    0.9286 to admit a second item and lower still for a third, and what it
+    0.9333 to admit a second item and lower still for a third, and what it
     would be buying is permission for a **genuine** wrong-language answer to
     hide underneath. `multilingual` is the suite that catches a system
     silently serving English to a Spanish speaker, which is the failure mode
@@ -1859,6 +1859,45 @@ Two rules hold the safety line:
   stemming, so small weights buy nothing here. The channel ships because an
   operator corpus with richer morphology may measure differently;
   `ask --explain` prints both components so the decision is theirs.
+
+## Structured tables, and the count tool
+
+A corpus directory may carry `tables/*.csv` files whose first lines are
+`# key: value` comments (front matter that survives a spreadsheet). Tables
+are corpus: declared language and synthetic marking, doc-id grammar, unique
+across tables *and* documents (they share the citation namespace), hashed
+into the corpus fingerprint, stored in index format version 4.
+
+One tool exists: count rows matching a numeric filter. It fires only when a
+counting phrase, exactly one measure column bound by shared vocabulary, a
+comparison phrase and a number all resolve — anything else returns to
+retrieval untouched, and the misfire bar is absolute and tested: **no
+question the system already answers takes the table path**. Zero matches
+refuse outright rather than falling through, because answering an adjacent
+paragraph would be answering a different question — `ck-029` exercises
+exactly this through the real audit pipeline, refusing "how many programs
+have a monthly benefit over $99999?" rather than reaching for a nearby
+passage.
+
+Grounding survives arithmetic because composition stays extractive field by
+field: `Answer.text` remains byte-for-byte the quoted cells; the computed
+count is spoken in the notice — Cairn's own voice, where cross-language
+notices already live — and every matched row is cited as
+`<table-id>#<row>`, so "1 of its 3 rows" is recompute-checkable from the
+sources list alone.
+
+**Why the evidence set carries no answered tool item:** one was authored
+(`ck-028`) and measured honestly. Its notice made lexical support
+structurally low — the same shape as the cross-language notice — and this
+evidence set already carries its one such item (`ck-027`). Adding the second
+took `groundedness` and `citation_accuracy` to 0.9416 against floors of
+0.95: the gate bit exactly as designed, on schedule. The item came out; the
+floors did not move. What would let such an item back in is upstream —
+per-item declaration that part of a response is target voice, the same
+mechanism proposed for cross-language notices. Coverage meanwhile lives
+where it is scored: `tests/test_tabular.py` pins the loader, the parser, the
+zero-match refusal, and the misfire bar against every question in the audit
+set.
 
 ## Decisions where the specification was silent
 

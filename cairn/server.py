@@ -289,6 +289,8 @@ def build_handler(
             offer_followup = followup_store is not None and result.answer.kind == "refusal"
             if wants_json:
                 payload = result.answer.to_payload()
+                if result.tool is not None:
+                    payload["tool"] = result.tool
                 if offer_followup:
                     # A hint only, added here rather than in
                     # `Answer.to_payload()` (cairn/answer.py) — that method

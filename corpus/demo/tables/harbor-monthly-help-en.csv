@@ -1,0 +1,8 @@
+# id: harbor-monthly-help-en
+# title: Harbor County Monthly Assistance Amounts
+# lang: en
+# synthetic: true
+program,monthly_benefit_usd,apply_online
+Fresh Start Grocery Allowance,212,yes
+Winter Utility Credit,95,yes
+Harbor Transit Reduced-Fare Pass,20,no

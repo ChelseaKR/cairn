@@ -12,7 +12,7 @@ first-class outcome, an operator explain mode that diagnoses a bad answer to
 the right stage, three languages including right-to-left, an accessible chat
 interface, and a fail-closed CI audit gate against a pinned external auditor —
 run against the committed evidence and, separately, against the running
-server. 615 tests plus 63 browser behaviour checks, standard library only,
+server. 634 tests plus 63 browser behaviour checks, standard library only,
 offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -60,8 +60,8 @@ directly:
 
 ```console
 $ python3 -m cairn index
-Indexed 40 passages from 10 documents (10 marked synthetic) in 3 languages [ar, en, es] -> .cairn/index.json
-Corpus fingerprint: 5bfa70e8cad4 (corpus/demo)
+Indexed 40 passages from 10 documents (10 marked synthetic) and 1 structured table in 3 languages [ar, en, es] -> .cairn/index.json
+Corpus fingerprint: b757efed04dd (corpus/demo)
 
 $ python3 -m cairn ask "How much unpaid rent does the housing relief grant cover?"
 ## How much the grant covers
@@ -312,15 +312,15 @@ a separate project, pinned to an exact commit in
 
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
-Recorded 27 items (21 answers, 6 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
-Bundle sha256: 167b79ba6076b8fb9796cd64e44be690a07af397941d26103c03b186a62297cc
+Recorded 29 items (22 answers, 7 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 167b79ba6076, run ...
+GATE: PASS — target cairn-demo, dataset b7a28017910b, run ...
 all 14 suites passed:
   ...
-  multilingual           score 0.9630  floor 0.95  PASS  n=27  ci 0.817-0.993  mde 0.144
-  passage_attribution    score 0.9412  floor 0.90  PASS  n=17  ci 0.730-0.990  mde 0.226  3 unverifiable
+  multilingual           score 0.9655  floor 0.95  PASS  n=29  ci 0.828-0.994  mde 0.134
+  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci 0.742-0.990  mde 0.214  3 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline 38cd1ce582a57150

@@ -666,3 +666,66 @@ One line per implementation session: date, what was built, from what input.
   (`gauntlet`) — remain stashed, unlanded, each its own future session's
   input. `make verify`: ruff, mypy, 615 tests, 93% branch coverage.
   `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged.
+
+- 2026-08-22 — Session 12 (AI implementation session). Input: the same
+  stashed six-feature expansion sessions 11 and 12 (query understanding,
+  landed in parallel) both drew from. Third extraction: structured corpus
+  tables. Numbered independently of that other session 12 — both branched
+  from the same point after PR #25, so whichever of the two merges second
+  renumbers its entry at the conflict, same as any other worklog collision
+  between parallel work.
+
+  `cairn/tabular.py`: `tables/*.csv` under a corpus directory, `# key: value`
+  comment front matter that survives a spreadsheet round-trip. Tables are
+  corpus — declared language, synthetic marking, doc-id grammar shared with
+  (and unique against) documents, hashed into the fingerprint, stored in
+  index format version 4 (3 → 4 is this session's bump; hybrid retrieval's
+  session needed none, since dense vectors are computed at scoring time, not
+  serialized). One tool: count rows matching a numeric filter, firing only
+  when every part binds — counting phrase, one measure column by shared
+  vocabulary, comparator, number — with the misfire bar tested absolute
+  against the whole audit set: no existing question takes the table path.
+  Zero matches refuse outright rather than falling through to an adjacent
+  passage that would answer a different question; `ck-029` (new) exercises
+  that refusal through the real pipeline, `ck-030` (new, unrelated to
+  tables — a Spanish adversarial plant against the utility credit, added in
+  the same upstream diff) came along in the same commit rather than forcing
+  a seventh PR for one audit item.
+
+  Wiring touched more of the ask pipeline than either prior extraction:
+  `AskResult.tool`, a structured-tool path in `cairn.engine.ask` tried before
+  retrieval, `cairn.cli`/`cairn.server` both surfacing `result.tool` in
+  `--json`/JSON responses, `cairn.record` resolving a tool answer's sources
+  from matched rows instead of retrieval candidates, and a fourth
+  `table_count_notice` message — in all four interface languages now,
+  English/Spanish/Arabic ported from the stash and French authored fresh,
+  since French didn't exist yet when the stash forked.
+
+  Two real integration bugs, neither in the stash's own code, both from
+  wiring an old branch into a `main` that had grown features the stash never
+  saw: `cairn lint` (added upstream after the fork) iterated every path
+  `corpus_paths` names and tried to parse the new CSV as a malformed
+  markdown document; filtered to `.md`, matching `load_corpus`'s own filter.
+  And the served page's embedded strings blob changed shape the moment
+  `table_count_notice` joined the catalogue, so `plumbline/bundle/interface.html`
+  needed re-recording — caught by `tests/test_live.py`, not guessed.
+
+  The bundle changed for real this time, unlike the two opt-in-and-silent
+  extractions before it: `tables_enabled` defaults `true`, and the demo
+  corpus now has a table. `items.jsonl`/`responses.jsonl` stayed
+  byte-for-byte identical (the misfire bar, holding), but `sources.jsonl`
+  gained three table-row entries and the two new audit items moved every
+  suite's `n`. Baseline adopted deliberately, not silently: gate run,
+  scores read (all 14 unchanged in kind, several moved a few items' worth),
+  copied into `plumbline/baseline.json` as a reviewed diff — the constant
+  reason regenerating things is a step of the commit rather than a
+  surprise. Also updated: `DESIGN.md`'s own published cross-language
+  headroom arithmetic, `28/30 = 0.9333` where it was `26/28 = 0.9286`,
+  because that sentence is computed from the baseline by
+  `tests/test_open_items.py` and the baseline's `n` moved under it.
+
+  `make verify`: ruff, mypy, 634 tests, 93% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, 14/14 suites, against the newly adopted
+  baseline. `audit_guard.py`: GUARD PASS, no suite moved against it. Three
+  of six landed: hybrid retrieval, query understanding (parallel), tables.
+  Streaming, sessions, and `gauntlet` remain stashed.

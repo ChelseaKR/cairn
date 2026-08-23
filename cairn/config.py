@@ -70,6 +70,13 @@ class Config:
     # what it trades off; 0 is lexical-only and byte-identical to the
     # channel not existing at all.
     dense_weight: float = 0.0
+    # Whether a question may be answered by the structured-table count tool
+    # (cairn.tabular) instead of passage retrieval, when the corpus has
+    # tables and the question binds one unambiguously. On by default: unlike
+    # dense_weight and split_intents, this tool declines rather than guesses
+    # — it either binds completely or falls through to retrieval untouched,
+    # so there is no wrong-answer risk a measurement needs to hold back.
+    tables_enabled: bool = True
     default_lang: str = "en"
     cross_language_fallback: bool = True
     contact: str = _DEMO_CONTACTS["en"]
@@ -208,6 +215,7 @@ def load_config(path: str | Path | None = None) -> Config:
     corpus = data.get("corpus", {})
     index = data.get("index", {})
     retrieval = data.get("retrieval", {})
+    tables = data.get("tables", {})
     refusal = data.get("refusal", {})
     language = data.get("language", {})
     defaults = Config()
@@ -222,6 +230,7 @@ def load_config(path: str | Path | None = None) -> Config:
         candidates=_get(retrieval, "candidates", int, defaults.candidates),
         margin_warn=_get(retrieval, "margin_warn", float, defaults.margin_warn),
         dense_weight=_get(retrieval, "dense_weight", float, defaults.dense_weight),
+        tables_enabled=_get(tables, "enabled", bool, defaults.tables_enabled),
         default_lang=_get(language, "default", str, defaults.default_lang),
         cross_language_fallback=_get(
             language, "cross_language_fallback", bool, defaults.cross_language_fallback

@@ -69,10 +69,18 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     synthetic_note = ""
     if report.synthetic_doc_count:
         synthetic_note = f" ({report.synthetic_doc_count} marked synthetic)"
+    # Tables are part of the receipt when they exist: an operator looking at
+    # this line should be able to tell that structured sources were indexed
+    # too, because a count query will be answered from them.
+    tables_note = ""
+    if report.table_count:
+        plural = "" if report.table_count == 1 else "s"
+        tables_note = f" and {report.table_count} structured table{plural}"
     print(
         f"Indexed {report.passage_count} passages from {report.doc_count} "
-        f"documents{synthetic_note} in {len(report.languages)} languages "
-        f"[{', '.join(report.languages)}] -> {report.index_path}"
+        f"documents{synthetic_note}{tables_note} "
+        f"in {len(report.languages)} languages [{', '.join(report.languages)}] "
+        f"-> {report.index_path}"
     )
     # The receipt. This index answers for exactly the corpus that hashes to
     # this, and every later command checks it before quoting anything; a
@@ -155,6 +163,8 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
 
     if args.json:
         payload = answer.to_payload()
+        if result.tool is not None:
+            payload["tool"] = result.tool
         if diagnosis is not None:
             payload["explain"] = {
                 **trace_payload(answer.trace, margin_warn=cfg.margin_warn),

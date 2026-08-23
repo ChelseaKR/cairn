@@ -176,6 +176,11 @@ def corpus_paths(corpus_dir: str | Path) -> list[Path]:
     than no fingerprint at all — it would report "unchanged" across an edit to
     a document the index was built from, which is the exact failure the
     fingerprint exists to catch, now with a check standing behind it.
+
+    Markdown documents plus, when present, ``tables/*.csv`` (loaded by
+    :mod:`cairn.tabular`): structured sources are corpus too, so an edited
+    cell is an edit. Tables sort after documents; their relative order is
+    fixed either way.
     """
     root = Path(corpus_dir)
     if not root.is_dir():
@@ -183,11 +188,16 @@ def corpus_paths(corpus_dir: str | Path) -> list[Path]:
     paths = sorted(p for p in root.glob("*.md") if p.name.lower() != "readme.md")
     if not paths:
         raise CorpusError(f"no corpus documents (*.md) found in {root}")
+    from cairn.tabular import table_paths
+
+    paths.extend(table_paths(root))
     return paths
 
 
 def fingerprint(corpus_dir: str | Path) -> str:
-    """A hash of exactly the bytes :func:`load_corpus` would read.
+    """A hash of exactly the bytes the corpus loaders would read — markdown
+    documents through :func:`load_corpus`, structured tables through
+    :mod:`cairn.tabular`.
 
     Hashed over raw bytes rather than over the parsed documents, deliberately.
     A parsed fingerprint would call a whitespace edit "unchanged", which is
@@ -218,7 +228,14 @@ def load_corpus(corpus_dir: str | Path) -> list[Document]:
     Documents are returned sorted by doc id so every downstream artifact is
     deterministic. Duplicate doc ids are an error, not a silent overwrite.
     """
-    docs = [load_document(p) for p in corpus_paths(corpus_dir)]
+    # Markdown only: corpus_paths also names the structured tables (the
+    # fingerprint must cover them), and those load through cairn.tabular
+    # inside `build_index`, not here.
+    docs = [
+        load_document(p)
+        for p in corpus_paths(corpus_dir)
+        if p.suffix.lower() == ".md"
+    ]
     seen: dict[str, str] = {}
     for doc in docs:
         if doc.doc_id in seen:
