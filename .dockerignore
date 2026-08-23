@@ -1,0 +1,23 @@
+# The Dockerfile does `COPY . .` — nothing in the runtime needs to be told
+# what to bring in, since cairn has no dependency manifest beyond
+# pyproject.toml itself. What it needs to be told is what to leave out:
+# version control, caches, and tool state that a build produces or a
+# developer's own machine accumulates, none of which belongs in an image
+# meant to be handed to someone else.
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.plumbline-cache/
+.plumbline-live/
+plumbline/audits/
+tests/browser/node_modules/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/

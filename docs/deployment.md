@@ -139,17 +139,29 @@ $ sudo systemctl enable --now cairn
 ## Running it in a container
 
 Nothing here is container-specific — `cairn` has no runtime dependencies to
-vendor — so the image is a straight copy of the source tree plus an
-entrypoint:
+vendor — so the image (the real `Dockerfile` at the repository root;
+`tests/test_container.py` holds this block to the same directives) is a
+straight copy of the source tree plus an entrypoint:
 
 ```dockerfile
 FROM python:3.12-slim
 WORKDIR /app
 COPY . .
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir . && \
+    python -m cairn index
+RUN useradd --no-create-home --shell /usr/sbin/nologin cairn
+USER cairn
 EXPOSE 8765
 ENTRYPOINT ["cairn", "serve", "--host", "0.0.0.0"]
 ```
+
+`cairn index` at build time bakes an index for whatever corpus is in the
+build context — the bundled demo corpus, unless you replace `corpus/` with
+your own before building — so the image is immediately runnable rather than
+refusing on first request for want of one. It runs before `useradd`/`USER`
+because it and `pip install` both need to write into the image, which only
+root can do; nothing after that line needs root, because `cairn serve`
+writes nothing at all in this configuration.
 
 `--host 0.0.0.0` is required inside a container — the default `127.0.0.1`
 would only be reachable from inside the container's own network namespace,
@@ -166,6 +178,11 @@ $ docker run -d -p 127.0.0.1:8765:8765 \
 Publishing the container port to `127.0.0.1` on the host (as above) and
 putting the reverse proxy from the previous section in front of *that* keeps
 the same TLS story as running `cairn` directly on the host.
+
+A prebuilt image of the bundled demo corpus, published from a tagged
+release, is at `ghcr.io/chelseakr/cairn` — see
+[`docs/release.md`](release.md) for what "published" means here and how
+current that claim is.
 
 ## Checklist
 

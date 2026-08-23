@@ -35,6 +35,13 @@ dev = [
   "coverage>=7.6",
 ]
 
+# Separate from `dev`: contributors running the test suite have no use for a
+# build frontend, and .github/workflows/release.yml's pypi job — the only
+# thing that installs this extra — has no use for pytest or mypy.
+release = [
+  "build>=1.2",
+]
+
 [project.scripts]
 cairn = "cairn.cli:main"
 
