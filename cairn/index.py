@@ -267,6 +267,27 @@ class Index:
         :meth:`__post_init__`; the invariant makes the lookup total."""
         return self.languages[lang]
 
+    def passage_vectors(self) -> dict[str, dict[int, float]]:
+        """Dense embeddings for every passage, computed once per index.
+
+        Like term counts, vectors are derived at scoring time rather than
+        serialized: they are a pure function of the passage title and text
+        this index already carries (`cairn.embed.features` is deterministic),
+        so storing them would double the file's size to save milliseconds on
+        a corpus sized for a laptop. The cache lives in the instance, so one
+        process asking many questions embeds each passage once.
+        """
+        cache = self.__dict__.get("_passage_vectors")
+        if cache is None:
+            from cairn.embed import features
+
+            cache = {
+                p.passage_id: features(f"{p.title}\n{p.text}")
+                for p in self.passages
+            }
+            self.__dict__["_passage_vectors"] = cache
+        return cache
+
 
 @dataclass(frozen=True)
 class BuildReport:

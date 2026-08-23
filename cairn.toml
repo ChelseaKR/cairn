@@ -25,6 +25,16 @@ threshold = 0.165
 max_passages = 1
 # Candidates scored and reported. Visible in `ask --explain`.
 candidates = 8
+# Weight of the dense (hashed character-n-gram) channel in the fused score:
+# `(1 - w) * lexical + w * dense`. The dense channel re-ranks candidates that
+# already share vocabulary with the question — misspellings, inflections the
+# truncation stemmer splits, cognates — and never promotes a passage with no
+# lexical overlap at all. Default 0 (lexical only): measured on the demo
+# corpus, weights large enough to change rankings turn the known colloquial
+# over-refusal into a confident wrong answer (see DESIGN.md, "Hybrid
+# retrieval"), and smaller weights change nothing the stemmer has not already
+# absorbed. Opt in after measuring on YOUR corpus; values above 0.5 refused.
+dense_weight = 0
 
 [language]
 # Used when a question's language cannot be told from the corpus vocabulary

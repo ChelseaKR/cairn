@@ -33,6 +33,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from cairn.embed import cosine as dense_cosine
+from cairn.embed import features as embed_features
 from cairn.index import Index, IndexedPassage, LanguageStats
 from cairn.text import tokenize
 
@@ -45,6 +47,12 @@ class Candidate:
     # Query terms this passage actually contains and that carried weight.
     # A candidate always has at least one, or it would not have scored.
     matched: tuple[str, ...] = ()
+    # The two components the fused score blends, carried so explain mode can
+    # show *which* channel put a candidate where it landed. Both bounded
+    # [0, 1]; `score == (1 - w) * lexical + w * dense` for the configured w,
+    # and both are exactly the lexical score when hybrid retrieval is off.
+    lexical: float = 0.0
+    dense: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -186,12 +194,35 @@ def retrieve(
     threshold: float,
     candidates: int,
     lang: str | None = None,
+    dense_weight: float = 0.0,
 ) -> RetrievalTrace:
+    """Score every passage in scope against ``query`` and gate at the threshold.
+
+    The score is a convex blend of the lexical TF-IDF cosine and the dense
+    hashed-n-gram cosine (``cairn.embed``): ``(1 - w) * lexical + w * dense``
+    for the configured weight ``w``, so it stays bounded [0, 1] whatever the
+    weight, and the threshold keeps exactly the meaning DESIGN.md gives it.
+    At ``dense_weight == 0`` — the default until an operator opts in, and the
+    reference behavior — the blend is the plain lexical score and this
+    function is byte-for-byte what it has always been.
+
+    A candidate is only eligible to *rank* if it shares at least one scored
+    term with the question. Dense similarity alone never lifts a passage that
+    shares no vocabulary into the ranking, because a confident answer built
+    from a passage the question does not lexically touch is precisely the
+    wrong-answer-shaped-as-a-right-one this project exists to refuse; the
+    dense channel re-ranks genuine lexical candidates, it does not mint new
+    ones.
+    """
     query_counts: dict[str, int] = {}
     for token in tokenize(query):
         query_counts[token] = query_counts.get(token, 0) + 1
 
-    scored: list[tuple[float, IndexedPassage, tuple[str, ...]]] = []
+    hybrid = dense_weight > 0.0
+    query_vector = embed_features(query) if hybrid else None
+    vectors = index.passage_vectors() if hybrid else None
+
+    scored: list[tuple[float, float, float, IndexedPassage, tuple[str, ...]]] = []
     matched_anywhere: set[str] = set()
     langs_scored: set[str] = set()
     excluded = 0
@@ -207,10 +238,19 @@ def retrieve(
         langs_scored.add(passage.lang)
         matched = _matched_terms(query_counts, passage, stats)
         matched_anywhere.update(matched)
-        score = _cosine(query_counts, passage, stats)
+        lexical = _cosine(query_counts, passage, stats)
+        if not matched:
+            # Nothing lexical in common: ineligible to rank, however similar
+            # the subword channel finds the two texts (see docstring).
+            continue
+        dense = 0.0
+        if hybrid:
+            assert query_vector is not None and vectors is not None
+            dense = dense_cosine(query_vector, vectors[passage.passage_id])
+        score = (1.0 - dense_weight) * lexical + dense_weight * dense
         if score > 0.0:
-            scored.append((score, passage, matched))
-    scored.sort(key=lambda row: (-row[0], row[1].passage_id))
+            scored.append((score, lexical, dense, passage, matched))
+    scored.sort(key=lambda row: (-row[0], row[3].passage_id))
 
     # Three disjoint sets, in priority order. A term that counted somewhere is
     # matched, whatever it did elsewhere. Of the rest, a zero IDF can only
@@ -231,8 +271,15 @@ def retrieve(
     unmatched = tuple(sorted(set(query_counts) - matched_anywhere - set(ignored)))
 
     top = tuple(
-        Candidate(passage=p, score=s, accepted=s >= threshold, matched=m)
-        for s, p, m in scored[:candidates]
+        Candidate(
+            passage=p,
+            score=s,
+            accepted=s >= threshold,
+            matched=m,
+            lexical=lex,
+            dense=den,
+        )
+        for s, lex, den, p, m in scored[:candidates]
     )
     return RetrievalTrace(
         query=query,

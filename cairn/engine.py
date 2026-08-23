@@ -94,12 +94,18 @@ def ask(question: str, index: Index, cfg: Config, *, lang: str | None = None) ->
         threshold=cfg.threshold,
         candidates=cfg.candidates,
         lang=response_lang,
+        dense_weight=cfg.dense_weight,
     )
     attempts = [Attempt(scope="language", trace=primary)]
     chosen = primary
     if not primary.grounded and cfg.cross_language_fallback:
         widened = retrieve(
-            question, index, threshold=cfg.threshold, candidates=cfg.candidates, lang=None
+            question,
+            index,
+            threshold=cfg.threshold,
+            candidates=cfg.candidates,
+            lang=None,
+            dense_weight=cfg.dense_weight,
         )
         attempts.append(Attempt(scope="corpus", trace=widened))
         if widened.grounded:

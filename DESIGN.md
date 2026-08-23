@@ -1824,6 +1824,42 @@ carries the short version. The audit's other gap — the unscored `multilingual`
 suite — was a gap in the *instrument* rather than a limit in the target, and
 it is now closed upstream.
 
+## Hybrid retrieval: a dense channel, opt-in
+
+`cairn/embed.py` maps text to a 256-dimension sparse vector of hashed
+character n-grams (3- and 4-grams over casefolded words, boundary-marked).
+What DESIGN.md refused before was a *trained* model; these vectors are
+computed, not learned: feature hashing through `hashlib.blake2b` with a fixed
+personal string (never Python's salted `hash()`), signed slots to cancel
+collision bias, sublinear term frequency, L2 normalization — so cosine stays
+bounded [0, 1] and can fuse with the lexical score without breaking the
+threshold contract: `(1 - w) * lexical + w * dense`.
+
+Two rules hold the safety line:
+
+- **Dense never mints candidates.** A passage sharing no scored term with
+  the question is ineligible to rank, whatever its subword similarity.
+  Manufacturing overlap for passages the question does not lexically touch
+  is precisely how a confident wrong answer is born.
+- **The weight is measured, and the measurement keeps it at zero by
+  default.** Sweeping `dense_weight` on the demo corpus:
+
+| w | worst in-corpus | best off-topic | ck-015 ("discount bus pass") | ck-022 top passage |
+| --- | --- | --- | --- | --- |
+| 0.00 | 0.1965 | 0.1219 | refused | deadline paragraph (#4) |
+| 0.15 | 0.2160 | 0.1354 | refused | **intro (#1) — moved** |
+| 0.25 | 0.2291 | 0.1485 | **answered 0.171 from the fare paragraph** | intro (#1) |
+
+  At w = 0.25 the known colloquial over-refusal becomes a confident wrong
+  answer — the exact trade this project refuses, arriving through a fourth
+  door after aliases, headings and coverage factors. At any weight large
+  enough to change rankings, ck-022's winner moves off the paragraph the
+  attribution suite watches. And the benefit side measured empty: realistic
+  misspellings ("allowence", "releif") are already absorbed by truncation
+  stemming, so small weights buy nothing here. The channel ships because an
+  operator corpus with richer morphology may measure differently;
+  `ask --explain` prints both components so the decision is theirs.
+
 ## Decisions where the specification was silent
 
 - **What "answer composition" means offline:** resolved as extractive (see above).
