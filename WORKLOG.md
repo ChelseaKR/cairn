@@ -1020,7 +1020,7 @@ One line per implementation session: date, what was built, from what input.
   and fcc.gov answer 403 to every non-browser client and studentaid.gov
   drops this script's user agent. California: 38 URLs verified, not yet
   fetched. `docs/pilot-ca-elicitation.md` is the question-collection
-  script. `make verify`: ruff, mypy, 762 tests (92 new, one from #46 beneath), 92% branch
+  script. `make verify`: ruff, mypy, 763 tests (93 new, one from #46 beneath), 92% branch
   coverage; the README's published test count moved with it, because a
   test holds it there.
 
