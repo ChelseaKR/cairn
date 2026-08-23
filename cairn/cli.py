@@ -62,6 +62,7 @@ from cairn.refusal_stats import RefusalStatsError
 from cairn.refusal_stats import render as render_refusal_stats
 from cairn.refusal_stats import report as refusal_report
 from cairn.server import serve
+from cairn.stream import events, format_sse
 
 
 def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
@@ -174,6 +175,13 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
                 "cross_language": result.cross_language,
             }
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.stream:
+        # The same frames the server sends: one surface, byte for byte, so
+        # the two cannot drift. Explain mode is a different rendering of the
+        # same answer and is not combined with streaming.
+        sys.stdout.writelines(format_sse(e) for e in events(answer))
         return 0
 
     if diagnosis is not None:
@@ -346,6 +354,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_ask = sub.add_parser("ask", help="ask a question against the index")
     p_ask.add_argument("question", help="the question, quoted")
     p_ask.add_argument("--json", action="store_true", help="machine-readable output")
+    p_ask.add_argument(
+        "--stream",
+        action="store_true",
+        help=(
+            "emit the answer as server-sent events: sources first, then the "
+            "text in sentence chunks. The same frames the server sends."
+        ),
+    )
     p_ask.add_argument(
         "--explain",
         action="store_true",

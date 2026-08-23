@@ -37,6 +37,7 @@ from cairn.messages import CATALOGUE
 from cairn.messages import text as message
 from cairn.network import RateLimiter, check_token, cors_headers, frame_ancestors
 from cairn.refusal_stats import RefusalCounter
+from cairn.stream import sse_stream
 from cairn.ui.page import SELECTABLE, render_page, turn_markup
 
 STATIC = Path(__file__).resolve().parent / "ui" / "static"
@@ -287,6 +288,27 @@ def build_handler(
                 refusal_counter.record(lang, refusal_reason(result.answer.trace))
 
             offer_followup = followup_store is not None and result.answer.kind == "refusal"
+
+            if wants_json and submitted.get("stream"):
+                # Server-sent events over a close-delimited body: no
+                # Content-Length is possible for a stream, and HTTP/1.1 makes
+                # that legal exactly when `Connection: close` says the end of
+                # the response *is* the end of the body. The frames are
+                # cairn.stream's own, so a CLI --stream run and this endpoint
+                # emit byte-identical sequences.
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Referrer-Policy", "no-referrer")
+                self.send_header("Connection", "close")
+                self.close_connection = True
+                self.end_headers()
+                if self.command != "HEAD":
+                    for frame in sse_stream(result.answer):
+                        self.wfile.write(frame.encode("utf-8"))
+                return
+
             if wants_json:
                 payload = result.answer.to_payload()
                 if result.tool is not None:

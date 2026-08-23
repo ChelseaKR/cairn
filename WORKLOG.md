@@ -764,3 +764,56 @@ One line per implementation session: date, what was built, from what input.
   baseline. `audit_guard.py`: GUARD PASS, no suite moved against it. Three
   of six landed: hybrid retrieval, query understanding, tables. Streaming,
   sessions, and `gauntlet` remain stashed.
+
+- 2026-08-22 — Session 14 (AI implementation session). Input: the same
+  stashed six-feature expansion. Fourth extraction: streaming.
+
+  `cairn/stream.py` slices an already-composed `Answer` into an ordered
+  event sequence — no incremental generation, composition already finishes
+  before this module ever runs, so streaming is purely presentational.
+  Four clauses, each with its own test: every event derives from the
+  answer alone (no second engine call); a cited passage's `span` event
+  precedes every `text` frame, so a renderer can build the sources list
+  before the first quote arrives; chunking splits on sentence boundaries
+  only and the concatenation of every `text` payload equals `Answer.text`
+  byte for byte; a refusal streams too, through the same chunking, with no
+  spans. `cairn ask --stream` and the server's `/ask` (JSON body with
+  `"stream": true`, server-sent events back) are one function apart —
+  `cairn.stream.sse_stream` — and a test starts a real `ThreadingHTTPServer`
+  and holds its frames equal to the CLI's, the same shape of test that
+  already exists for the non-streaming JSON payload and for the same
+  reason: two renderers of the same answer drifted once, so now nothing
+  gets a second implementation of what a response looks like.
+
+  Extraction was mechanical this time, unlike tables: `cairn.answer.Answer`
+  is the only thing `cairn.stream` depends on, unchanged by everything
+  landed so far, so the module and its wiring (one import and one branch
+  each in `cairn.cli` and `cairn.server`) applied with no adaptation.
+  `cairn record --diff-against` confirms zero drift, same as hybrid
+  retrieval and query understanding — streaming changes nothing about what
+  an answer *is*, only how it can be received.
+
+  Two things this session found, not the stash. Caught mid-extraction,
+  before it reached `main`: I had drifted onto `main` directly for the
+  first few edits of this session instead of a feature branch, a mechanical
+  slip rather than a design one. Moved with `git stash` before anything was
+  committed; `main` never saw it.
+
+  Caught by CI, not by me: `tests/test_stream.py`'s CLI-versus-server
+  parity test shelled out to `cairn ask --stream` and passed locally only
+  because a `.cairn/index.json` happened to already sit at the repo root
+  from earlier manual runs this session. `ci.yml`'s `core` job runs the
+  test suite *before* the step that builds one, so a genuinely clean
+  checkout has no index yet, and the subprocess failed on every `core`
+  job — both Python versions, macOS, Windows — the moment it actually ran
+  clean. Fixed the same way
+  `tests/test_freshness.py` already does it: build an index into a temp
+  workspace, point `--config` at it, stop depending on whatever the
+  working directory happened to contain. Verified by removing the
+  repo-root index by hand and re-running before trusting the fix.
+
+  `make verify`: ruff, mypy, 652 tests, 93% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged.
+  `audit_guard.py`: GUARD PASS, no suite moved. Four of six landed:
+  hybrid retrieval, query understanding, tables, streaming. Sessions and
+  `gauntlet` remain stashed.
