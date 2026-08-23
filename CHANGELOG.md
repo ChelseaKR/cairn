@@ -18,7 +18,20 @@ section describes a release that does not exist is worse than one that is
 behind. So unreleased work waits at `###` until the version is bumped, and then
 becomes a version section like any other.
 
-### Unreleased
+## 0.3.0 — 2026-08-23
+
+The real-corpus pilot, started. Nothing here changes how a grounded answer
+is produced or graded — the extractive path, the threshold, the citation
+guarantee, and the audited evidence bundle are exactly what 0.2.0 shipped.
+What changed is the corpus side: a three-layer real corpus (federal program
+owners, California agencies, three counties chosen by their website terms
+after a survey of all 58), the dev-only tooling to fetch it, assemble it per
+county, save the pages that refuse scripts from a real browser, and measure
+the answer-rate / wrong-answer-rate curve over every threshold; an importer
+that learned the shape of real government pages the hard way, five sites at
+a time; and a pilot document whose decision gate was written before any
+number existed. 131 pages are scaffolded and none is reviewed yet, which
+assembly refuses to overlook.
 
 #### Added
 
