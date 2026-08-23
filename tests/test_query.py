@@ -123,6 +123,27 @@ class TestSplitting(unittest.TestCase):
                 trace = ask(question, self.index, self.cfg).answer.trace
                 self.assertEqual(len(trace.intents), 2)
 
+    def test_query_terms_includes_terms_from_all_parts(self):
+        """Query terms in the merged trace must be the union of every part's
+        tokenized terms, so explain mode and downstream consumers do not drop terms
+        from later parts."""
+        from cairn.retrieve import retrieve
+
+        part_terms: set[str] = set()
+        for part in self.trace().intents:
+            part_trace = retrieve(part, self.index, threshold=self.cfg.threshold, candidates=self.cfg.candidates, lang="en")
+            part_terms.update(part_trace.query_terms)
+
+        trace = self.trace()
+        self.assertEqual(trace.query_terms, tuple(sorted(part_terms)))
+
+        # Winning passage matched terms must all be present in trace.query_terms
+        top = trace.candidates[0]
+        self.assertTrue(
+            set(top.matched) <= set(trace.query_terms),
+            f"top candidate matched terms {top.matched} not contained in query terms {trace.query_terms}",
+        )
+
     def test_split_function_matches_the_engine_path(self):
         direct = split_intents(
             TWO_PART,
