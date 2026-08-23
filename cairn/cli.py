@@ -62,6 +62,7 @@ from cairn.refusal_stats import RefusalStatsError
 from cairn.refusal_stats import render as render_refusal_stats
 from cairn.refusal_stats import report as refusal_report
 from cairn.server import serve
+from cairn.session import Session
 from cairn.stream import events, format_sse
 
 
@@ -291,6 +292,30 @@ def _cmd_record(args: argparse.Namespace, cfg: Config) -> int:
     return 0
 
 
+def _cmd_chat(args: argparse.Namespace, cfg: Config) -> int:
+    """A multi-turn session over stdin: one line, one turn.
+
+    The session lives in this process and nowhere else; exit and it is gone.
+    Follow-ups that stand on their own words are answered exactly as
+    `cairn ask` answers them — the conversation only ever widens what a
+    refusal may be retried against, never what a grounded answer cites.
+    """
+    index = read_index(cfg.index_path, cfg.corpus_path)
+    session = Session()
+    for line in sys.stdin:
+        question = line.strip()
+        if not question:
+            continue
+        try:
+            turn = session.ask(question, index, cfg, lang=args.lang)
+        except EngineError as exc:
+            print(f"cairn: error: {exc}", file=sys.stderr)
+            return 1
+        print(_render_answer(turn.result))
+        print(flush=True)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cairn",
@@ -483,6 +508,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_serve.set_defaults(func=_cmd_serve)
+
+    p_chat = sub.add_parser(
+        "chat",
+        help="multi-turn session on stdin: one line per turn, ctrl-d to end",
+    )
+    p_chat.add_argument(
+        "--lang",
+        metavar="CODE",
+        default=None,
+        help="answer in this language (en, es, ar). Omit to detect per turn.",
+    )
+    p_chat.set_defaults(func=_cmd_chat)
 
     p_refusals = sub.add_parser(
         "refusals",

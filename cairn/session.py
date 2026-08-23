@@ -1,0 +1,253 @@
+"""Multi-turn conversation over the same grounded-or-silent contract.
+
+A conversation is a sequence of :class:`Turn` s, each carrying what the user
+asked and which passages the answer was built from. The one thing a second
+turn may inherit from the first is *vocabulary*: an elliptical follow-up
+("what about the deadline?") has no program name in it, so its bare retrieval
+refuses, and the session retries once with high-weight terms drawn from the
+passages **previously cited** — the citations carry through into resolving
+what the new question is about, never into licensing what the new answer says.
+
+Three rules hold the contract shut, each enforced below and pinned in
+tests/test_session.py:
+
+1. **Per-turn grounding.** Every turn goes through the same threshold gate on
+   its own retrieved passages. A prior grounded turn cannot warm this one;
+   if the retry also finds nothing above the gate, the turn refuses.
+2. **Never rewrite a question that already grounds.** The context-carrying
+   retry fires only after the bare question refused, so a follow-up that
+   stands on its own words — including a full topic switch to another
+   program — retrieves exactly what it would have retrieved alone.
+3. **Context comes only from citations.** Terms are drawn from the passages
+   past answers were actually built from, not from everything the user has
+   typed, so a question's own noise cannot leak forward either.
+
+The session is deliberately dumb about *why* a bare question refused: it
+cannot tell an ellipsis from a genuinely off-topic question, so the retry is
+bounded — one attempt, terms from cited passages only, same threshold — and
+the refusal survives whenever the corpus still has nothing to say. What it
+gains is measured, not assumed: the demo cases in the tests are follow-ups
+that refuse alone and land on the right program's passage with context,
+including in Spanish and Arabic.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+from cairn.config import Config
+from cairn.engine import AskResult, EngineError, ask, available_languages
+from cairn.index import Index
+from cairn.retrieve import tokenize
+
+# How many terms may be carried forward from prior citations, and how many
+# prior turns may contribute them. Three terms keeps the rewritten query
+# dominated by the follow-up's own words — the context disambiguates *which*
+# program is being asked about, it does not become the topic itself.
+CONTEXT_TERMS = 3
+CONTEXT_FROM_TURNS = 2
+
+
+@dataclass(frozen=True)
+class Turn:
+    """One exchange, kept so later turns can resolve against it."""
+
+    question: str
+    lang: str
+    cited: tuple[str, ...]  # passage ids this turn's answer was built from
+
+
+@dataclass(frozen=True)
+class TurnResult:
+    """One answered (or refused) turn, plus how its query came to be."""
+
+    result: AskResult
+    # True when the bare question refused and a context-bearing retry ran.
+    resolved_with_context: bool = False
+    # Turn indices (0-based) whose citations supplied the carried terms.
+    context_from_turns: tuple[int, ...] = ()
+    # The terms that were appended, in the order they were appended.
+    context_terms: tuple[str, ...] = ()
+
+    @property
+    def answer(self):
+        return self.result.answer
+
+
+@dataclass
+class Session:
+    """Accumulating conversation state held entirely client-side.
+
+    Nothing here is server state: the web interface sends its history with
+    each request and the server reconstructs exactly this object per call
+    (:meth:`from_payload`), because a demonstration server that stores
+    nothing is part of this project's privacy stance.
+    """
+
+    turns: list[Turn] = field(default_factory=list)
+
+    def ask(
+        self, question: str, index: Index, cfg: Config, *, lang: str | None = None
+    ) -> TurnResult:
+        languages = available_languages(index)
+        if lang is not None and lang not in languages:
+            raise EngineError(
+                f"unsupported language {lang!r}; this corpus and interface offer: "
+                + ", ".join(languages)
+            )
+        result = ask(question, index, cfg, lang=lang)
+        if result.answer.kind == "grounded" or not self.turns:
+            return self._record(question, result)
+
+        retry = self._retry_with_context(question, result, index, cfg, lang=lang)
+        if retry is None:
+            return self._record(question, result)
+        resolved, source_turns, terms = retry
+        record = self._record(question, resolved)
+        return TurnResult(
+            result=record.result,
+            resolved_with_context=True,
+            context_from_turns=source_turns,
+            context_terms=terms,
+        )
+
+    def _record(self, question: str, result: AskResult) -> TurnResult:
+        answer = result.answer
+        cited = tuple(source.source_id for source in answer.sources)
+        self.turns.append(Turn(question=question, lang=answer.lang, cited=cited))
+        return TurnResult(result=result)
+
+    def _retry_with_context(
+        self,
+        question: str,
+        refused: AskResult,
+        index: Index,
+        cfg: Config,
+        *,
+        lang: str | None,
+    ) -> tuple[AskResult, tuple[int, ...], tuple[str, ...]] | None:
+        """The single bounded retry, or ``None`` when there is nothing to try.
+
+        Candidate terms are ranked within each cited passage's language by
+        smoothed IDF (same statistic the scorer trusts), skipping terms the
+        question already carries and terms the document-frequency floor
+        suppressed. Turns are read most-recent-first, so the immediately
+        preceding citations dominate.
+        """
+        asked = {token for token in tokenize(question)}
+        best_idf: dict[str, float] = {}
+        source_turns: list[int] = []
+        for offset, turn in enumerate(reversed(self.turns[-CONTEXT_FROM_TURNS:])):
+            turn_index = len(self.turns) - 1 - offset
+            if not turn.cited:
+                continue
+            if turn_index not in source_turns:
+                source_turns.append(turn_index)
+            for passage_id in turn.cited:
+                passage = _passage_by_id(index, passage_id)
+                if passage is None:
+                    continue
+                stats = index.stats_for(passage.lang)
+                counts: dict[str, int] = {}
+                # The title carries the *program's identity*, which is the
+                # thing an elliptical follow-up is missing; body terms carry
+                # the passage's specifics. Titles are counted twice so
+                # identity dominates the tie, and both are needed: title-only
+                # landed a household-size follow-up on the program's intro
+                # paragraph (identity without specifics), while body-only
+                # dragged a deadline follow-up back to the already-quoted
+                # amount passage (specifics without identity). Numbers are
+                # dropped entirely: they pin a query to the exact fact already
+                # quoted rather than to the program.
+                for source_text, factor in ((passage.title, 2), (passage.text, 1)):
+                    for token in tokenize(source_text):
+                        if token.isdigit():
+                            continue
+                        counts[token] = counts.get(token, 0) + factor
+                for term, count in counts.items():
+                    if term in asked or term in stats.suppressed:
+                        continue
+                    weight = _idf_of(term, stats) * (1.0 + math.log(count))
+                    if weight > best_idf.get(term, 0.0):
+                        best_idf[term] = weight
+        if not best_idf:
+            return None
+        # Highest weighted-IDF first (title tokens counted double), which
+        # surfaces the program's identity words and its distinctive verbs.
+        # Two rejected orderings are recorded here because each failed a real
+        # follow-up: idf-times-frequency over body text alone promoted
+        # connective tissue ("per", "recei", "month"), answering a
+        # household-size question from the wrong program; pure unweighted IDF
+        # surfaced amounts' digits ("118", "212", "448") that pin a query to
+        # the exact fact already quoted — an amount follow-up worked, but
+        # "what is the deadline?" retrieved the amount passage again.
+        terms = [
+            term
+            for term, _ in sorted(best_idf.items(), key=lambda row: (-row[1], row[0]))
+        ][:CONTEXT_TERMS]
+        if not terms:
+            return None
+        rewritten = question + " " + " ".join(terms)
+        retry = ask(rewritten, index, cfg, lang=lang)
+        if retry.answer.kind != "grounded":
+            return None
+
+        # The retry may only stand if the passage that won has *something to
+        # do with the question itself*: at least one scored term of the
+        # original follow-up must appear in it. Without this check, any
+        # off-topic follow-up after a grounded turn was "resolved" by its own
+        # refusal — the borrowed program vocabulary alone cleared the gate,
+        # and "What is the capital of France?" came back citing the grocery
+        # allowance. Found by the test written to pin rule 1; the rule and
+        # this guard are the same sentence enforced twice.
+        asked_terms = set(asked)
+        for source in retry.answer.sources:
+            passage = _passage_by_id(index, source.source_id)
+            if passage is None:
+                continue
+            stats = index.stats_for(passage.lang)
+            if any(
+                term in passage.term_counts and _idf_of(term, stats) > 0.0
+                for term in asked_terms
+            ):
+                return retry, tuple(sorted(source_turns)), tuple(terms)
+        return None
+
+    def to_payload(self) -> dict:
+        """The wire form the stateless server accepts back."""
+        return {
+            "turns": [
+                {"question": turn.question, "cited": list(turn.cited)}
+                for turn in self.turns
+            ]
+        }
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> Session:
+        session = cls()
+        for entry in payload.get("turns") or []:
+            if not isinstance(entry, dict) or not entry.get("question"):
+                raise EngineError("history entries need at least a question")
+            session.turns.append(
+                Turn(
+                    question=str(entry["question"]),
+                    lang=str(entry.get("lang") or ""),
+                    cited=tuple(str(c) for c in entry.get("cited") or []),
+                )
+            )
+        return session
+
+
+def _passage_by_id(index: Index, passage_id: str):
+    for passage in index.passages:
+        if passage.passage_id == passage_id:
+            return passage
+    return None
+
+
+def _idf_of(term: str, stats) -> float:
+    """The same smoothed IDF the scorer uses, for the one guard above."""
+    if term in stats.suppressed:
+        return 0.0
+    return math.log((stats.passage_count + 1) / (stats.doc_freq.get(term, 0) + 1)) + 1.0

@@ -37,6 +37,7 @@ from cairn.messages import CATALOGUE
 from cairn.messages import text as message
 from cairn.network import RateLimiter, check_token, cors_headers, frame_ancestors
 from cairn.refusal_stats import RefusalCounter
+from cairn.session import Session
 from cairn.stream import sse_stream
 from cairn.ui.page import SELECTABLE, render_page, turn_markup
 
@@ -262,8 +263,35 @@ def build_handler(
                     self._html(render_page(lang), status=400)
                 return
 
+            # Conversation state lives entirely with the client: a JSON
+            # caller may attach its history (prior questions and the passage
+            # ids they were answered from) and this request resolves the
+            # follow-up against it. The server reconstructs a Session per
+            # call and stores nothing — same stance as "no state, no
+            # storage" above, applied to conversations. The no-JavaScript
+            # form path stays single-turn by construction.
+            session = None
+            turn_meta = None
+            if wants_json:
+                history = submitted.get("history")
+                if isinstance(history, dict):
+                    try:
+                        session = Session.from_payload(history)
+                    except EngineError as exc:
+                        self._json({"error": str(exc)}, status=400)
+                        return
+
             try:
-                result = ask(question, index, cfg, lang=lang)
+                if session is not None:
+                    turn_result = session.ask(question, index, cfg, lang=lang)
+                    result = turn_result.result
+                    turn_meta = {
+                        "resolved_with_context": turn_result.resolved_with_context,
+                        "context_from_turns": list(turn_result.context_from_turns),
+                        "context_terms": list(turn_result.context_terms),
+                    }
+                else:
+                    result = ask(question, index, cfg, lang=lang)
             except EngineError as exc:
                 # Reachable, and the comment here used to say it was not: it
                 # read "lang is validated above", but `_resolve_lang` falls
@@ -313,6 +341,8 @@ def build_handler(
                 payload = result.answer.to_payload()
                 if result.tool is not None:
                     payload["tool"] = result.tool
+                if turn_meta is not None:
+                    payload["turn"] = turn_meta
                 if offer_followup:
                     # A hint only, added here rather than in
                     # `Answer.to_payload()` (cairn/answer.py) — that method

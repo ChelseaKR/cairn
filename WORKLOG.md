@@ -817,3 +817,54 @@ One line per implementation session: date, what was built, from what input.
   `audit_guard.py`: GUARD PASS, no suite moved. Four of six landed:
   hybrid retrieval, query understanding, tables, streaming. Sessions and
   `gauntlet` remain stashed.
+
+- 2026-08-22 — Session 15 (AI implementation session). Input: the same
+  stashed six-feature expansion. Fifth extraction: sessions.
+
+  `cairn/session.py` gives the engine multi-turn conversation without
+  loosening the grounded-or-silent contract: three rules, each pinned by
+  its own test. Per-turn grounding — every turn clears the threshold on
+  its own retrieved passages, so a prior grounded turn cannot warm a later
+  one. Never rewrite a question that already grounds — the context-carrying
+  retry fires only after the bare question refused, so a standalone
+  follow-up or a full topic switch retrieves exactly what it would alone.
+  Context comes only from citations — an elliptical follow-up ("what about
+  a household of four people") borrows up to three terms from the passages
+  *previously cited*, ranked by weighted IDF over titles (counted double)
+  and body text, digits excluded, and the retry stands only if its winning
+  passage shares a scored term with the follow-up's own words — the guard
+  written after "What is the capital of France?" was "resolved" by
+  borrowed grocery-program vocabulary in an early version of this same
+  code. History lives client-side; the server reconstructs a `Session`
+  per request from a `history` field in the JSON body and stores nothing,
+  matching the demo server's own no-storage stance applied to
+  conversations. `cairn chat` adds a stdin-driven multi-turn CLI command.
+
+  What landing it does not do: `cairn record` still builds every audited
+  item through the plain `ask()`, one question per call, so the evidence
+  bundle contains no conversation and `conversational_integrity` (declared
+  as a gap in session 13, when the harness pin first shipped it) stays
+  disabled. Updated that gap's own text in `plumbline/target.toml` and
+  DESIGN.md rather than leaving it to describe a prerequisite that had
+  already landed: the capability exists now: `Session.ask()`; the audited
+  evidence for it still does not, because recording a conversation through
+  it is a separate piece of work from building it. Conflating the two —
+  letting this commit read as though it closed the gap — would have been
+  exactly the "closed on paper, not for real" move this project exists to
+  refuse, so the gap's `gap` and `fix_belongs_in` keys were rewritten to
+  say precisely that rather than left stale.
+
+  Two lint findings the stash's own suite had not caught (mypy and ruff
+  both apparently never run against `cairn/session.py` before this): an
+  unsorted import, a line five characters over the limit — fixed the
+  second by calling the module's own `_idf_of` helper instead of repeating
+  its formula inline, which was already duplicated one function below the
+  line that needed shortening.
+
+  `make verify`: ruff, mypy, 662 tests, 92% branch coverage (session.py's
+  own retry path is the least-covered addition, at 90%). `./plumbline-gate.sh`:
+  GATE PASS, 14/14 suites, evidence bundle unchanged — sessions touch
+  nothing `cairn record` runs. `audit_guard.py`: GUARD PASS, one declared
+  gap (updated, not closed), no suite moved. Five of six landed: hybrid
+  retrieval, query understanding, tables, streaming, sessions. `gauntlet`
+  remains stashed — the last one.
