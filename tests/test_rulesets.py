@@ -139,10 +139,15 @@ class TestTheRulesetMatchesTheWorkflow(unittest.TestCase):
         self.assertIn("non_fast_forward", self.rules)
 
 
-class TestTheRepositoryDoesNotClaimTheGateIsBlocking(unittest.TestCase):
-    """Until the ruleset is applied, every document that mentions the gate has
-    to say it is advisory. This test is expected to be updated on the day it
-    stops being true — deliberately, by whoever applies it."""
+class TestTheRepositoryDoesNotClaimTheGateIsAdvisory(unittest.TestCase):
+    """The ruleset was applied 2026-08-22 (`.github/rulesets/README.md` has
+    the how and the two-part verification). Before that date, every document
+    mentioning the gate had to say it was advisory, and this test enforced
+    that. It was rewritten the day that stopped being true, deliberately, by
+    whoever applied it — the same thing its old docstring asked for. What it
+    guards now is the opposite drift: a document that quietly goes back to
+    saying the gate is advisory, or that started requiring it and stops
+    saying so, after some future edit forgets which one is currently true."""
 
     def documents(self):
         for name in (
@@ -153,7 +158,7 @@ class TestTheRepositoryDoesNotClaimTheGateIsBlocking(unittest.TestCase):
         ):
             yield name, (ROOT / name).read_text(encoding="utf-8")
 
-    def test_each_one_says_the_gate_is_not_yet_required(self):
+    def test_none_of_them_call_the_gate_advisory(self):
         for name, text in self.documents():
             with self.subTest(document=name):
                 stated = [
@@ -161,17 +166,20 @@ class TestTheRepositoryDoesNotClaimTheGateIsBlocking(unittest.TestCase):
                     if "branch protection" in para or "ruleset" in para.lower()
                 ]
                 self.assertTrue(stated, f"{name} never mentions branch protection")
-                self.assertTrue(
-                    any("advisory" in para or "not applied" in para for para in stated),
-                    f"{name} mentions the gate without saying it is advisory until "
-                    f"the ruleset is applied",
+                self.assertFalse(
+                    any(
+                        "advisory" in para or "not applied" in para.lower()
+                        for para in stated
+                    ),
+                    f"{name} still says the gate is advisory or the ruleset is "
+                    f"not applied, and it has been since 2026-08-22",
                 )
 
-    def test_the_ruleset_is_documented_where_someone_would_apply_it(self):
+    def test_the_ruleset_is_documented_where_someone_would_reapply_it(self):
         doc = RULESET_DOC.read_text(encoding="utf-8")
         self.assertIn("main.json", doc)
         self.assertIn("rulesets", doc)
-        self.assertIn("Status: not applied", doc)
+        self.assertIn("Status: applied", doc)
 
 
 if __name__ == "__main__":

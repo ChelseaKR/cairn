@@ -793,10 +793,6 @@ things.
 
 Not a wish list — the things a reader could reasonably expect and will not find.
 
-- **The `audit` job is not marked required in branch protection**, so the gate
-  is advisory: it reports, it does not block. The exact ruleset is written out
-  and committed at `.github/rulesets/main.json`; applying it needs admin
-  rights on the repository and is nobody's decision but the maintainer's.
 - **One known colloquial-recall failure**, `ck-015` — now closed as a
   finding rather than left as a to-do. The earlier diagnosis said the ranking
   was wrong. Measuring it disproved that: three passage-level ranking signals
@@ -1364,38 +1360,48 @@ repository, absent commit, moving ref, missing pin file, no target — exits 4
 before scoring, and the CI core job runs that drill deliberately so a
 regression in the failure path is caught by the job that is not the gate.
 
-### One thing this repository cannot do for itself
+### The one thing this repository could not do for itself
 
-The `audit` job has to be marked **required** in branch protection, and it is
-not. A gate nobody made blocking is a report, so today it is a report: the job
-runs on every pull request and writes a verdict, and nothing stops a merge
-while that verdict is red. **The gate is advisory until the ruleset is
-applied.**
+The `audit` job had to be marked **required** in branch protection, and for
+most of this project's history, it was not. A gate nobody made blocking is a
+report: the job ran on every pull request and wrote a verdict, and nothing
+stopped a merge while that verdict was red. **The gate could not block a
+merge until the ruleset was applied**, on 2026-08-22.
 
 That is a repository setting held on GitHub's side, changeable only by an
-admin. No file can grant itself the power to block a merge, and the tempting
-move — writing as though the setting were already on — is the exact failure
-this project exists to demonstrate: a check that could have blocked a merge,
-did not, and looked like it had.
+admin — no file could grant itself the power to block a merge, and the
+tempting move, writing as though the setting were already on before it was,
+is the exact failure this project exists to demonstrate: a check that could
+have blocked a merge, did not, and looked like it had. So the applying itself
+is not claimed here either without the same standard the rest of this project
+holds evidence to: two things were checked, not assumed. A real pull request
+(#22) needed all nine required checks green before it could merge. A second,
+throwaway pull request with one required check deliberately broken was
+refused a merge outright by GitHub — `mergeStateStatus: BLOCKED`, and `gh pr
+merge` answered "the base branch policy prohibits the merge," not just a red
+tick sitting there. `.github/rulesets/README.md` carries both.
 
-What a file *can* do, and now does:
+What a file could do, before any of that, and still does:
 
-- `.github/rulesets/main.json` is the ruleset in full, committed, reviewable,
-  and **not applied**. It requires the five CI check runs (named exactly as
-  GitHub names them, read off a real run rather than guessed), requires a pull
-  request so there is a merge for them to gate, forbids deletion and
-  force-push, and has an empty bypass list.
-- `.github/rulesets/README.md` says how to apply it, what each rule costs —
-  including that direct pushes to `main` stop working, which ends this
-  repository's own commit style — and which number in it is a placeholder
-  (`required_approving_review_count`, 0 only because a solo maintainer cannot
-  approve their own pull request).
+- `.github/rulesets/main.json` is the ruleset in full, committed and
+  reviewable — the same file, unchanged in kind, before it was applied and
+  after. It requires the nine CI check runs (named exactly as GitHub names
+  them, read off a real run rather than guessed), requires a pull request so
+  there is a merge for them to gate, forbids deletion and force-push, and has
+  an empty bypass list.
+- `.github/rulesets/README.md` says how it was applied, what each rule
+  costs — including that direct pushes to `main` stopped working, which
+  ended this repository's own commit style — and which number in it is a
+  placeholder (`required_approving_review_count`, 0 only because a solo
+  maintainer cannot approve their own pull request).
 - `tests/test_rulesets.py` fails if the workflow's job names and the
   ruleset's required contexts drift apart, because a context that matches no
   check is a rule that never fires and reads exactly like a rule that passes.
-  It also fails if this document or the README stops saying the gate is
-  advisory — which is the right thing to have to update on the day it stops
-  being true.
+  Its `TestTheRepositoryDoesNotClaimTheGateIsAdvisory` class — which used to
+  require this document and the README to say the gate could not yet block a
+  merge — was rewritten the day that stopped being true, deliberately, by
+  whoever applied it: it now fails if any of them goes back to saying the
+  gate cannot block a merge, or omits that it is required, once more.
 
 ### The baseline, and the guard that gives it teeth
 
