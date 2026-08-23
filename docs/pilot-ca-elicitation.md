@@ -1,8 +1,15 @@
 # Question elicitation for the real-corpus pilot
 
-The pilot (`docs/pilot-ca.md`) needs questions nobody wrote for Cairn, in
-the words a person would actually use. This is the script for collecting
-them. It is deliberately short: twenty minutes per person, no instructions
+**Status: optional.** This was the pilot's primary question source until
+2026-08-23, when it turned out there was nobody to send it to. The pilot
+now draws its questions from public search-query and Q&A datasets instead
+(`collect_queries.py`; `docs/pilot-ca.md`, "The question set"). This page
+stays because elicited questions are the only kind with a real county
+attached, and if eight people ever are available, this is still how to ask
+them.
+
+The pilot needs questions nobody wrote for Cairn, in the words a person
+would actually use. This is the script for collecting them. It is deliberately short: twenty minutes per person, no instructions
 about how to phrase anything, and the person never sees a page from the
 corpus — the moment they do, their vocabulary becomes the page's.
 

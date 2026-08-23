@@ -14,6 +14,8 @@ corpus/pilot-ca/
                           (see Finding 0)
   layers/<layer>/*.md     the corpus, one directory per layer — reviewed
                           front-matter markdown, and tables/*.csv under it
+  candidates.toml         564 unlabelled candidate questions from public
+                          sources (collect_queries.py); not evidence
   questions.toml          the labelled question set (not yet written)
   probes.toml             derived from questions.toml by probes_from_questions.py
   assembled/              derived, .gitignored: one corpus directory per county
@@ -71,6 +73,17 @@ $ python3 -m cairn --config corpus/pilot-ca/assembled/sonoma/cairn.toml lint
 
 `--allow-unreviewed` exists for smoke runs of the pipeline and says so in
 its output. Nothing produced under it is a measurement.
+
+## Questions
+
+```text
+$ python3 collect_queries.py --msmarco source_pages/msmarco --download --stackexchange -o corpus/pilot-ca/candidates.toml
+```
+
+draws candidates from MS MARCO (real search queries; non-commercial
+research) and Stack Exchange (CC BY-SA, attributed). They are not
+questions until a person reads the corpus and labels them into
+`questions.toml` — `docs/pilot-ca.md`, "The question set", has the fields.
 
 ## Measuring
 
