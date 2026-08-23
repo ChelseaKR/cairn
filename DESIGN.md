@@ -1982,6 +1982,17 @@ where it is scored: `tests/test_tabular.py` pins the loader, the parser, the
 zero-match refusal, and the misfire bar against every question in the audit
 set.
 
+## Streaming
+
+Composition finishes first; streaming slices the finished `Answer`. Four
+clauses, all tested: events derive from the answer alone; spans precede all
+text frames; chunking splits on sentence boundaries only and concatenates
+byte-for-byte back to `Answer.text`; refusals stream too (no spans, same
+text path). The CLI's `--stream` frames and the served endpoint's frames are
+produced by the same function, and a test posts to a real socket and holds
+them equal — the second time this repository has welded two surfaces to one
+implementation because they once drifted.
+
 ## Decisions where the specification was silent
 
 - **What "answer composition" means offline:** resolved as extractive (see above).
