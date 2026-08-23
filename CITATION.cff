@@ -32,11 +32,11 @@ authors:
 repository-code: "https://github.com/ChelseaKR/cairn"
 url: "https://github.com/ChelseaKR/cairn"
 license: Apache-2.0
-version: 0.1.0
-# The date 0.1.0 landed on `main`, matching its CHANGELOG.md section. The
+version: 0.2.0
+# The date 0.2.0 landed on `main`, matching its CHANGELOG.md section. The
 # annotated tag was cut afterwards; the version is the citable thing, and the
 # two agree.
-date-released: "2026-08-16"
+date-released: "2026-08-23"
 keywords:
   - retrieval-augmented generation
   - grounded question answering
