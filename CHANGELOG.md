@@ -491,6 +491,57 @@ tooling, repository documentation, and one new read-only operator command.
   gains the two new required contexts (nine now, from seven), and
   README.md's CI/CD conformance row states plainly that nothing has been
   published yet.
+- `corpus/pilot-usagov/` and `docs/pilot-usagov.md`: the real-corpus pilot,
+  item 4 of the second deployment-value expansion round and the one
+  flagged as highest-leverage when this round was recommended. Six real,
+  currently-published pages from usa.gov (SNAP, LIHEAP/WAP, Lifeline,
+  Section 8, WIC, and SNAP in Spanish) imported with `import_corpus.py
+  --batch`, reviewed by hand, `synthetic: false`, each carrying its real
+  source URL and review date in front matter — the first content in this
+  repository nobody wrote for Cairn. `cairn lint`, `cairn calibrate`
+  (against a new 16-item `probes.toml`), and `cairn record` (against a new
+  `questions.toml`) all run cleanly against it, and `tests/test_pilot_usagov.py`
+  holds the corpus and probe set to that shape going forward.
+
+  The first review pass found a real defect and the write-up reports it
+  rather than quietly fixing it and moving on: transcribing a page's own
+  heading into the body doubles it as a passage, and that short, generic
+  passage out-scored the actual answering passage on a real question
+  ("How do I check my SNAP EBT balance?") because TF-IDF cosine's length
+  normalization rewards short passages where every matched word is a
+  larger fraction of the whole. Fixed in the corpus (delete the duplicated
+  line) and in `docs/onboarding.md`'s import guidance, since it is a
+  mechanical mistake with no per-corpus judgment call, not specific to
+  usa.gov. A second, related effect survived that fix: a short
+  introduction paragraph can still out-score a longer, more specific
+  answering passage under the default `retrieval.max_passages = 1`
+  (measured on "Am I eligible for Section 8 housing?" and "What is
+  LIHEAP?"), fixed in a scratch config by raising `max_passages` to `2` —
+  recorded as a recommendation for real, unevenly-shaped corpora rather
+  than changed in the shipped pilot config, which stays at the default to
+  demonstrate what an operator gets out of the box.
+
+  A genuine vocabulary gap also surfaced, once: "Who qualifies for WIC?"
+  scored its accepted passage at 0.239 while the passage that actually
+  states eligibility ("...you must be at least one of the following:
+  pregnant, breastfeeding...") scored 0.164, one thousandth below
+  threshold, because neither shares "qualify"/"qualifies" with the
+  question. One borderline case out of ten answer probes, not a dominant
+  failure — and `cairn calibrate` found the demo corpus's own
+  `retrieval.threshold = 0.165` correctly classified all 16 probes anyway,
+  with a suggested midpoint 0.175 away.
+
+  This directly resolves the contingent evaluation of optional semantic
+  retrieval named alongside this pilot when the round was planned: the
+  pilot's two largest measured effects (the duplicated-title passage and
+  the length-normalization/`max_passages` interaction) are both authoring
+  and configuration fixes inside the existing lexical architecture, and
+  the one real vocabulary gap found already has a documented, adopted fix
+  (`docs/authoring.md`'s FAQ-pair convention) that costs nothing in
+  offline determinism or the citation guarantee. `docs/pilot-usagov.md`
+  states the recommendation plainly: do not pursue semantic retrieval,
+  citing this repository's own measured history of twenty-one reverted
+  ranking configurations for the same reason.
 
 #### Changed
 

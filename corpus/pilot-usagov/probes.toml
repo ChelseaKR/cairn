@@ -1,0 +1,73 @@
+# Calibration probes for the real-corpus pilot (corpus/pilot-usagov/),
+# written the same shape as docs/calibration-probes.example.toml — real
+# questions a person reading these six real usa.gov pages would ask, plus
+# plausible off-topic refusals. See docs/pilot-usagov.md for what running
+# `cairn calibrate --probes corpus/pilot-usagov/probes.toml` against this
+# file found.
+
+[[probe]]
+question = "How do I apply for SNAP?"
+behavior = "answer"
+
+[[probe]]
+question = "How do I check my SNAP EBT balance?"
+behavior = "answer"
+
+[[probe]]
+question = "What is LIHEAP?"
+behavior = "answer"
+
+[[probe]]
+question = "Who can help me if my electricity gets disconnected?"
+behavior = "answer"
+
+[[probe]]
+question = "Am I eligible for Section 8 housing?"
+behavior = "answer"
+
+[[probe]]
+question = "How does a Section 8 voucher pay my rent?"
+behavior = "answer"
+
+[[probe]]
+question = "Who qualifies for WIC?"
+behavior = "answer"
+
+[[probe]]
+question = "How do I get discounted internet service?"
+behavior = "answer"
+
+[[probe]]
+question = "Cuáles son los requisitos de SNAP?"
+behavior = "answer"
+lang = "es"
+
+[[probe]]
+question = "Cómo reviso mi saldo de EBT?"
+behavior = "answer"
+lang = "es"
+
+[[probe]]
+question = "How do I renew my passport?"
+behavior = "refuse"
+
+[[probe]]
+question = "What is the capital of France?"
+behavior = "refuse"
+
+[[probe]]
+question = "How do I register to vote?"
+behavior = "refuse"
+
+[[probe]]
+question = "Can I get a tax refund?"
+behavior = "refuse"
+
+[[probe]]
+question = "What are the rules for unemployment insurance?"
+behavior = "refuse"
+
+[[probe]]
+question = "¿Cuál es la capital de Francia?"
+behavior = "refuse"
+lang = "es"
