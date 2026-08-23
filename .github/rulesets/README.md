@@ -1,22 +1,46 @@
-# The one thing this repository cannot do for itself
+# The one thing this repository could not do for itself
 
-**Status: not applied. The `audit` job is a report, not a gate.**
+**Status: applied 2026-08-22. The `audit` job blocks a merge.**
 
 Everything else in this repository is enforced by something in this
-repository. This is not. Whether a check can block a merge is a repository
-*setting*, held on GitHub's side, changeable only by someone with admin
-rights on `ChelseaKR/cairn`. No file can grant itself that power, and a
-repository that implied otherwise would be making exactly the claim this
-project exists to disprove — a check that could have blocked a merge, did not,
-and looked like it had.
+repository. This was the one exception. Whether a check can block a merge is
+a repository *setting*, held on GitHub's side, changeable only by someone
+with admin rights on `ChelseaKR/cairn`. No file could grant itself that
+power, and a repository that implied otherwise would have been making
+exactly the claim this project exists to disprove — a check that could have
+blocked a merge, did not, and looked like it had.
 
-So `main.json` is the ruleset written out in full, committed and reviewable,
-and deliberately **not applied**. Until somebody applies it:
+`main.json` is the ruleset that was written out in full, committed and
+reviewable, before anyone applied it — and the ruleset now active on the
+repository (id `21218790`, `enforcement: active`) is that same file, applied
+by the command below and reapplied once more the same session to pick up
+`main.json`'s own subsequent changes (the CI matrix and `image`/`package`
+jobs PR #19 added). Since it took effect:
 
-- the `audit` job runs on every pull request and writes a verdict;
-- nothing stops a pull request being merged while that verdict is red;
-- a green tick on a merged commit means the checks *ran*, not that they *were
-  required to pass*.
+- the `audit` job runs on every pull request and writes a verdict, same as
+  before;
+- a pull request cannot be merged while any of the nine required checks —
+  `audit` among them — is red, or while `main` has moved out from under it
+  (`strict_required_status_checks_policy`);
+- direct pushes to `main` no longer work; every change from PR #22 onward
+  has gone through a pull request.
+
+The honest test was not that the API call below returned 201. Two separate
+things were checked, not assumed:
+
+- **The positive case.** Real pull request #22 needed all nine required
+  checks green before it could merge, and did.
+- **The negative case**, because a rule nobody has watched fail is a rule
+  nobody has verified — a throwaway pull request (#23) with one required
+  check (`core`) deliberately broken by an unimportable module. GitHub's own
+  `mergeStateStatus` read `BLOCKED` while that check was red, and an actual
+  `gh pr merge` attempt was refused outright: *"Pull request #23 is not
+  mergeable: the base branch policy prohibits the merge."* Closed without
+  merging, branch deleted, immediately after.
+
+If this repository ever needs the ruleset reapplied — a misclick, a repo
+transfer, `ruleset-check.yml`'s weekly check finding it silently gone —
+here is how it was done the first time.
 
 ## Applying it
 

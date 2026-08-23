@@ -30,12 +30,13 @@
 #              `audit` on purpose: the gate must stay offline and
 #              deterministic, and nothing in this job can make it pass.
 #
-# `audit` is the job that must be marked required in branch protection, and it
-# is NOT. Until somebody with admin rights applies the ruleset committed at
-# .github/rulesets/main.json, this job is advisory: it runs, it writes a
-# verdict, and nothing stops a merge while that verdict is red. It is not
-# enough for a gate to exist. A gate nobody has made blocking is a report, and
-# this comment is here so nobody reads the job name and assumes otherwise.
+# `audit` is the job that must be marked required in branch protection, and as
+# of 2026-08-22 it is: the ruleset committed at .github/rulesets/main.json was
+# applied, and verified two ways, not just applied — see
+# .github/rulesets/README.md. It is not enough for a gate to exist. A gate
+# nobody has made blocking is a report, which is what this job was until the
+# ruleset made it one, and this comment is here so nobody reads the job name
+# and assumes otherwise about whichever of those is currently true.
 #
 # ---------------------------------------------------------------------------
 # Why this gate fails instead of skipping

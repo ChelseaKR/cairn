@@ -6,14 +6,18 @@ its sources on every answer, and when no source clears the relevance threshold
 it refuses plainly and points to a human — no guessing, ever. A cairn marks a
 verified trail; where there are no stones, there is no trail.
 
-**Status: pre-release.** Every capability in the specification is implemented:
-ingest with idempotent indexing, grounded answers with citations, refusal as a
-first-class outcome, an operator explain mode that diagnoses a bad answer to
-the right stage, three languages including right-to-left, an accessible chat
-interface, and a fail-closed CI audit gate against a pinned external auditor —
-run against the committed evidence and, separately, against the running
-server. 602 tests plus 63 browser behaviour checks, standard library only,
-offline.
+**Status: released.** `v0.2.0` is tagged, published to PyPI
+(`pip install cairn-assistant`) and GHCR
+(`docker pull ghcr.io/chelseakr/cairn`), and the branch-protection ruleset
+that makes the `audit` job a gate rather than a report is applied and
+verified — see the Standards Conformance table below. Every capability in
+the specification is implemented: ingest with idempotent indexing, grounded
+answers with citations, refusal as a first-class outcome, an operator
+explain mode that diagnoses a bad answer to the right stage, three languages
+including right-to-left, an accessible chat interface, and a fail-closed CI
+audit gate against a pinned external auditor — run against the committed
+evidence and, separately, against the running server. 601 tests plus
+63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
 ## One thing, before the feature list
@@ -341,17 +345,21 @@ it is a hash of the evidence, the judge configuration, the enabled floors
 a stale one (`958f5afd…`) from before the baseline was last regenerated, in a
 fence nothing executes.
 
-**The gate is advisory today, and this is the sentence that says so.** The
-`audit` job runs on every pull request and writes a verdict; nothing yet stops
-a pull request being merged while that verdict is red, because whether a check
-can block a merge is a repository setting on GitHub's side and no file can
-grant itself that power. The exact ruleset needed is written out and committed
-at [`.github/rulesets/main.json`](.github/rulesets/main.json), deliberately not
-applied, with what it costs and how to apply it in
-[its README](.github/rulesets/README.md). Until someone with admin rights
-applies it, a green tick here means the checks ran, not that they had to pass.
-A check that could have blocked a merge and did not is the failure this whole
-project is about; it would be a poor joke to hide one in it.
+**The gate blocks a merge today, and this is the sentence that says so.** The
+`audit` job runs on every pull request and writes a verdict; since 2026-08-22
+a pull request cannot be merged while that verdict is red, because the
+committed ruleset at
+[`.github/rulesets/main.json`](.github/rulesets/main.json) was applied —
+whether a check can block a merge is a repository setting on GitHub's side,
+so a file could never grant itself that power, and this is the sentence
+recording that someone with admin rights did. What it costs and the
+two-part verification that it actually blocks — a real pull request needing
+every check green, and a separate one with a check deliberately broken,
+refused a merge outright — are in
+[its README](.github/rulesets/README.md). A green tick here now means the
+checks had to pass, not only that they ran. A check that could have blocked
+a merge and did not was the failure this whole project is about; it would
+have been a poor joke to leave one sitting in it.
 
 The harness is resolved at run time and verified to be at the pinned commit.
 It is in no import and no dependency list, so Cairn's install, lint and test
@@ -498,8 +506,8 @@ page argues against.
 | Responsible-Tech Framework | Applies — the harm this project is built against is a confident wrong answer to somebody asking a public agency a question that matters to them. The design answer is refusal: no passage over the threshold means no answer, and the refusal is countable in the JSON output rather than being a phrase in a log. | [DESIGN.md](DESIGN.md) "Core stance" and "What is still open", where every open item is anchored to a test that fails if the item stops being accurate in either direction. |
 | Code Quality | Applies — and two limits are configured rather than enforced, deliberately. `make verify` is the local gate: `uv lock --check`, ruff, mypy, and the suite under coverage with an 85% branch floor against 89% measured. **mypy runs in its default mode, not `--strict`,** which reports 28 findings on this tree today. **The complexity limit of 10 is configured and the `C90` rule is not switched on,** because four functions are over it. Both are named in `pyproject.toml` at the point of configuration, and closing either is a refactor rather than a setting. | `Makefile`, `pyproject.toml`, `uv.lock`, `.python-version` |
 | Security & Supply-Chain | Applies | [SECURITY.md](SECURITY.md) names the private channel and three project-specific vulnerability classes, including an ungrounded grounded answer. `.github/workflows/security.yml` runs gitleaks over the full history, Semgrep, and `pip-audit`, automatically and on a schedule, with no path that turns a skip into a green check. Every `uses:` is pinned to a commit SHA with a version comment, and `.github/dependabot.yml` raises the pins weekly with a cooldown. The runtime has no third-party dependencies at all. |
-| CI/CD | Applies — with the honest caveat the workflow itself carries in its header. Eight jobs: `core` (install, lint, test, and a fail-closed drill proving the gate exits non-zero when the harness is unreachable, matrixed across Python versions on Linux), `core-windows` and `core-macos` (the same install/lint/test/demo/independence steps, one canary job per non-Linux OS — the stdlib-only claim is a claim about the package, not about Ubuntu), `image` and `package` (build the container image and the sdist/wheel `release.yml` publishes, and run each against the demo corpus, on every change rather than first at release time), `interface`, `audit`, and `live`. Every workflow declares a top-level least-privilege `permissions:` block. **The `audit` job is not marked required in branch protection**, so it reports rather than blocks until somebody with admin rights applies the committed ruleset — and `ruleset-check.yml` now re-checks that fact weekly against the live repository (not just a documentation claim) and opens a tracking issue while it remains true, closing it automatically once it is not. It cannot apply the ruleset itself; that stays an admin action. **Nothing has been published to PyPI or GHCR yet** — `release.yml` exists and its build half is continuously proven by `image`/`package`, but the publish half only runs on a GitHub Release, and none has been cut; see [`docs/release.md`](docs/release.md) for the one-time PyPI setup that still needs a human with a PyPI account. | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/workflows/ruleset-check.yml`, `.github/rulesets/main.json`, `Dockerfile`, `tests/test_container.py`, `tests/test_rulesets.py` (which fails if the ruleset stops naming the jobs it protects) |
-| Release & Versioning | Applies — the version in `CITATION.cff`, `pyproject.toml`, `cairn.__version__` and [CHANGELOG.md](CHANGELOG.md) is held together by a test, currently 0.2.0. One tagged release, `v0.1.0` (2026-08-16), exists; cutting the `v0.2.0` tag is the maintainer's own action — tagging is a push, and this repository's working rule is that an agent does not push — see [`docs/release.md`](docs/release.md). A `release.yml` workflow now publishes a tagged GitHub Release to PyPI (trusted publishing, no stored token) and GHCR; it has never run for real, since no `v0.2.0` release has been cut yet, but its build half runs on every change (`image`, `package` in `ci.yml`). **Not in place:** signed tags. | [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [`docs/release.md`](docs/release.md), `tests/test_cli.py` |
+| CI/CD | Applies. Eight jobs: `core` (install, lint, test, and a fail-closed drill proving the gate exits non-zero when the harness is unreachable, matrixed across Python versions on Linux), `core-windows` and `core-macos` (the same install/lint/test/demo/independence steps, one canary job per non-Linux OS — the stdlib-only claim is a claim about the package, not about Ubuntu), `image` and `package` (build the container image and the sdist/wheel `release.yml` publishes, and run each against the demo corpus, on every change rather than first at release time), `interface`, `audit`, and `live`. Every workflow declares a top-level least-privilege `permissions:` block. **The `audit` job is marked required in branch protection** — the committed ruleset (`.github/rulesets/main.json`) was applied 2026-08-22 and verified two ways: a real pull request (#22) needed all nine required checks green to merge, and a throwaway pull request with one of them deliberately broken was refused a merge outright by GitHub, not just left red (`.github/rulesets/README.md` has both). `ruleset-check.yml` re-checks weekly that an active ruleset still exists on the live repository and opens a tracking issue if it is ever silently removed. **Published to both PyPI and GHCR** — `v0.2.0`'s GitHub Release triggered `release.yml` for the first time; `pip install cairn-assistant` and `docker pull ghcr.io/chelseakr/cairn` both resolve to something real. See [`docs/release.md`](docs/release.md) for how the one-time PyPI trusted-publisher setup was done, and the real bug its first run found. | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/workflows/ruleset-check.yml`, `.github/rulesets/main.json`, `Dockerfile`, `tests/test_container.py`, `tests/test_rulesets.py` (which fails if the ruleset stops naming the jobs it protects) |
+| Release & Versioning | Applies — the version in `CITATION.cff`, `pyproject.toml`, `cairn.__version__` and [CHANGELOG.md](CHANGELOG.md) is held together by a test, currently 0.2.0. Two tagged releases exist: `v0.1.0` (2026-08-16) and `v0.2.0` (2026-08-22) — tagging and pushing tags is the maintainer's own action, not an agent's, per this repository's working rule; see [`docs/release.md`](docs/release.md). `release.yml` published `v0.2.0`'s GitHub Release to both PyPI (trusted publishing, no stored token) and GHCR — the first real run of the publish half found and fixed a real bug in the workflow itself (an action pinned to a tag object's SHA rather than the commit it points to; `docs/release.md` has the story), re-run after the fix, and confirmed live on both registries rather than trusted from a green check alone. **Not in place:** signed tags. | [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [`docs/release.md`](docs/release.md), `tests/test_cli.py` |
 | Observability | Applies — this is a local tool with no service to instrument, so the observable surface is the evidence rather than telemetry. `cairn record` writes what the real engine answered, `--explain` attributes a bad answer to the stage that caused it, and the audit report and committed baseline make a score change visible in a diff. Nothing phones home and there is no analytics anywhere. | `plumbline/bundle`, `plumbline/baseline.json`, `audit_guard.py`, [`site/index.html`](site/index.html) |
 | Performance | Applies — the served page is one small static document with no external resource of any kind, and retrieval is lexical over a local index with no model call in the path. `tests/test_performance.py`, gated in `make verify`, budgets both: page weight exactly (deterministic — no timing, so the budget is tight against the ~21KB measured baseline) and demo-corpus query latency deliberately loosely (two orders of magnitude above the ~3.3ms measured, wide enough that CI runner noise cannot trip it while a real algorithmic regression still would). `benchmark_index.py` separately measures where query latency stops being "milliseconds" at larger-than-demo corpus scale — unbudgeted and not gated, because an absolute number at scale does not survive running somewhere else (see DESIGN.md, "Measured, not only asserted"). | `tests/test_performance.py`, `benchmark_index.py`, `cairn.toml` bounding the retrieval work itself. |
 | Accessibility | Applies — WCAG 2.2 AA as behaviour rather than attributes, checked in two layers: `tests/test_ui.py` for markup, semantics, and computed contrast offline, and `tests/browser/` for what only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. **No person has driven this page with a screen reader**, that session has not happened, and no automated check here stands in for it. | `tests/test_ui.py`, `tests/browser/`, `cairn/ui/contrast.py` |

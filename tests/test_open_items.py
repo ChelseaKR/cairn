@@ -14,12 +14,18 @@ required to match the list exactly in both directions:
 - fix something and leave it listed, and the behavioural check fails;
 - delete an item whose behaviour has not changed, and the anchor is orphaned.
 
-Two of the six cannot be checked that way, and that is stated rather than
-faked. Whether a required status check is configured on GitHub is not
-readable from a checkout — `tests/test_rulesets.py` covers what a file can
-say about it — and whether a person has sat down with a screen reader is not
-a property of the code at all. For those two the check is that the claim is
-still made, in the documents, in the words that make it a claim.
+One of the six cannot be checked that way, and that is stated rather than
+faked: whether a person has sat down with a screen reader is not a property
+of the code at all, so the check there is only that the claim is still made,
+in the documents, in the words that make it a claim. A second item used to
+live here the same way — whether a required status check was configured on
+GitHub is not readable from a checkout either — until 2026-08-22, when the
+ruleset was applied and it stopped being an open item at all: gone from
+`DESIGN.md`'s list, gone from `ANCHORS` below, and its check moved
+permanently to `tests/test_rulesets.py`, which can now assert the opposite
+of what this file could ever have proven — not "the claim is still made,"
+but "the thing claimed is verifiably true," including the case where it
+stops being true again.
 """
 
 import json
@@ -43,7 +49,6 @@ SECTION = "### What is still open"
 # unique to that bullet; matching on it means renaming an item is a deliberate
 # edit here too.
 ANCHORS = (
-    "audit` job is not marked required in branch protection",
     "One known colloquial-recall failure",
     "One wrong-paragraph case",
     "Cross-language fallback needs shared words",
@@ -252,24 +257,22 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
         self.assertEqual(networked, ["server.py"])
 
 
-class TestTheTwoThatCannotBeCheckedFromACheckout(unittest.TestCase):
+class TestTheOneThatCannotBeCheckedFromACheckout(unittest.TestCase):
     """Not every open item is a property of the code, and pretending
-    otherwise would be worse than saying so."""
+    otherwise would be worse than saying so.
+
+    This class used to hold two of these, and its name said so. The other —
+    whether a check can block a merge, which lives on GitHub's side — closed
+    2026-08-22, when the ruleset was applied. Its test did not get deleted
+    quietly along with the item; it moved, inverted, to
+    `tests/test_rulesets.py`, which can read the live setting through the
+    GitHub API in a way nothing running from a checkout ever could. Only the
+    screen-reader session remains a claim this file can check is *made*
+    rather than a fact it can check is *true*."""
 
     def documents(self):
         for name in ("README.md", "DESIGN.md"):
             yield name, (ROOT / name).read_text(encoding="utf-8")
-
-    def test_the_gate_is_still_described_as_advisory(self):
-        # Whether a check can block a merge lives on GitHub's side.
-        # tests/test_rulesets.py holds the ruleset against the workflow; this
-        # only records that the open list has not quietly dropped the item.
-        # One assertion per document. Concatenating the two and searching the
-        # result meant the README's own sentence satisfied it permanently, so
-        # the item could be deleted from the open list — the one thing this
-        # check exists to notice — without anything failing.
-        self.assertIn("advisory", open_section())
-        self.assertIn("advisory", (ROOT / "README.md").read_text(encoding="utf-8"))
 
     def test_no_automated_check_is_offered_as_a_screen_reader_session(self):
         section = open_section()
