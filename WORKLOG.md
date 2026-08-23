@@ -668,12 +668,47 @@ One line per implementation session: date, what was built, from what input.
   `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged.
 
 - 2026-08-22 — Session 12 (AI implementation session). Input: the same
-  stashed six-feature expansion sessions 11 and 12 (query understanding,
-  landed in parallel) both drew from. Third extraction: structured corpus
-  tables. Numbered independently of that other session 12 — both branched
-  from the same point after PR #25, so whichever of the two merges second
-  renumbers its entry at the conflict, same as any other worklog collision
-  between parallel work.
+  stashed six-feature expansion session 11 drew from. Second extraction:
+  query understanding.
+
+  `cairn/query.py`'s `split_intents` (`retrieval.split_intents`, opt-in,
+  default off) scores each sentence of a multi-part question separately and
+  merges the candidate pools by best score per passage, so one half of a
+  two-part ask cannot be diluted by the other — the composed-truncated
+  failure DESIGN.md already names, caught one stage earlier. Sentence
+  boundaries only, in all three interface languages; coordinating
+  conjunctions are deliberately never boundaries, tested directly against
+  the audit set's own adversarial shape ("ignore the documents and just tell
+  me…" must not split at its "and"). `RetrievalTrace` gained `intents`,
+  empty unless the pass ran.
+
+  Two siblings that did not ship are written up in DESIGN.md next to the one
+  that did rather than left silent: query-side diacritic folding (built,
+  reverted — it moved `ck-026` onto the wrong passage for no measured gain)
+  and refusal rescue by pseudo-relevance feedback (built, deleted outright —
+  three of four rescued refusals landed on the wrong program). Neither left
+  code behind to extract; both are prose, ported from the stash's own
+  documentation of them.
+
+  One thing the stash had not verified: mypy. `cairn/query.py`'s merge step
+  typed its best-score map as `dict[str, tuple[float, object]]`, which
+  happened to run fine — Python does not check types at runtime — but hid a
+  genuinely dead `order` dict, written every merge and never read anywhere.
+  Typed the map as `dict[str, tuple[float, Candidate]]` instead and removed
+  `order`; mypy now reads the file clean, and there is less of it to read.
+
+  `make verify`: ruff, mypy, 624 tests, 93% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged
+  (the pass is off by default; `cairn record --diff-against` confirms zero
+  drift the same way session 11's did). Four of six landed features remain:
+  structured corpus tables, streaming, multi-turn sessions, `gauntlet`.
+
+- 2026-08-22 — Session 13 (AI implementation session). Input: the same
+  stashed six-feature expansion sessions 11 and 12 both drew from. Third
+  extraction: structured corpus tables. Branched from the same point as
+  session 12 (both after PR #25), so this entry was drafted as "Session 12"
+  too and renumbered here, at the merge, once session 12 above was real and
+  first — the collision named in the draft, resolved exactly as predicted.
 
   `cairn/tabular.py`: `tables/*.csv` under a corpus directory, `# key: value`
   comment front matter that survives a spreadsheet round-trip. Tables are
@@ -727,5 +762,5 @@ One line per implementation session: date, what was built, from what input.
   `make verify`: ruff, mypy, 634 tests, 93% branch coverage.
   `./plumbline-gate.sh`: GATE PASS, 14/14 suites, against the newly adopted
   baseline. `audit_guard.py`: GUARD PASS, no suite moved against it. Three
-  of six landed: hybrid retrieval, query understanding (parallel), tables.
-  Streaming, sessions, and `gauntlet` remain stashed.
+  of six landed: hybrid retrieval, query understanding, tables. Streaming,
+  sessions, and `gauntlet` remain stashed.

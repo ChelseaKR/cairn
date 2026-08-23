@@ -30,6 +30,7 @@ from cairn.config import Config
 from cairn.index import Index
 from cairn.language import LANGUAGES, Detection, detect, direction_of, endonym_of, isolate
 from cairn.messages import text as message
+from cairn.query import split_intents
 from cairn.retrieve import RetrievalTrace, retrieve
 from cairn.tabular import parse_count_query, render_row, run_count
 
@@ -177,14 +178,27 @@ def ask(question: str, index: Index, cfg: Config, *, lang: str | None = None) ->
         if table_result is not None:
             return table_result
 
-    primary = retrieve(
-        question,
-        index,
-        threshold=cfg.threshold,
-        candidates=cfg.candidates,
-        lang=response_lang,
-        dense_weight=cfg.dense_weight,
-    )
+    # Query understanding pass, opt-in (see cairn.query). Splitting replaces
+    # the primary search; a single-part question is returned from it
+    # untouched, so the default path is byte-identical to plain retrieval.
+    if cfg.split_intents:
+        primary = split_intents(
+            question,
+            index,
+            threshold=cfg.threshold,
+            candidates=cfg.candidates,
+            lang=response_lang,
+            dense_weight=cfg.dense_weight,
+        )
+    else:
+        primary = retrieve(
+            question,
+            index,
+            threshold=cfg.threshold,
+            candidates=cfg.candidates,
+            lang=response_lang,
+            dense_weight=cfg.dense_weight,
+        )
     attempts = [Attempt(scope="language", trace=primary)]
     chosen = primary
     if not primary.grounded and cfg.cross_language_fallback:
