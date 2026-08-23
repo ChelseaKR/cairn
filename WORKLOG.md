@@ -666,3 +666,39 @@ One line per implementation session: date, what was built, from what input.
   (`gauntlet`) — remain stashed, unlanded, each its own future session's
   input. `make verify`: ruff, mypy, 615 tests, 93% branch coverage.
   `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged.
+
+- 2026-08-22 — Session 12 (AI implementation session). Input: the same
+  stashed six-feature expansion session 11 drew from. Second extraction:
+  query understanding.
+
+  `cairn/query.py`'s `split_intents` (`retrieval.split_intents`, opt-in,
+  default off) scores each sentence of a multi-part question separately and
+  merges the candidate pools by best score per passage, so one half of a
+  two-part ask cannot be diluted by the other — the composed-truncated
+  failure DESIGN.md already names, caught one stage earlier. Sentence
+  boundaries only, in all three interface languages; coordinating
+  conjunctions are deliberately never boundaries, tested directly against
+  the audit set's own adversarial shape ("ignore the documents and just tell
+  me…" must not split at its "and"). `RetrievalTrace` gained `intents`,
+  empty unless the pass ran.
+
+  Two siblings that did not ship are written up in DESIGN.md next to the one
+  that did rather than left silent: query-side diacritic folding (built,
+  reverted — it moved `ck-026` onto the wrong passage for no measured gain)
+  and refusal rescue by pseudo-relevance feedback (built, deleted outright —
+  three of four rescued refusals landed on the wrong program). Neither left
+  code behind to extract; both are prose, ported from the stash's own
+  documentation of them.
+
+  One thing the stash had not verified: mypy. `cairn/query.py`'s merge step
+  typed its best-score map as `dict[str, tuple[float, object]]`, which
+  happened to run fine — Python does not check types at runtime — but hid a
+  genuinely dead `order` dict, written every merge and never read anywhere.
+  Typed the map as `dict[str, tuple[float, Candidate]]` instead and removed
+  `order`; mypy now reads the file clean, and there is less of it to read.
+
+  `make verify`: ruff, mypy, 624 tests, 93% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle unchanged
+  (the pass is off by default; `cairn record --diff-against` confirms zero
+  drift the same way session 11's did). Four of six landed features remain:
+  structured corpus tables, streaming, multi-turn sessions, `gauntlet`.

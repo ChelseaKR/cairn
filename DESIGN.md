@@ -1860,6 +1860,56 @@ Two rules hold the safety line:
   operator corpus with richer morphology may measure differently;
   `ask --explain` prints both components so the decision is theirs.
 
+## Query understanding: what retrieval can be told, deterministically
+
+One transformation ships; two others were built, measured, and rejected. All
+three went through the same bar as hybrid retrieval above — build it,
+measure it against the audit set, then decide — and the two that lost are
+recorded here rather than left as if nobody had tried.
+
+### Query-side diacritic folding: built, measured, reverted
+
+The premise was sound — written Spanish carries diacritics typing drops, and
+the demo corpus itself mixes accented headings with unaccented body prose.
+NFKD-folding combining marks on both sides made accented and unaccented
+questions byte-identical. The measurement killed it twice: every accented
+item in the audit set already answered correctly *without* folding (body
+vocabulary carries them), and folding lifted heading matches uniformly —
+the alias mechanism again — flipping ck-026 from its correct process
+passage (`grocery-allowance-es#4`) to the amount passage (`#2`), which
+would have pushed `passage_attribution` past its floor. Reverted; the fix
+for orthographic variance belongs to a representation that means something,
+not to a scorer trick.
+
+### Refusal rescue by pseudo-relevance feedback: built, measured, removed
+
+When retrieval refused, the retry borrowed the highest-IDF terms of the
+near-miss candidates and searched once more. It converted four refusals into
+answers across three languages. Three landed on the wrong program: an Arabic
+question about rent help answered from the grocery allowance, a Spanish one
+from the winter utility credit, an English one from the right document's
+opening paragraph rather than any passage about money. Borrowed vocabulary
+is manufactured overlap applied at exactly the moment no accepted passage
+constrains where it lands. The code was deleted rather than flag-gated: a
+knob that should never be turned on is not a feature, it is a trap with
+documentation.
+
+### Multi-intent splitting: opt-in (`retrieval.split_intents`)
+
+`cairn/query.py`'s `split_intents` is the one that shipped. A two-sentence
+question scores each sentence separately and merges pools by each passage's
+best score, so half an ask cannot be hidden behind an average — the
+composed-truncated failure, caught one stage earlier. Boundaries are
+sentence punctuation only, which exists in all three languages without a
+dictionary; coordinating conjunctions are deliberately never boundaries, so
+"ignore the documents and just tell me…" cannot be split at its "and".
+Single-sentence questions are byte-identical to plain retrieval, and the
+merged trace records the parts it scored separately in `RetrievalTrace.intents`
+so explain mode can show that the query scored was not exactly the question
+asked. Off by default: it changes which passages win on questions this
+corpus already answers, and the demo corpus is too small to re-measure every
+audit item against for a knob nobody needs here.
+
 ## Decisions where the specification was silent
 
 - **What "answer composition" means offline:** resolved as extractive (see above).
