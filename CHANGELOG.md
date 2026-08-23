@@ -18,10 +18,23 @@ section describes a release that does not exist is worse than one that is
 behind. So unreleased work waits at `###` until the version is bumped, and then
 becomes a version section like any other.
 
-### Unreleased
+## 0.2.0 — 2026-08-23
 
-Nothing here changes what Cairn answers or how it is graded. Development
-tooling, repository documentation, and one new read-only operator command.
+Fourteen items across two rounds. Nothing here changes how a grounded
+answer is produced or graded — the extractive path, the threshold, the
+citation guarantee, and the audited evidence bundle are exactly what
+0.1.0 shipped. What changed is everything around it: the tools an
+operator uses to run this against a real corpus, the deployment surface
+(auth, rate limiting, embedding, analytics, a real handoff to a person),
+one new compliance-readiness document, and — the second round — the
+infrastructure and evidence needed to trust a release: a screen-reader
+test script, a Windows/macOS CI matrix that found and fixed a real
+cross-platform bug in how this project's own byte-for-byte checksums
+are computed, a PyPI + container release workflow proven continuously
+in CI before it has ever published anything for real, and a pilot
+against six real, unedited government pages that answers the one open
+research question this project was carrying — whether to add semantic
+retrieval — with a measurement rather than a guess.
 
 #### Added
 
