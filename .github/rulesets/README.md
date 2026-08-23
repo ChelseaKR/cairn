@@ -12,14 +12,18 @@ blocked a merge, did not, and looked like it had.
 
 `main.json` is the ruleset that was written out in full, committed and
 reviewable, before anyone applied it — and the ruleset now active on the
-repository (id `21218790`, `enforcement: active`) is that same file, applied
-by the command below and reapplied once more the same session to pick up
-`main.json`'s own subsequent changes (the CI matrix and `image`/`package`
-jobs PR #19 added). Since it took effect:
+repository (id `21223426`, `enforcement: active`) is that same file. Applied
+2026-08-22, and reapplied twice more the same day to pick up `main.json`'s
+own subsequent changes: once for the CI matrix and `image`/`package` jobs
+PR #19 added, once more when `gauntlet` (#31) joined the required contexts.
+Reapplying is the same command every time — delete the ruleset that no
+longer matches, `gh api --method POST` the current file — because a
+`required_status_checks` list is checked as a whole, not merged field by
+field. Since it took effect:
 
 - the `audit` job runs on every pull request and writes a verdict, same as
   before;
-- a pull request cannot be merged while any of the nine required checks —
+- a pull request cannot be merged while any of the ten required checks —
   `audit` among them — is red, or while `main` has moved out from under it
   (`strict_required_status_checks_policy`);
 - direct pushes to `main` no longer work; every change from PR #22 onward
