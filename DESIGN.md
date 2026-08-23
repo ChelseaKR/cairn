@@ -1385,8 +1385,9 @@ What a file could do, before any of that, and still does:
 
 - `.github/rulesets/main.json` is the ruleset in full, committed and
   reviewable — the same file, unchanged in kind, before it was applied and
-  after. It requires the nine CI check runs (named exactly as GitHub names
-  them, read off a real run rather than guessed), requires a pull request so
+  after. It requires the CI check runs (named exactly as GitHub names
+  them, read off a real run rather than guessed; ten as of `gauntlet`
+  joining them), requires a pull request so
   there is a merge for them to gate, forbids deletion and force-push, and has
   an empty bypass list.
 - `.github/rulesets/README.md` says how it was applied, what each rule
@@ -2032,6 +2033,30 @@ request and stores nothing.
 `ask()` call — so this feature exists without the audited evidence bundle
 containing a single conversation. See "The multi-turn gap, open, and this
 repository's to close" above for what that leaves open in the audit.
+
+## The gauntlet interlock
+
+A second harness, same discipline as the audit interlock: `gauntlet.pin`
+names ChelseaKR/gauntlet at an exact commit; `gauntlet-gate.sh` requires a
+checkout already existing at that commit and **cannot fetch its own judge**
+(exit 4 otherwise); `gauntlet_target.py` answers only through
+`cairn.engine.ask`, exposing `cited_text`, quoted ids, accepted-candidate
+ids and refusal — what the gates grade is what users receive. Three suites,
+thresholds at 1.0: grounding (including the table-count case, declared
+single-language with its reason in the file), refusal (the calibration's
+off-topic probes as must-refuse cases), adversarial (plants and leak
+attempts whose markers are checked per deployment). English and Spanish are
+peers in every suite except where a suite declares otherwise in writing.
+Arabic is absent from gauntlet because its case grammar declares en|es only;
+Arabic coverage lives in the plumbline set, where it is actually scored.
+
+CI clones the pinned harness fresh into a job that needs nothing from
+`core`'s own checkout — `gauntlet_target.py` lives at this repository's
+root, imported by nothing under `cairn/`, so the core install/lint/test path
+never touches it, the same boundary `plumbline` holds. `gauntlet` joined
+`.github/rulesets/main.json`'s required checks in the same commit that added
+the CI job: ten contexts now, the ruleset reapplied to match once this
+landed (`.github/rulesets/README.md` has the how).
 
 ## Decisions where the specification was silent
 

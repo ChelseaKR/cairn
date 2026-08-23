@@ -1,0 +1,20 @@
+# The gauntlet interlock's whole contract, the way plumbline.pin is for the
+# audit: one file naming exactly what grades this repository, so a local run
+# and a CI run are the same run and "green" means the same thing both places.
+#
+# Why pinned to an exact commit rather than a branch or tag: gauntlet is an
+# evaluation harness, and an evaluation harness that moves under you makes a
+# green gate meaningless — you cannot tell a regression in Cairn from a new
+# rule in the harness. Bumping this commit is a reviewed diff, read like any
+# dependency upgrade.
+
+[gauntlet]
+repository = "ChelseaKR/gauntlet"
+commit = "e243d1a6066d2ee0c46a95afaab4ca8f701befa8"
+
+# Suites are relative to this repository; the target adapter is
+# gauntlet_target.py at the repository root, which answers through
+# cairn.engine.ask and nothing else.
+suites = "gauntlet/cases"
+target = "gauntlet_target:make_target"
+results = ".cairn/gauntlet-results.json"

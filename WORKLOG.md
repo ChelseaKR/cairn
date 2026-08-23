@@ -868,3 +868,82 @@ One line per implementation session: date, what was built, from what input.
   gap (updated, not closed), no suite moved. Five of six landed: hybrid
   retrieval, query understanding, tables, streaming, sessions. `gauntlet`
   remains stashed — the last one.
+
+- 2026-08-22 — Session 16 (AI implementation session). Input: the same
+  stashed six-feature expansion. Sixth and last extraction: `gauntlet`.
+
+  A second, independent evaluation harness alongside Plumbline's, same
+  discipline: `gauntlet.pin` names `ChelseaKR/gauntlet` at an exact commit
+  (`e243d1a`), never a branch or tag. `gauntlet-gate.sh` deliberately
+  cannot fetch its own judge — unlike `plumbline-gate.sh`, which resolves
+  into a local cache, this one requires a checkout already at the pinned
+  commit (`$GAUNTLET_CHECKOUT` or a sibling `../gauntlet`) and exits 4
+  otherwise, "told you nothing" rather than substituting something else.
+  `gauntlet_target.py` answers only through `cairn.engine.ask`, exposing
+  `cited_text`, quoted ids, every accepted candidate, and the refusal
+  flag — the gates grade exactly what a user receives, nothing rebuilt for
+  the harness's benefit. Three pinned suites at threshold 1.0 — grounding
+  (5 cases, including the structured-table count tool landed two sessions
+  ago), refusal, adversarial — English and Spanish as peers throughout;
+  Arabic is absent because gauntlet's own case grammar declares `en|es`
+  only, and Arabic coverage already lives, scored, in the Plumbline set.
+
+  Verified against a real checkout, not only offline: cloned
+  `ChelseaKR/gauntlet` as a sibling directory, checked it out to the pinned
+  commit, ran `./gauntlet-gate.sh` for real. `overall: PASS`, all three
+  suites, all cases — including the table-count grounding case against the
+  tables feature two sessions ago landed for real. `tests/test_gauntlet_interlock.py`'s
+  `TestTheFullGate`, `@unittest.skipUnless` a sibling checkout exists, ran
+  rather than skipped for the same reason.
+
+  New in CI, not just in the repository: a `gauntlet` job, cloning the
+  pinned harness fresh in its own runner rather than sharing `core`'s
+  checkout, calling `gauntlet-gate.sh` directly — every `uses:` pinned to a
+  commit SHA with a version comment matching this repository's own
+  convention, not the stash's original floating `@v4`/`@v5` tags (checked
+  against the real upstream releases via the GitHub API, the same way
+  `dc37677b` got found for the PyPI-publish pin four sessions ago — a tag
+  ref is not always a commit SHA, and this project has now been burned by
+  assuming so twice). `.github/rulesets/main.json` gained `gauntlet` as a
+  tenth required context in the same commit that added the job — a new CI
+  job with no matching required context is exactly the gap
+  `tests/test_rulesets.py`'s own completeness check exists to catch, and it
+  did, immediately, before this was ever pushed.
+
+  Three real things this PR's own CI run found that no amount of local
+  verification had — the honest cost of a harness this project cannot run
+  a fully clean checkout of ahead of time. First, a lint finding the
+  stash's own suite had not caught: an f-string with no placeholders in
+  `tests/test_gauntlet_interlock.py`, auto-fixed. Second, and load-bearing:
+  the pinned gauntlet commit is not reachable from `ChelseaKR/gauntlet`'s
+  `main` branch — it lives on an unmerged feature branch of that project
+  (`feat/judge-calibrated`) — so CI's plain `git clone` (which fetches only
+  the default branch) failed with `fatal: unable to read tree` the moment
+  the `gauntlet` job ever actually ran, something a local run against an
+  already-fetched sibling checkout could not have shown. Fixed by fetching
+  the pinned commit directly (`git fetch origin $COMMIT`, works regardless
+  of which branch it is reachable from, verified against a fresh clone
+  before trusting it) rather than assuming the default branch has it. The
+  pin itself is unchanged — whether it should point at a commit on
+  `gauntlet`'s `main` instead is the maintainer's call, on their own
+  separate project, not this session's to make unasked. Third: the
+  Windows leg of `core`'s matrix failed `test_gauntlet_interlock.py`'s
+  fail-closed test with `WinError 193` — `subprocess.run([str(GATE)], ...)`
+  invokes a `.sh` file directly, which Windows cannot exec outside a shell.
+  `tests/test_interlock.py` already carries this exact gap, stated rather
+  than hidden, for `plumbline-gate.sh`; the same `@unittest.skipIf(sys.platform
+  == "win32", ...)` now covers `gauntlet-gate.sh`'s two subprocess-invoking
+  test classes, with the reason pointing at the precedent rather than
+  repeating it from scratch.
+
+  `make verify`: ruff, mypy, 669 tests, 92% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, 14/14 suites, evidence bundle
+  unchanged — gauntlet touches nothing `cairn record` runs.
+  `./gauntlet-gate.sh`: GATE PASS, 3/3 suites, against a real pinned
+  checkout. Six of six landed: hybrid retrieval, query understanding,
+  tables, streaming, sessions, `gauntlet`. The stash that started session
+  11 is now empty of unlanded work — everything it held is either on
+  `main` as a reviewed commit, or, for the two items that turned out to
+  need more than extraction (`conversational_integrity`'s audit
+  integration, foremost), named as open work in `DESIGN.md` instead of
+  left silent in a stash nobody but this session could see.

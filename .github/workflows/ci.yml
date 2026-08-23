@@ -497,3 +497,54 @@ jobs:
           name: live-report
           path: .plumbline-live/audits/
           if-no-files-found: warn
+
+  gauntlet:
+    name: gauntlet (pinned adversarial suites)
+    runs-on: ubuntu-latest
+    needs: [core]
+    steps:
+      # Same credential rule as every other job above.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      # The gate cannot fetch its own harness, by design (gauntlet-gate.sh's
+      # own header explains why: no path that resolves *something* if the
+      # pin cannot be honoured). So CI is the place the checkout at the
+      # exact pinned commit is made: cloned fresh, checked out to
+      # gauntlet.pin's commit, and verified by the gate itself before any
+      # suite runs. A moving ref here would grade this repository with a
+      # harness nobody reviewed.
+      - name: Check out the harness at the pinned commit
+        run: |
+          REPO=$(sed -n 's/^repository = "\(.*\)"/\1/p' gauntlet.pin)
+          COMMIT=$(sed -n 's/^commit = "\(.*\)"/\1/p' gauntlet.pin)
+          # A plain clone fetches only the default branch, and the pinned
+          # commit is not guaranteed to be on it (found the hard way: this
+          # pin's own commit lives on a feature branch of the harness repo,
+          # not main, and `git clone` + `checkout --detach $COMMIT` failed
+          # with "unable to read tree" the first time this job ever ran).
+          # Fetching the commit directly works regardless of which branch,
+          # if any, it is reachable from.
+          mkdir -p "$RUNNER_TEMP/gauntlet"
+          git -C "$RUNNER_TEMP/gauntlet" init --quiet
+          git -C "$RUNNER_TEMP/gauntlet" remote add origin "https://github.com/$REPO"
+          git -C "$RUNNER_TEMP/gauntlet" fetch --quiet origin "$COMMIT"
+          git -C "$RUNNER_TEMP/gauntlet" checkout --quiet --detach FETCH_HEAD
+
+      - name: Run the pinned suites
+        env:
+          GAUNTLET_CHECKOUT: ${{ runner.temp }}/gauntlet
+        run: ./gauntlet-gate.sh
+
+      - name: Keep the results pack
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gauntlet-results
+          path: .cairn/gauntlet-results.json
+          if-no-files-found: warn
