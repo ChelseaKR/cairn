@@ -74,8 +74,18 @@ jobs:
           pip install --no-cache-dir -e ".[release]"
           python3 -m build
 
+      # Pinned to the commit v1.14.2 points to, not to the SHA GitHub's API
+      # gives for the tag ref itself — v1.14.2 is an annotated tag, so its
+      # ref resolves to a tag *object*, one dereference short of the commit.
+      # A pin on that object SHA looks identical to a correct pin (ruff,
+      # mypy, and every CI job before this one pass either way) and fails
+      # only here, at the one step nothing before the first real release
+      # ever actually ran: `docker: manifest unknown`, because GHCR has no
+      # image built under the tag object's SHA. Verify a pin resolves to a
+      # commit before trusting it: `gh api repos/<owner>/<repo>/commits/<sha>`
+      # 404s on a tag object SHA and succeeds on the commit it points to.
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
   container:
     name: container (build and push to GHCR)
