@@ -24,7 +24,6 @@ from cairn.stream import _chunks, events, format_sse, sse_stream
 ROOT = Path(__file__).resolve().parent.parent
 
 CORPUS = "corpus/demo"
-ROOT = None  # set below, relative to this file
 
 
 class TestChunking(unittest.TestCase):

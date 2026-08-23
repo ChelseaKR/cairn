@@ -91,11 +91,13 @@ def split_intents(
     excluded = scoped = 0
     unmatched: set[str] = set()
     ignored: set[str] = set()
+    query_terms: set[str] = set()
     for trace in traces:
         excluded += trace.excluded
         scoped += trace.scoped
         unmatched.update(trace.unmatched)
         ignored.update(trace.ignored)
+        query_terms.update(trace.query_terms)
         for candidate in trace.candidates:
             pid = candidate.passage.passage_id
             if pid not in best or candidate.score > best[pid][0]:
@@ -119,7 +121,7 @@ def split_intents(
         lang=lang,
         scoped=scoped,
         excluded=excluded,
-        query_terms=traces[0].query_terms,
+        query_terms=tuple(sorted(query_terms)),
         unmatched=tuple(sorted(unmatched)),
         ignored=tuple(sorted(ignored)),
         intents=tuple(parts),
