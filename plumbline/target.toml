@@ -221,3 +221,22 @@ floor = 1.0
 enabled = true
 floor = 0.90
 floor_reason = "looser than the harness default of 0.95, which sits above the measurement and would be red on the day it landed. 0.90 accommodates exactly one known wrong paragraph out of sixteen (ck-022, written up in DESIGN.md and named by the suite as a retrieval failure); a second one takes the score to 0.8750 and the gate to red. The committed baseline pins 0.9375, so fixing ck-022 is a reviewed diff too."
+
+# New in the harness at this pin (v0.2.0): grades whether the property an
+# item is checked on holds across every recorded turn of a conversation, not
+# only the last one. It grades an item only when it was recorded with a
+# matching turn_responses list (bundle.py's Item.turns) — the same
+# opt-in-per-item shape passage_attribution already uses for a wrong
+# paragraph nothing forced it to see.
+#
+# Disabled, not silently absent: Cairn has no multi-turn conversation
+# feature in this release. Every recorded item is a single ask() call, so no
+# item could ever carry turns for this suite to grade — enabling it now
+# would mean either every item scoring UNVERIFIABLE for lack of turns, which
+# proves nothing was checked, or leaving it enabled against zero eligible
+# items, an n of 0 dressed as a passing suite. Neither is the gate this
+# project holds itself to elsewhere.
+[suites.conversational_integrity]
+enabled = false
+gap = "no item in the recorded bundle carries multi-turn conversation data (turns / turn_responses); the engine's ask() answers one question per call and nothing records a conversation across turns."
+fix_belongs_in = "this repository: a multi-turn session feature, recording every turn's response rather than only the last one, is the prerequisite — not a Plumbline change. Enable this suite in the same commit that lands it."
