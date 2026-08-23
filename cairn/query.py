@@ -88,18 +88,25 @@ def split_intents(
         for part in parts
     ]
     best: dict[str, tuple[float, Candidate]] = {}
-    excluded = scoped = 0
+    matched_across_parts: dict[str, set[str]] = {}
     unmatched: set[str] = set()
     ignored: set[str] = set()
     query_terms: set[str] = set()
     for trace in traces:
-        excluded += trace.excluded
-        scoped += trace.scoped
+        # scoped/excluded reflect the corpus and the lang restriction alone
+        # (see retrieve()): every part scans the same index under the same
+        # restriction, so these are identical across traces, not additive.
+        # Summing them inflated both roughly parts-many-times over.
         unmatched.update(trace.unmatched)
         ignored.update(trace.ignored)
         query_terms.update(trace.query_terms)
         for candidate in trace.candidates:
             pid = candidate.passage.passage_id
+            # A passage can score on different terms in different parts (it
+            # answered one part better than another); all of what it matched
+            # anywhere must survive the merge, not just the terms attached
+            # to whichever part happened to score it highest.
+            matched_across_parts.setdefault(pid, set()).update(candidate.matched)
             if pid not in best or candidate.score > best[pid][0]:
                 best[pid] = (candidate.score, candidate)
     ranked = sorted(best.values(), key=lambda row: (-row[0], row[1].passage.passage_id))
@@ -108,7 +115,7 @@ def split_intents(
             passage=candidate.passage,
             score=score,
             accepted=score >= threshold,
-            matched=tuple(sorted(set(candidate.matched))),
+            matched=tuple(sorted(matched_across_parts[candidate.passage.passage_id])),
             lexical=candidate.lexical,
             dense=candidate.dense,
         )
@@ -119,8 +126,8 @@ def split_intents(
         threshold=threshold,
         candidates=merged,
         lang=lang,
-        scoped=scoped,
-        excluded=excluded,
+        scoped=traces[0].scoped,
+        excluded=traces[0].excluded,
         query_terms=tuple(sorted(query_terms)),
         unmatched=tuple(sorted(unmatched)),
         ignored=tuple(sorted(ignored)),

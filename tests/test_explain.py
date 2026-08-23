@@ -372,5 +372,63 @@ class TestMargin(ExplainHarness):
         self.assertEqual(with_explain.answer.kind, without_explain.answer.kind)
 
 
+class TestSplitIntentsExplain(unittest.TestCase):
+    """Explain mode's "matched N/M" line, scoped/excluded counts, and JSON
+    payload must all still hold their invariants under split_intents --
+    unlike single-part retrieval, which every other test in this file
+    exercises, a candidate here can be scored by more than one part."""
+
+    TWO_PART_Q = (
+        "Can I get the grocery allowance if I am working? "
+        "What is the income limit for one person?"
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cls.index = build_index(DEMO)
+        cls.cfg = Config(split_intents=True)
+
+    def ask(self):
+        result = ask(self.TWO_PART_Q, self.index, self.cfg)
+        return result, diagnose(result.answer, max_passages=self.cfg.max_passages)
+
+    def test_matched_n_of_m_covers_every_part_a_candidate_scored_on(self):
+        result, diag = self.ask()
+        trace = result.answer.trace
+        top = trace.candidates[0]
+        self.assertTrue(top.accepted)
+        report = render(result, diag, index_summary="test index")
+        # The "matched N/M" line's N must be the size of this candidate's
+        # own matched set, not a narrower one left over from picking a
+        # single winning part's Candidate object during the merge.
+        self.assertIn(f"matched {len(top.matched)}/{len(trace.scoring_terms)}", report)
+        for term in top.matched:
+            self.assertIn(term, report)
+
+    def test_scoped_and_excluded_match_a_plain_restricted_search(self):
+        from cairn.retrieve import retrieve
+
+        result, diag = self.ask()
+        trace = result.answer.trace
+        report = render(result, diag, index_summary="test index")
+        single = retrieve(
+            trace.intents[0],
+            self.index,
+            threshold=self.cfg.threshold,
+            candidates=self.cfg.candidates,
+            lang=trace.lang,
+        )
+        self.assertEqual(trace.scoped, single.scoped)
+        self.assertEqual(trace.excluded, single.excluded)
+        self.assertIn(f"{trace.scoped} passages scored, {trace.excluded} excluded", report)
+
+    def test_attempt_json_payload_excluded_is_not_inflated(self):
+        result, _ = self.ask()
+        trace = result.answer.trace
+        self.assertEqual(result.attempts[0].trace, trace)
+        payload = result.attempts[0].to_payload()
+        self.assertEqual(payload["excluded"], trace.excluded)
+
+
 if __name__ == "__main__":
     unittest.main()

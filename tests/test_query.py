@@ -102,6 +102,54 @@ class TestSplitting(unittest.TestCase):
         for candidate in trace.candidates:
             self.assertEqual(candidate.accepted, candidate.score >= trace.threshold)
 
+    def test_matched_terms_are_unioned_across_parts_for_the_same_passage(self):
+        """A passage that scores on different words in different parts (it
+        answered one part better than the other) must keep everything it
+        matched anywhere, not just the terms attached to whichever part
+        happened to score it highest -- the same shape of bug the
+        query_terms fix addressed one level up, at the trace instead of the
+        candidate."""
+        from cairn.retrieve import retrieve
+
+        traces = [
+            retrieve(part, self.index, threshold=0.99, candidates=8, lang="en")
+            for part in self.trace().intents
+        ]
+        expected_matched: dict[str, set[str]] = {}
+        part_hits: dict[str, int] = {}
+        for trace in traces:
+            for candidate in trace.candidates:
+                pid = candidate.passage.passage_id
+                expected_matched.setdefault(pid, set()).update(candidate.matched)
+                part_hits[pid] = part_hits.get(pid, 0) + 1
+
+        merged = {c.passage.passage_id: c for c in self.trace().candidates}
+        for pid, candidate in merged.items():
+            self.assertEqual(set(candidate.matched), expected_matched[pid])
+        self.assertTrue(
+            any(hits > 1 for hits in part_hits.values()),
+            "fixture must include a passage scored by more than one part, or "
+            "this test can't distinguish the fix from the bug it guards against",
+        )
+
+    def test_scoped_and_excluded_are_not_inflated_by_the_number_of_parts(self):
+        """scoped/excluded describe the corpus and the lang restriction alone
+        (see retrieve()): every part scans the same index under the same
+        restriction, so these must match a single plain retrieval's counts,
+        not be summed once per part."""
+        from cairn.retrieve import retrieve
+
+        single = retrieve(
+            self.trace().intents[0],
+            self.index,
+            threshold=self.cfg.threshold,
+            candidates=self.cfg.candidates,
+            lang="en",
+        )
+        merged = self.trace()
+        self.assertEqual(merged.scoped, single.scoped)
+        self.assertEqual(merged.excluded, single.excluded)
+
     def test_a_conjunction_is_never_a_boundary(self):
         """The adversarial shape from the audit set: an imperative sentence
         whose "and" joins clauses of one instruction must not be pulled
