@@ -1,0 +1,114 @@
+# A `cairn record` question set for the real-corpus pilot
+# (corpus/pilot-usagov/), for `cairn record --questions
+# corpus/pilot-usagov/questions.toml --out corpus/pilot-usagov/bundle`.
+#
+# This is a demonstration recording, not an audited evidence bundle: it is
+# not graded by the pinned Plumbline harness and is not part of the
+# plumbline/bundle/ path CI holds required. See docs/pilot-usagov.md for
+# what recording against this file found.
+
+[[item]]
+id = "pilot-001"
+lang = "en"
+behavior = "answer"
+prompt = "How do I apply for SNAP?"
+answering_sources = ["snap-en#1"]
+
+[[item]]
+id = "pilot-002"
+lang = "en"
+behavior = "answer"
+prompt = "How do I check my SNAP EBT balance?"
+answering_sources = ["snap-en#4"]
+
+[[item]]
+id = "pilot-003"
+lang = "en"
+behavior = "answer"
+prompt = "What is LIHEAP?"
+answering_sources = ["energy-bills-en#2"]
+
+[[item]]
+id = "pilot-004"
+lang = "en"
+behavior = "answer"
+prompt = "Who can help me if my electricity gets disconnected?"
+answering_sources = ["energy-bills-en#8"]
+
+[[item]]
+id = "pilot-005"
+lang = "en"
+behavior = "answer"
+prompt = "Am I eligible for Section 8 housing?"
+answering_sources = ["section8-en#4"]
+
+[[item]]
+id = "pilot-006"
+lang = "en"
+behavior = "answer"
+prompt = "How does a Section 8 voucher pay my rent?"
+answering_sources = ["section8-en#2"]
+
+[[item]]
+id = "pilot-007"
+lang = "en"
+behavior = "answer"
+prompt = "Who qualifies for WIC?"
+answering_sources = ["wic-en#2"]
+
+[[item]]
+id = "pilot-008"
+lang = "en"
+behavior = "answer"
+prompt = "How do I get discounted internet service?"
+answering_sources = ["lifeline-en#1"]
+
+[[item]]
+id = "pilot-009"
+lang = "es"
+behavior = "answer"
+prompt = "Cuáles son los requisitos de SNAP?"
+answering_sources = ["snap-es#3"]
+
+[[item]]
+id = "pilot-010"
+lang = "es"
+behavior = "answer"
+prompt = "Cómo reviso mi saldo de EBT?"
+answering_sources = ["snap-es#5"]
+
+[[item]]
+id = "pilot-011"
+lang = "en"
+behavior = "refuse"
+prompt = "How do I renew my passport?"
+
+[[item]]
+id = "pilot-012"
+lang = "en"
+behavior = "refuse"
+prompt = "What is the capital of France?"
+
+[[item]]
+id = "pilot-013"
+lang = "en"
+behavior = "refuse"
+prompt = "How do I register to vote?"
+
+[[item]]
+id = "pilot-014"
+lang = "en"
+behavior = "refuse"
+prompt = "Can I get a tax refund?"
+
+[[item]]
+id = "pilot-015"
+lang = "en"
+behavior = "refuse"
+prompt = "What are the rules for unemployment insurance?"
+
+[[item]]
+id = "pilot-016"
+lang = "es"
+behavior = "refuse"
+prompt = "¿Cuál es la capital de Francia?"

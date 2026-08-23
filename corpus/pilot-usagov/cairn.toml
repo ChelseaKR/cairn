@@ -1,0 +1,5 @@
+[corpus]
+path = "corpus/pilot-usagov"
+
+[index]
+path = "corpus/pilot-usagov/.cairn/index.json"
