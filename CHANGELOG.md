@@ -18,6 +18,51 @@ section describes a release that does not exist is worse than one that is
 behind. So unreleased work waits at `###` until the version is bumped, and then
 becomes a version section like any other.
 
+### Unreleased
+
+#### Added
+
+- The real-corpus pilot, started: `docs/pilot-ca.md` (design, two findings,
+  and a decision gate pre-registered before any measurement),
+  `docs/pilot-ca-elicitation.md`, and `corpus/pilot-ca/` — a three-layer
+  corpus (federal program owners, California agencies, one county) with a
+  verified source list per layer, each carrying its terms and the date a
+  person read them. The counties are San Mateo, Sonoma and Siskiyou,
+  chosen by a survey of all 58 counties' website terms (four permit
+  reuse in the state's own words; the table is in the doc); Los Angeles
+  and Fresno, the first picks, stay as `blocked` lists with their terms
+  quoted. 94 pages scaffolded and committed unreviewed across four layers,
+  which `assemble_corpus.py` refuses to assemble without a flag that says
+  it is a smoke run.
+- Four dev-only scripts at the repository root, none touching the engine:
+  `fetch_pages.py` (declared URL lists to pages plus a manifest; refuses
+  unread or forbidding terms; registers hand-saved pages as hand-saved),
+  `assemble_corpus.py` (layers into one corpus directory with the county's
+  own refusal contact and a `layers.json` provenance map; refuses
+  unreviewed scaffolds and duplicate ids), `sweep.py` (the answer-rate /
+  wrong-answer-rate curve over every threshold from one engine call per
+  question, split by any label the question set carries, with a first-pass
+  failure taxonomy), and `probes_from_questions.py`. Plus
+  `browser_save.mjs`, which drives the Playwright `tests/browser/` pins to
+  save the pages those sites refuse to scripts, through a handshake that
+  keeps `fetch_pages.py` the manifest's only writer (`--browser-jobs`,
+  then the browser, then `--hand-saved`, which records `saved_by`).
+
+#### Changed
+
+- `import_corpus.py` drops a first paragraph that restates the title (the
+  usa.gov pilot's Finding 1, mechanical now — nineteen of the first
+  twenty-eight federal pages had it); scopes HTML to `<main>` and drops
+  header, footer, aside, form and `aria-hidden` regions; writes headings
+  as `##` lines; keeps a list or a table as one block; joins a
+  colon-terminated introducer to the block it introduces; drops
+  one-or-two-word fragments with no digit and reports the count; and
+  takes `source:` / `fetched_at:` provenance from `fetch_pages.py`'s
+  manifest in batch mode or `--source` for one file; and in batch mode
+  derives the placeholder id from the file name, since four cdss.ca.gov
+  pages share the heading "CalFresh". `docs/onboarding.md` says what
+  review still has to catch.
+
 ## 0.2.0 — 2026-08-23
 
 Fourteen items across two rounds. Nothing here changes how a grounded

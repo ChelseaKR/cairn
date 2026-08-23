@@ -947,3 +947,131 @@ One line per implementation session: date, what was built, from what input.
   need more than extraction (`conversational_integrity`'s audit
   integration, foremost), named as open work in `DESIGN.md` instead of
   left silent in a stash nobody but this session could see.
+
+- 2026-08-23 — Session 17 (AI implementation session). Input: this
+  repository's own state, and the conditions-of-use pages of ca.gov,
+  cdss.ca.gov, lacounty.gov, fresnocountyca.gov and sf.gov, read for the
+  one purpose of recording what they permit. No other repository.
+
+  Started the real-corpus pilot (`docs/pilot-ca.md`): a three-layer corpus
+  — federal program owners, California agencies, one county — assembled
+  per county, asked questions nobody wrote for Cairn, measured as a curve
+  rather than a point, with the decision gate pre-registered before any
+  number exists. The scope went federal → California → counties across
+  three rounds of discussion, and the county round surfaced the design
+  question the first two could not: a question like "where do I apply"
+  has fifty-eight correct answers in California and the engine has no
+  notion of where the asker is.
+
+  Built the week-one tooling, all dev-only, all at the repository root
+  beside `import_corpus.py`, none of it touching the engine or the audited
+  evidence: `fetch_pages.py` (a declared URL list per layer, a manifest
+  with URL / SHA-256 / date / status per page, refuses a layer whose terms
+  nobody has read and a layer whose terms said no, and a `--hand-saved`
+  mode that records the pages a person had to save from a browser as
+  exactly that); `assemble_corpus.py` (layers into the one flat directory
+  `cairn index` reads, a `cairn.toml` rendered with the county's own
+  refusal contact, refuses an unreviewed scaffold or a duplicate id,
+  writes `layers.json` so the analysis can say which layer answered);
+  `sweep.py` (one engine call per question, the answer-rate /
+  wrong-answer-rate curve at every threshold from the same candidate
+  scores `ask --explain` prints, split by any label the question set
+  carries, and a first-pass failure taxonomy that names
+  `jurisdiction-mismatch` and `wrong-county` from `layers.json` — run
+  against the committed evidence set it finds `ck-015` and `ck-022` by
+  name, and a test holds it to that); and `probes_from_questions.py`, so
+  the usa.gov pilot's two hand-kept copies of every question become one.
+
+  `import_corpus.py` took the larger share. The usa.gov pilot's Finding 1
+  — a page's own title restated as its first passage wins retrieval —
+  was review guidance; nineteen of the first twenty-eight federal pages
+  had it, so it is now mechanical. Then the smoke run over those pages
+  (unreviewed, `--allow-unreviewed`, not a measurement) answered four of
+  five questions from page furniture — "Begin", "Tools", "Next step" —
+  because the extractor made a passage of every menu entry and table row,
+  ~120 per page. Rewritten: scope to `<main>`, drop header / footer /
+  aside / forms / `aria-hidden` regions (a counter, then a stack, after
+  one hidden `<div>` swallowed every medicare.gov page), headings as `##`
+  so the chunker attaches them, a list or a table as one block, a
+  colon-terminated introducer joined to what it introduces, one-or-two-
+  word fragments with no digit dropped and counted. ~32 paragraphs per
+  page after; "What is the monthly income limit for the QMB program?"
+  answers with the 2026 table. Provenance (`source:`, `fetched_at:`) now
+  comes from the fetch manifest and is never typed.
+
+  Two findings before any measurement, both in `docs/pilot-ca.md`.
+  Finding 0: Los Angeles County reserves all rights and grants no license;
+  Fresno County prohibits re-use, distribution and mirroring without
+  written permission, in those words; Siskiyou's host refuses every
+  non-browser connection so its terms are unread. The county layer — the
+  layer that makes this a deployment statement — cannot be committed from
+  either readable county. The three source lists are `blocked` with the
+  quotations; the three ways forward are written down and are the
+  maintainer's to choose. And from the smoke run, one thing the sweep
+  should quantify first: "What vaccinations does my dog need?" was
+  answered, at 0.167 against 0.165, from a Medicare page titled "When
+  does Medicare coverage start?" — titles are weighted into every passage,
+  federal sites title pages as questions, and "does" became a matching
+  term for the whole document. The demo corpus never had a question-
+  shaped title.
+
+  Federal layer: 44 URLs verified, 28 fetched and scaffolded (committed
+  unreviewed, which assembly refuses), 16 to hand-save because ssa.gov
+  and fcc.gov answer 403 to every non-browser client and studentaid.gov
+  drops this script's user agent. California: 38 URLs verified, not yet
+  fetched. `docs/pilot-ca-elicitation.md` is the question-collection
+  script. `make verify`: ruff, mypy, 762 tests (92 new, one from #46 beneath), 92% branch
+  coverage; the README's published test count moved with it, because a
+  test holds it there.
+
+  Second half of the session, after three decisions from the maintainer:
+  find a county with open terms, commit forum-derived questions verbatim
+  (titles only), defer Arabic. Surveyed all 58 counties' website terms
+  with a scratch script — homepage, footer links named terms / disclaimer
+  / copyright / legal, phrase search — and re-read every hit by hand.
+  Four say "public domain" in the state's own words: San Mateo, Sonoma,
+  Solano, Siskiyou (whose terms became readable with a browser user-agent
+  string). Thirteen forbid re-use outright; fourteen say only "all rights
+  reserved"; sixteen refuse non-browser clients entirely. Counties
+  re-chosen: San Mateo, Sonoma, Siskiyou; Los Angeles and Fresno stay as
+  `blocked` records. The table is in `docs/pilot-ca.md`.
+
+  Fetched and scaffolded the California layer (38 pages; 33 scaffolded,
+  5 dhcs.ca.gov pages came back as 800-byte Incapsula challenge stubs
+  with a 200 — `fetch_pages.py` now calls a body under 1,500 bytes a stub,
+  not a page) and both scriptable county layers (17 San Mateo, 17 Sonoma).
+  Each real site broke the extractor a different way and each break is
+  now a test: cdss.ca.gov wraps its whole page in one `<form>` (skip form
+  controls, not forms); coveredca.com leaves a `<nav>` unclosed (a `<main>`
+  closes landmark regions) and puts `role="main"` on a `<div>` whose first
+  nested `</div>` closed it (nesting depth, not a stack); four CDSS pages
+  share the H1 "CalFresh" (batch ids from file names, which are unique by
+  construction). Second smoke run, county-only question "Where do I apply
+  for General Assistance?": per-county corpora answer from their own
+  county's page; the combined corpus answers from whichever county's
+  chrome is shortest — `wrong-county` for half its askers; Siskiyou, with
+  an empty county layer, answers from a voting page instead of refusing.
+  Within the right document, three- and four-word breadcrumbs kept
+  winning the passage on pages with no `<main>`; the furniture rule was
+  widened once and then deliberately left for review. "How do I license
+  my dog?" answers from Sonoma's animal-services page. 94 scaffolds
+  committed unreviewed, which assembly refuses without a flag that says
+  what it is for.
+
+  Third part, on request: `browser_save.mjs`, a Playwright script (the
+  one `tests/browser/` already pins; no new dependency) that saves the
+  pages no script could fetch, with a three-step handshake that keeps
+  `fetch_pages.py` the manifest's only writer — `--browser-jobs` writes
+  the list, the browser saves and leaves a sidecar, `--hand-saved`
+  registers with `saved_by` and the landed URL. Headless was enough for
+  ssa.gov (all ten, Spanish included), dhcs.ca.gov and siskiyoucounty.gov;
+  studentaid.gov, fns.usda.gov, acf.hhs.gov and fcc.gov refused headless
+  with HTTP/2 protocol errors or an Akamai "Access Denied" and accepted a
+  visible window. A 404 is not saved as a page. Siskiyou's real paths were
+  read from its saved homepage and its list rewritten to twenty real
+  pages — social services, WIC, dog licensing, elections, the recorder,
+  crisis services, its own terms page. Corpus at the end of the session:
+  136 URLs listed, 132 good copies, 131 scaffolds across five layers;
+  every county corpus assembles at ~95 documents; Siskiyou, whose layer
+  was empty two hours earlier, answers "How do I license my dog?" with
+  the county's phone number.
