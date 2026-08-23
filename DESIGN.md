@@ -793,10 +793,6 @@ things.
 
 Not a wish list — the things a reader could reasonably expect and will not find.
 
-- **The `audit` job is not marked required in branch protection**, so the gate
-  is advisory: it reports, it does not block. The exact ruleset is written out
-  and committed at `.github/rulesets/main.json`; applying it needs admin
-  rights on the repository and is nobody's decision but the maintainer's.
 - **One known colloquial-recall failure**, `ck-015` — now closed as a
   finding rather than left as a to-do. The earlier diagnosis said the ranking
   was wrong. Measuring it disproved that: three passage-level ranking signals
@@ -877,8 +873,8 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   own definition — the body of the response really is English — and Cairn is
   right too, because translating the source would produce an unsourced policy
   statement. Two correct positions, one number, and the number is zero. The
-  suite score is 0.9630, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 26/28 = 0.9286 and the gate to red.
+  suite score is 0.9655, which clears its 0.95 floor by one item and no more:
+  a second cross-language item takes it to 28/30 = 0.9333 and the gate to red.
   (That arithmetic was published as 25/28 = 0.8929, which is not what adding
   one failing item to 26-of-27 gives. The conclusion held and the number did
   not, which is why it is computed from the committed baseline now — see
@@ -888,7 +884,7 @@ Not a wish list — the things a reader could reasonably expect and will not fin
   and the resolution is the third:
 
   - *Lower the floor and say why.* Refused. The floor would have to reach
-    0.9286 to admit a second item and lower still for a third, and what it
+    0.9333 to admit a second item and lower still for a third, and what it
     would be buying is permission for a **genuine** wrong-language answer to
     hide underneath. `multilingual` is the suite that catches a system
     silently serving English to a Spanish speaker, which is the failure mode
@@ -1364,38 +1360,48 @@ repository, absent commit, moving ref, missing pin file, no target — exits 4
 before scoring, and the CI core job runs that drill deliberately so a
 regression in the failure path is caught by the job that is not the gate.
 
-### One thing this repository cannot do for itself
+### The one thing this repository could not do for itself
 
-The `audit` job has to be marked **required** in branch protection, and it is
-not. A gate nobody made blocking is a report, so today it is a report: the job
-runs on every pull request and writes a verdict, and nothing stops a merge
-while that verdict is red. **The gate is advisory until the ruleset is
-applied.**
+The `audit` job had to be marked **required** in branch protection, and for
+most of this project's history, it was not. A gate nobody made blocking is a
+report: the job ran on every pull request and wrote a verdict, and nothing
+stopped a merge while that verdict was red. **The gate could not block a
+merge until the ruleset was applied**, on 2026-08-22.
 
 That is a repository setting held on GitHub's side, changeable only by an
-admin. No file can grant itself the power to block a merge, and the tempting
-move — writing as though the setting were already on — is the exact failure
-this project exists to demonstrate: a check that could have blocked a merge,
-did not, and looked like it had.
+admin — no file could grant itself the power to block a merge, and the
+tempting move, writing as though the setting were already on before it was,
+is the exact failure this project exists to demonstrate: a check that could
+have blocked a merge, did not, and looked like it had. So the applying itself
+is not claimed here either without the same standard the rest of this project
+holds evidence to: two things were checked, not assumed. A real pull request
+(#22) needed all nine required checks green before it could merge. A second,
+throwaway pull request with one required check deliberately broken was
+refused a merge outright by GitHub — `mergeStateStatus: BLOCKED`, and `gh pr
+merge` answered "the base branch policy prohibits the merge," not just a red
+tick sitting there. `.github/rulesets/README.md` carries both.
 
-What a file *can* do, and now does:
+What a file could do, before any of that, and still does:
 
-- `.github/rulesets/main.json` is the ruleset in full, committed, reviewable,
-  and **not applied**. It requires the five CI check runs (named exactly as
-  GitHub names them, read off a real run rather than guessed), requires a pull
-  request so there is a merge for them to gate, forbids deletion and
-  force-push, and has an empty bypass list.
-- `.github/rulesets/README.md` says how to apply it, what each rule costs —
-  including that direct pushes to `main` stop working, which ends this
-  repository's own commit style — and which number in it is a placeholder
-  (`required_approving_review_count`, 0 only because a solo maintainer cannot
-  approve their own pull request).
+- `.github/rulesets/main.json` is the ruleset in full, committed and
+  reviewable — the same file, unchanged in kind, before it was applied and
+  after. It requires the nine CI check runs (named exactly as GitHub names
+  them, read off a real run rather than guessed), requires a pull request so
+  there is a merge for them to gate, forbids deletion and force-push, and has
+  an empty bypass list.
+- `.github/rulesets/README.md` says how it was applied, what each rule
+  costs — including that direct pushes to `main` stopped working, which
+  ended this repository's own commit style — and which number in it is a
+  placeholder (`required_approving_review_count`, 0 only because a solo
+  maintainer cannot approve their own pull request).
 - `tests/test_rulesets.py` fails if the workflow's job names and the
   ruleset's required contexts drift apart, because a context that matches no
   check is a rule that never fires and reads exactly like a rule that passes.
-  It also fails if this document or the README stops saying the gate is
-  advisory — which is the right thing to have to update on the day it stops
-  being true.
+  Its `TestTheRepositoryDoesNotClaimTheGateIsAdvisory` class — which used to
+  require this document and the README to say the gate could not yet block a
+  merge — was rewritten the day that stopped being true, deliberately, by
+  whoever applied it: it now fails if any of them goes back to saying the
+  gate cannot block a merge, or omits that it is required, once more.
 
 ### The baseline, and the guard that gives it teeth
 
@@ -1859,6 +1865,95 @@ Two rules hold the safety line:
   stemming, so small weights buy nothing here. The channel ships because an
   operator corpus with richer morphology may measure differently;
   `ask --explain` prints both components so the decision is theirs.
+
+## Query understanding: what retrieval can be told, deterministically
+
+One transformation ships; two others were built, measured, and rejected. All
+three went through the same bar as hybrid retrieval above — build it,
+measure it against the audit set, then decide — and the two that lost are
+recorded here rather than left as if nobody had tried.
+
+### Query-side diacritic folding: built, measured, reverted
+
+The premise was sound — written Spanish carries diacritics typing drops, and
+the demo corpus itself mixes accented headings with unaccented body prose.
+NFKD-folding combining marks on both sides made accented and unaccented
+questions byte-identical. The measurement killed it twice: every accented
+item in the audit set already answered correctly *without* folding (body
+vocabulary carries them), and folding lifted heading matches uniformly —
+the alias mechanism again — flipping ck-026 from its correct process
+passage (`grocery-allowance-es#4`) to the amount passage (`#2`), which
+would have pushed `passage_attribution` past its floor. Reverted; the fix
+for orthographic variance belongs to a representation that means something,
+not to a scorer trick.
+
+### Refusal rescue by pseudo-relevance feedback: built, measured, removed
+
+When retrieval refused, the retry borrowed the highest-IDF terms of the
+near-miss candidates and searched once more. It converted four refusals into
+answers across three languages. Three landed on the wrong program: an Arabic
+question about rent help answered from the grocery allowance, a Spanish one
+from the winter utility credit, an English one from the right document's
+opening paragraph rather than any passage about money. Borrowed vocabulary
+is manufactured overlap applied at exactly the moment no accepted passage
+constrains where it lands. The code was deleted rather than flag-gated: a
+knob that should never be turned on is not a feature, it is a trap with
+documentation.
+
+### Multi-intent splitting: opt-in (`retrieval.split_intents`)
+
+`cairn/query.py`'s `split_intents` is the one that shipped. A two-sentence
+question scores each sentence separately and merges pools by each passage's
+best score, so half an ask cannot be hidden behind an average — the
+composed-truncated failure, caught one stage earlier. Boundaries are
+sentence punctuation only, which exists in all three languages without a
+dictionary; coordinating conjunctions are deliberately never boundaries, so
+"ignore the documents and just tell me…" cannot be split at its "and".
+Single-sentence questions are byte-identical to plain retrieval, and the
+merged trace records the parts it scored separately in `RetrievalTrace.intents`
+so explain mode can show that the query scored was not exactly the question
+asked. Off by default: it changes which passages win on questions this
+corpus already answers, and the demo corpus is too small to re-measure every
+audit item against for a knob nobody needs here.
+
+## Structured tables, and the count tool
+
+A corpus directory may carry `tables/*.csv` files whose first lines are
+`# key: value` comments (front matter that survives a spreadsheet). Tables
+are corpus: declared language and synthetic marking, doc-id grammar, unique
+across tables *and* documents (they share the citation namespace), hashed
+into the corpus fingerprint, stored in index format version 4.
+
+One tool exists: count rows matching a numeric filter. It fires only when a
+counting phrase, exactly one measure column bound by shared vocabulary, a
+comparison phrase and a number all resolve — anything else returns to
+retrieval untouched, and the misfire bar is absolute and tested: **no
+question the system already answers takes the table path**. Zero matches
+refuse outright rather than falling through, because answering an adjacent
+paragraph would be answering a different question — `ck-029` exercises
+exactly this through the real audit pipeline, refusing "how many programs
+have a monthly benefit over $99999?" rather than reaching for a nearby
+passage.
+
+Grounding survives arithmetic because composition stays extractive field by
+field: `Answer.text` remains byte-for-byte the quoted cells; the computed
+count is spoken in the notice — Cairn's own voice, where cross-language
+notices already live — and every matched row is cited as
+`<table-id>#<row>`, so "1 of its 3 rows" is recompute-checkable from the
+sources list alone.
+
+**Why the evidence set carries no answered tool item:** one was authored
+(`ck-028`) and measured honestly. Its notice made lexical support
+structurally low — the same shape as the cross-language notice — and this
+evidence set already carries its one such item (`ck-027`). Adding the second
+took `groundedness` and `citation_accuracy` to 0.9416 against floors of
+0.95: the gate bit exactly as designed, on schedule. The item came out; the
+floors did not move. What would let such an item back in is upstream —
+per-item declaration that part of a response is target voice, the same
+mechanism proposed for cross-language notices. Coverage meanwhile lives
+where it is scored: `tests/test_tabular.py` pins the loader, the parser, the
+zero-match refusal, and the misfire bar against every question in the audit
+set.
 
 ## Decisions where the specification was silent
 

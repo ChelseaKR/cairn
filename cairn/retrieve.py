@@ -67,6 +67,11 @@ class RetrievalTrace:
     query_terms: tuple[str, ...] = ()  # every distinct term the question tokenized to
     unmatched: tuple[str, ...] = ()  # terms absent from every passage searched
     ignored: tuple[str, ...] = ()  # terms the corpus has but suppressed as too common
+    # Query-understanding provenance (cairn.query): the sentence parts a
+    # multi-intent search scored separately. Empty unless that pass ran;
+    # explain mode surfaces it so an operator can see that the query scored
+    # was not exactly the question asked.
+    intents: tuple[str, ...] = ()
 
     @property
     def accepted(self) -> tuple[Candidate, ...]:

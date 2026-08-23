@@ -46,6 +46,14 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "Some of the sources below are written in another language "
             "({language}). They are quoted exactly as published."
         ),
+        # Spoken when a structured-table tool ran: the count is computed, not
+        # quoted, so it says so in Cairn's own voice and stays out of
+        # Answer.text, which remains byte-for-byte the quoted rows.
+        "table_count_notice": (
+            "That number is not quoted from a document — I counted it over "
+            "the {title} table: {count} of its {total} rows match. The "
+            "matching rows are quoted below exactly as published."
+        ),
         "sources_heading": "Sources:",
         "copy_answer_summary": "Copy answer text",
         # --- chat interface ---
@@ -122,6 +130,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "cross_language_notice_partial": (
             "Algunas de las fuentes citadas abajo están escritas en otro idioma "
             "({language}). Se citan tal como fueron publicadas."
+        ),
+        "table_count_notice": (
+            "Ese número no está citado de un documento — lo conté sobre la "
+            "tabla {title}: {count} de sus {total} filas coinciden. Las filas "
+            "que coinciden se citan abajo tal como fueron publicadas."
         ),
         "sources_heading": "Fuentes:",
         "copy_answer_summary": "Copiar el texto de la respuesta",
@@ -200,6 +213,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "بعض المصادر أدناه مكتوبة بلغة أخرى ({language})، وهي مقتبسة كما "
             "نُشرت تمامًا."
         ),
+        "table_count_notice": (
+            "هذا الرقم ليس مقتبسًا من مستند — لقد حسبته من جدول {title}: "
+            "{count} من أصل {total} صفوف تطابق. الصفوف المطابقة مقتبسة أدناه "
+            "تمامًا كما نُشرت."
+        ),
         "sources_heading": "المصادر:",
         "copy_answer_summary": "نسخ نص الإجابة",
         "page_title": "كايرن — اسأل عن مساعدات مقاطعة هاربر",
@@ -270,6 +288,12 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "Certaines des sources ci-dessous sont rédigées dans une autre langue "
             "({language}). Elles sont citées exactement telles qu'elles ont été "
             "publiées."
+        ),
+        "table_count_notice": (
+            "Ce nombre n'est pas cité d'un document — je l'ai compté à partir "
+            "du tableau {title} : {count} de ses {total} lignes correspondent. "
+            "Les lignes correspondantes sont citées ci-dessous exactement "
+            "telles qu'elles ont été publiées."
         ),
         "sources_heading": "Sources :",
         "copy_answer_summary": "Copier le texte de la réponse",
