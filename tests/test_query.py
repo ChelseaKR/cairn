@@ -214,6 +214,68 @@ class TestSplitting(unittest.TestCase):
             [c.passage.passage_id for c in through_engine.candidates],
         )
 
+    def test_split_intents_covers_every_field_of_retrieval_trace_and_candidate(self):
+        """Guard against structural merge drift in split_intents: adding a new
+        field to RetrievalTrace or Candidate without handling it in split_intents
+        must cause this test to fail, preventing silent fallbacks to defaults
+        (the exact bug class of query_terms #46 and matched/scoped/excluded #49).
+        Follows the fields() assertion pattern established in test_config_report.py."""
+        from dataclasses import fields
+
+        from cairn.retrieve import Candidate, RetrievalTrace
+
+        # Fields on Candidate explicitly handled/constructed in split_intents' merge:
+        # passage: candidate.passage
+        # score: score (best score across parts)
+        # accepted: score >= threshold
+        # matched: tuple(sorted(matched_across_parts[...]))
+        # lexical: candidate.lexical (from winning candidate)
+        # dense: candidate.dense (from winning candidate)
+        handled_candidate_fields = {
+            "passage",
+            "score",
+            "accepted",
+            "matched",
+            "lexical",
+            "dense",
+        }
+        self.assertEqual(
+            {f.name for f in fields(Candidate)},
+            handled_candidate_fields,
+            "A field was added to or removed from Candidate without updating "
+            "split_intents' candidate merge handling and this coverage test.",
+        )
+
+        # Fields on RetrievalTrace explicitly handled/constructed in split_intents:
+        # query: question
+        # threshold: threshold
+        # candidates: merged
+        # lang: lang
+        # scoped: traces[0].scoped
+        # excluded: traces[0].excluded
+        # query_terms: tuple(sorted(query_terms))
+        # unmatched: tuple(sorted(unmatched))
+        # ignored: tuple(sorted(ignored))
+        # intents: tuple(parts)
+        handled_trace_fields = {
+            "query",
+            "threshold",
+            "candidates",
+            "lang",
+            "scoped",
+            "excluded",
+            "query_terms",
+            "unmatched",
+            "ignored",
+            "intents",
+        }
+        self.assertEqual(
+            {f.name for f in fields(RetrievalTrace)},
+            handled_trace_fields,
+            "A field was added to or removed from RetrievalTrace without updating "
+            "split_intents' trace construction and this coverage test.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
