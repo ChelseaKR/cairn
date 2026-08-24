@@ -665,6 +665,47 @@ def uncovered(report: dict) -> list[str]:
     return lines
 
 
+def _render_gaps_terminal(gaps: list[dict]) -> list[str]:
+    if gaps:
+        plural = "" if len(gaps) == 1 else "s"
+        lines = [f"declared gaps ({len(gaps)} suite{plural} not scored at all):"]
+        for gap in gaps:
+            lines.append(f"  {gap['suite']}: {gap['gap']}")
+            lines.append(f"    the fix belongs in: {gap['fix_belongs_in']}")
+        return lines
+    return ["declared gaps: none — every implemented suite is enabled."]
+
+
+def _render_overrides_terminal(overrides: list[dict]) -> list[str]:
+    if overrides:
+        plural = "" if len(overrides) == 1 else "s"
+        lines = [
+            f"floors that are not the harness's own ({len(overrides)} suite{plural}, "
+            f"each with a recorded reason):"
+        ]
+        for entry in overrides:
+            lines.append(
+                f"  {entry['suite']}: {entry['floor']:.2f}, {entry['direction']} "
+                f"the default {entry['default']:.2f}"
+            )
+        return lines
+    # Said out loud, for the same reason the coverage line is: an absence
+    # here and a check that stopped reading the harness print identically.
+    return [
+        "every floor is the pinned harness's own default — none was overridden."
+    ]
+
+
+def _render_findings_terminal(findings: list[Finding]) -> list[str]:
+    if findings:
+        return [
+            f"{finding.label if finding.blocking else 'note':<11} "
+            f"{finding.subject}: {finding.detail}"
+            for finding in findings
+        ]
+    return ["no suite moved against the committed baseline."]
+
+
 def render_terminal(
     *, report_path: Path, report: dict, baseline: dict, gaps: list[dict],
     findings: list[Finding], overrides: list[dict] = (),
@@ -683,31 +724,8 @@ def render_terminal(
         for reason in comparison.get("refusals", []):
             lines.append(f"  harness refused a numeric comparison: {reason}")
             lines.append("  this check makes it anyway; see audit_guard.py for why.")
-    if gaps:
-        plural = "" if len(gaps) == 1 else "s"
-        lines.append(f"declared gaps ({len(gaps)} suite{plural} not scored at all):")
-        for gap in gaps:
-            lines.append(f"  {gap['suite']}: {gap['gap']}")
-            lines.append(f"    the fix belongs in: {gap['fix_belongs_in']}")
-    else:
-        lines.append("declared gaps: none — every implemented suite is enabled.")
-    if overrides:
-        plural = "" if len(overrides) == 1 else "s"
-        lines.append(
-            f"floors that are not the harness's own ({len(overrides)} suite{plural}, "
-            f"each with a recorded reason):"
-        )
-        for entry in overrides:
-            lines.append(
-                f"  {entry['suite']}: {entry['floor']:.2f}, {entry['direction']} "
-                f"the default {entry['default']:.2f}"
-            )
-    else:
-        # Said out loud, for the same reason the coverage line is: an absence
-        # here and a check that stopped reading the harness print identically.
-        lines.append(
-            "every floor is the pinned harness's own default — none was overridden."
-        )
+    lines.extend(_render_gaps_terminal(gaps))
+    lines.extend(_render_overrides_terminal(overrides))
     partial = uncovered(report)
     if partial:
         lines.append("suites that could not check everything they were handed:")
@@ -720,12 +738,7 @@ def render_terminal(
             "every suite scored everything it was handed — no suite reported "
             "holding items out."
         )
-    if findings:
-        for finding in findings:
-            mark = finding.label if finding.blocking else "note"
-            lines.append(f"{mark:<11} {finding.subject}: {finding.detail}")
-    else:
-        lines.append("no suite moved against the committed baseline.")
+    lines.extend(_render_findings_terminal(findings))
     if blocking:
         lines.append("")
         lines.append("If a finding above is intended, " + REGENERATE)
