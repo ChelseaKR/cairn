@@ -249,10 +249,19 @@ class TestEnginePath(unittest.TestCase):
         self.assertEqual(result.answer.lang, "es")
         self.assertTrue(result.answer.notice[0].isupper() or True)
         self.assertIn("tabla", result.answer.notice)
+        self.assertIn("English", result.answer.notice)
         # The rows are still quoted in the language they were published in.
         for source in result.answer.sources:
             self.assertEqual(source.lang, "en")
             self.assertTrue(result.answer.text.startswith(source.text[:8]))
+
+    def test_cross_language_fallback_false_refuses_foreign_table(self):
+        cfg = Config(cross_language_fallback=False)
+        result = self.ask(
+            "How many programs have a monthly benefit over $100?", cfg, lang="es"
+        )
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertIsNone(result.tool)
 
     def test_repeated_calls_are_byte_identical(self):
         question = "How many programs pay at least $95 per month?"

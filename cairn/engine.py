@@ -96,10 +96,16 @@ def _answer_from_tables(
     its answer ("none") from the table, and answering some adjacent *passage*
     instead would be answering a different question.
     """
-    query = parse_count_query(question, index.tables)
+    candidate_tables = tuple(
+        t for t in index.tables
+        if cfg.cross_language_fallback or t.lang == response_lang
+    )
+    if not candidate_tables:
+        return None
+    query = parse_count_query(question, candidate_tables)
     if query is None:
         return None
-    executed = run_count(query, index.tables)
+    executed = run_count(query, candidate_tables)
     if executed is None:
         return None
     table, matched = executed
@@ -144,6 +150,13 @@ def _answer_from_tables(
         total=table.row_count,
         title=table.title,
     )
+    if table.lang != response_lang:
+        cross_notice = message(
+            "cross_language_notice",
+            response_lang,
+            language=isolate(endonym_of(table.lang), rtl=rtl),
+        )
+        notice = f"{notice} {cross_notice}"
     return AskResult(
         answer=Answer(
             kind="grounded",
