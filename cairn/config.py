@@ -18,8 +18,11 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, TypeVar
 
 from cairn.language import LANGUAGES
+
+T = TypeVar("T")
 
 DEFAULT_CONFIG_PATH = "cairn.toml"
 
@@ -161,7 +164,7 @@ class Config:
         return self.contact_by_language.get(lang, self.contact)
 
 
-def _get(section: dict, key: str, kind: type, default):
+def _get(section: dict[str, Any], key: str, kind: type[T], default: T) -> T:
     if key not in section:
         return default
     value = section[key]

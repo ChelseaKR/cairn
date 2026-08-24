@@ -36,9 +36,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from cairn.answer import Answer
 from cairn.config import Config
 from cairn.engine import AskResult, EngineError, ask, available_languages
-from cairn.index import Index
+from cairn.index import Index, IndexedPassage, LanguageStats
 from cairn.retrieve import tokenize
 
 # How many terms may be carried forward from prior citations, and how many
@@ -71,7 +72,7 @@ class TurnResult:
     context_terms: tuple[str, ...] = ()
 
     @property
-    def answer(self):
+    def answer(self) -> Answer:
         return self.result.answer
 
 
@@ -239,14 +240,14 @@ class Session:
         return session
 
 
-def _passage_by_id(index: Index, passage_id: str):
+def _passage_by_id(index: Index, passage_id: str) -> IndexedPassage | None:
     for passage in index.passages:
         if passage.passage_id == passage_id:
             return passage
     return None
 
 
-def _idf_of(term: str, stats) -> float:
+def _idf_of(term: str, stats: LanguageStats) -> float:
     """The same smoothed IDF the scorer uses, for the one guard above."""
     if term in stats.suppressed:
         return 0.0

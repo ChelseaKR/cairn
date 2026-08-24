@@ -220,7 +220,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         refusal_stats_path=refusal_stats_path,
         followup_store_path=followup_store_path,
     )
-    host, port = httpd.server_address[0], httpd.server_address[1]
+    host, port = str(httpd.server_address[0]), int(httpd.server_address[1])
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
     if auth_token:
         print(
