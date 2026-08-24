@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from cairn.config import Config
 from cairn.engine import AskResult, EngineError, ask, available_languages
 from cairn.index import Index
-from cairn.retrieve import tokenize
+from cairn.text import tokenize
 
 # How many terms may be carried forward from prior citations, and how many
 # prior turns may contribute them. Three terms keeps the rewritten query
