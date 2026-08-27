@@ -32,7 +32,17 @@ from cairn.language import LANGUAGES, Detection, detect, direction_of, endonym_o
 from cairn.messages import text as message
 from cairn.query import split_intents
 from cairn.retrieve import RetrievalTrace, retrieve
-from cairn.tabular import parse_count_query, render_row, run_count
+from cairn.tabular import (
+    Table,
+    TableQuery,
+    parse_count_query,
+    render_row,
+    run_count,
+)
+
+# A bound count that ran: the tool call as issued, the table it bound, and the
+# matching row numbers in file order.
+_BoundCount = tuple[TableQuery, Table, list[int]]
 
 
 class EngineError(ValueError):
@@ -83,6 +93,29 @@ def available_languages(index: Index) -> tuple[str, ...]:
     return tuple(sorted(set(LANGUAGES) | set(index.language_codes)))
 
 
+def _tables_in(index: Index, lang: str) -> tuple[Table, ...]:
+    """The corpus tables written in ``lang``, in index order."""
+    return tuple(table for table in index.tables if table.lang == lang)
+
+
+def _bind_count(question: str, tables: tuple[Table, ...]) -> _BoundCount | None:
+    """Bind and run a count over ``tables``, or ``None`` if it does not.
+
+    One scope, one answer. ``None`` covers both ways this can come to nothing
+    — no complete binding, and a bound column the arithmetic will not read —
+    because the caller does the same thing with either: try a wider scope if
+    it is allowed one, and otherwise let passage retrieval have the question.
+    """
+    query = parse_count_query(question, tables)
+    if query is None:
+        return None
+    executed = run_count(query, tables)
+    if executed is None:
+        return None
+    table, matched = executed
+    return query, table, matched
+
+
 def _answer_from_tables(
     question: str, index: Index, cfg: Config, *, response_lang: str, detection: Detection
 ) -> AskResult | None:
@@ -96,13 +129,19 @@ def _answer_from_tables(
     its answer ("none") from the table, and answering some adjacent *passage*
     instead would be answering a different question.
     """
-    query = parse_count_query(question, index.tables)
-    if query is None:
+    # The same order the module docstring states for retrieval, applied to
+    # the tables: restrict to the answer language first, and widen to the
+    # whole corpus only if nothing bound there and configuration allows it.
+    # This path used to skip both halves, so a Spanish question bound an
+    # English-only table with no widening step to disclose and no switch to
+    # consult — `cross_language_fallback = false` was documented as the way
+    # to force a refusal and had no effect here at all.
+    bound = _bind_count(question, _tables_in(index, response_lang))
+    if bound is None and cfg.cross_language_fallback:
+        bound = _bind_count(question, index.tables)
+    if bound is None:
         return None
-    executed = run_count(query, index.tables)
-    if executed is None:
-        return None
-    table, matched = executed
+    query, table, matched = bound
     rtl = direction_of(response_lang) == "rtl"
     contact = cfg.contact_for(response_lang)
     refusal_text = message(
@@ -144,6 +183,21 @@ def _answer_from_tables(
         total=table.row_count,
         title=table.title,
     )
+    if table.lang != response_lang:
+        # Every row quoted here comes from the one bound table, so the
+        # crossing is one language. How many sources it covers is not fixed:
+        # `matched` is one Source per row. The singular wording says "the only
+        # source I have for this", which two quoted rows make false, and
+        # `messages.py` refuses that reuse in as many words. Same rule the
+        # passage path applies at `len(used) == 1`, same reason.
+        key = (
+            "cross_language_notice"
+            if len(matched) == 1
+            else "cross_language_notice_partial"
+        )
+        notice += " " + message(
+            key, response_lang, language=isolate(endonym_of(table.lang), rtl=rtl)
+        )
     return AskResult(
         answer=Answer(
             kind="grounded",
