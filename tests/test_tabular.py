@@ -254,6 +254,69 @@ class TestEnginePath(unittest.TestCase):
             self.assertEqual(source.lang, "en")
             self.assertTrue(result.answer.text.startswith(source.text[:8]))
 
+    def test_the_fallback_switch_reaches_the_table_path(self):
+        """`cross_language_fallback = false` was documented as the way to force
+        a refusal, and the table path never consulted it.
+
+        The engine module docstring states the guarantee for the whole ask
+        pipeline: restrict to the answer language, widen "if configuration
+        allows it". The table path did neither, so a Spanish question bound an
+        English-only table and was answered from it with the switch off.
+        """
+        cfg = Config(cross_language_fallback=False)
+        result = self.ask(
+            "How many programs have a monthly benefit over $100?", cfg, lang="es"
+        )
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertEqual(result.answer.sources, ())
+        # Not merely unanswered: the tool never ran, because no table in the
+        # answer language could bind and widening was refused.
+        self.assertIsNone(result.tool)
+
+    def test_a_foreign_table_answer_says_which_language_it_quotes(self):
+        """With the fallback on, the answer is allowed — but not silently."""
+        result = self.ask(
+            "How many programs have a monthly benefit over $100?", lang="es"
+        )
+        self.assertEqual(result.answer.kind, "grounded")
+        self.assertEqual([s.lang for s in result.answer.sources], ["en"])
+        self.assertIn("English", result.answer.notice)
+        # The count notice is still there; the disclosure is added to it.
+        self.assertIn("tabla", result.answer.notice)
+        # And the rows are still quoted, never translated.
+        self.assertEqual(
+            result.answer.text, "\n\n".join(s.text for s in result.answer.sources)
+        )
+
+    def test_several_foreign_rows_are_not_called_the_only_source(self):
+        """The singular wording is a claim about how many sources there are.
+
+        `messages.py` says why `cross_language_notice` is not reused when more
+        than one source is quoted: it "claims two things that are then false —
+        that there is one source, and that it is the language named". Two rows
+        matched here, so two Source entries are quoted, and the passage path
+        switches to the partial wording in exactly this case.
+        """
+        result = self.ask("How many programs pay at least $95 per month?", lang="es")
+        self.assertEqual(result.answer.kind, "grounded")
+        self.assertEqual(len(result.answer.sources), 2)
+        self.assertIn("English", result.answer.notice)
+        self.assertIn("Algunas de las fuentes", result.answer.notice)
+        self.assertNotIn("La única fuente", result.answer.notice)
+
+    def test_a_table_in_the_answer_language_gains_no_disclosure(self):
+        """The disclosure fires on a real crossing and on nothing else."""
+        result = self.ask("How many programs have a monthly benefit over $100?")
+        self.assertEqual([s.lang for s in result.answer.sources], ["en"])
+        self.assertEqual(result.answer.lang, "en")
+        self.assertNotIn("another language", result.answer.notice)
+        self.assertEqual(
+            result.answer.notice,
+            "That number is not quoted from a document — I counted it over the "
+            "Harbor County Monthly Assistance Amounts table: 1 of its 3 rows "
+            "match. The matching rows are quoted below exactly as published.",
+        )
+
     def test_repeated_calls_are_byte_identical(self):
         question = "How many programs pay at least $95 per month?"
         first = self.ask(question).answer.to_payload()

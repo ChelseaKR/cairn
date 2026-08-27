@@ -20,6 +20,25 @@ becomes a version section like any other.
 
 ### Unreleased
 
+#### Fixed
+
+- The structured-table path enforces the cross-language guarantee. `ask()`
+  ran the count tool over every table in the corpus regardless of language
+  and returned before the notice logic, so a Spanish question bound the
+  English-only demo table and was answered from it with nothing in the
+  answer saying the rows were English. `cross_language_fallback = false`,
+  documented in the README as the way to force a refusal instead, was never
+  consulted on that path at all. The table path now does what the engine
+  docstring already promised for retrieval: bind over tables in the answer
+  language first, widen to the whole corpus only if nothing bound there and
+  configuration allows the widening, and disclose the crossing in the
+  notice. The disclosure follows the same singular/plural rule as the
+  passage path — `cross_language_notice` only when one row is quoted,
+  `cross_language_notice_partial` when several are — because the singular
+  wording says "the only source I have for this", which two quoted rows
+  make false. Same-language answers are byte-identical, and the committed
+  evidence bundle re-records unchanged.
+
 #### Added
 
 - `collect_queries.py`: candidate questions for the pilot from public

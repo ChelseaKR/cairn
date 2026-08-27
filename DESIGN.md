@@ -727,6 +727,13 @@ right-to-left is where "multilingual support" is usually only skin deep.
   in another language. The notice is a separate field, never concatenated into
   `Answer.text`, so "the answer text is exactly the cited passages" stays
   literally true and is tested as such.
+- **The rule spans both answer paths.** Structured-table counts bind over
+  tables in the answer language first and widen to the rest of the corpus
+  only under the same `cross_language_fallback` switch, carrying the same
+  notice when they cross. Until 2026-08-26 they did neither: the tool ran
+  over every table and returned before the notice was built, so the one
+  answer shape whose number is Cairn's own voice was also the one that could
+  quote a foreign source without saying so.
 - **The one place the notice does join the text is `Answer.cited_text`**, and
   for the same reason the inline citation markers are in it: that property is
   the whole answer for a client with no second field to put anything in — a
