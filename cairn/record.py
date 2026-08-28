@@ -41,6 +41,7 @@ import json
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from cairn.answer import citation_marker
 from cairn.config import Config
@@ -104,13 +105,13 @@ class BundleReport:
     bundle_sha256: str
 
 
-def load_questions(path: str | Path) -> list[dict]:
+def load_questions(path: str | Path) -> list[dict[str, Any]]:
     file = Path(path)
     if not file.is_file():
         raise RecordError(f"no question set at {file}")
     with open(file, "rb") as handle:
         data = tomllib.load(handle)
-    questions = data.get("item", [])
+    questions: list[dict[str, Any]] = data.get("item", [])
     if not questions:
         raise RecordError(f"{file}: no [[item]] entries")
     seen: set[str] = set()
@@ -144,13 +145,13 @@ def load_questions(path: str | Path) -> list[dict]:
     return questions
 
 
-def _jsonl(path: Path, rows: list[dict]) -> None:
+def _jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def _json(path: Path, payload: dict) -> None:
+def _json(path: Path, payload: dict[str, Any]) -> None:
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
         handle.write("\n")
@@ -191,7 +192,7 @@ def interface_snapshot(page: str | None = None) -> str:
     return note + page.replace("</head>", block + "</head>", 1)
 
 
-def dataset_page(report_rows: list[dict], name: str) -> str:
+def dataset_page(report_rows: list[dict[str, Any]], name: str) -> str:
     """The bundle's own description, with its counts filled in from the
     bundle rather than typed by hand and left to rot."""
     langs = sorted({row["lang"] for row in report_rows})
@@ -263,7 +264,7 @@ the identifier changes, so an audit finding maps straight back to a passage.
 """
 
 
-def bundle_checksums(bundle_dir: Path) -> dict:
+def bundle_checksums(bundle_dir: Path) -> dict[str, Any]:
     """Checksums in the published bundle format.
 
     Written here rather than by the harness so that producing evidence never
@@ -287,8 +288,8 @@ def bundle_checksums(bundle_dir: Path) -> dict:
 
 
 def build_items_and_responses(
-    index: Index, cfg: Config, questions: list[dict]
-) -> tuple[list[dict], list[dict]]:
+    index: Index, cfg: Config, questions: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The evidence-shaped records :func:`record` writes to `items.jsonl` and
     `responses.jsonl`, built but not written anywhere.
 
@@ -297,8 +298,8 @@ def build_items_and_responses(
     what an answer is — the one thing this project is emphatic must never
     exist for anything evidence-shaped.
     """
-    items: list[dict] = []
-    responses: list[dict] = []
+    items: list[dict[str, Any]] = []
+    responses: list[dict[str, Any]] = []
     for question in questions:
         result = ask(question["prompt"], index, cfg, lang=question["lang"])
         answer = result.answer

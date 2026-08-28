@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from cairn.config import Config
 from cairn.index import Index
@@ -28,10 +29,10 @@ class ItemDiff:
     detail: str
 
 
-def _read_jsonl(path: Path) -> dict[str, dict]:
+def _read_jsonl(path: Path) -> dict[str, dict[str, Any]]:
     if not path.is_file():
         return {}
-    rows: dict[str, dict] = {}
+    rows: dict[str, dict[str, Any]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue

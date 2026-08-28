@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from cairn import __version__
@@ -221,6 +222,7 @@ def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
         followup_store_path=followup_store_path,
     )
     host, port = httpd.server_address[0], httpd.server_address[1]
+    assert isinstance(host, str)  # only a Unix-socket server binds a bytes address
     print(f"cairn: serving the chat interface on http://{host}:{port}/  (ctrl-c to stop)")
     if auth_token:
         print(
@@ -574,7 +576,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         cfg = load_config(args.config)
-        return args.func(args, cfg)
+        command: Callable[[argparse.Namespace, Config], int] = args.func
+        return command(args, cfg)
     except (
         ConfigError,
         CorpusError,

@@ -62,36 +62,45 @@ extend-exclude = [".plumbline-cache"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 
-# The complexity limit is configured, and `C90` is deliberately not in `select`
-# yet, because eight functions are over it today and would fail the lint step:
-# audit_guard.py `harness_defaults` (11), `regression_findings` (11), and
-# `render_terminal` (11); cairn/lint.py `lint_corpus` (11);
-# cairn/tabular.py `parse_count_query` (11); cairn/session.py
-# `_retry_with_context` (18); cairn/server.py `_handle_ask` (19) and
-# `build_handler` (56). Six features landed in one session (2026-08-22, see
-# WORKLOG.md sessions 11-16) roughly doubled `build_handler`'s own number by
-# wiring streaming and sessions into the same request handler that already
-# carried tables, follow-ups and refusal analytics — the shape of what this
-# gap actually costs, not a one-time count. Turning the rule on is a
-# refactor, not a configuration change, so it is separate work rather than
-# eight silent per-file ignores. The numbers here are the bar that refactor
-# is aiming at. See the "good first issue" label for individually-scoped
-# pieces of it.
+# The complexity limit is configured, and `C90` is deliberately not in
+# `select` yet, because 12 functions are over it today and would fail the
+# lint step. Turning the rule on is a refactor, not a configuration change,
+# so it is separate work rather than twelve silent per-file ignores.
+#
+# Which twelve is *not* written here any more. It was, one function and one
+# number at a time, and it was wrong: it named eight, ruff reported twelve,
+# and the four it missed arrived with the pilot tooling (WORKLOG.md sessions
+# 17-18) after the list was last recompiled by hand. A list nothing checks
+# goes stale, which this repository already knew — it holds the README's
+# published test count with a test for exactly that reason. The inventory now
+# lives in `tests/test_code_quality.py`, where ruff is what confirms it, and
+# the count above is held to `len(OVER_THE_LIMIT)` there. See docs/roadmap.md
+# phases 3 and 4, and the "good first issue" label for individually-scoped
+# pieces.
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
-# Not `--strict`. Strict mode reports 44 findings on this tree today (was 28;
-# five modules landed in one session, 2026-08-22, each adding its own share —
-# see WORKLOG.md sessions 11-16), and silencing them to claim a level this
-# repository has not reached would be the opposite of what the rest of it
-# argues for. What runs here is the default check, which is clean, and the
-# gap is written down in the README's conformance table rather than hidden
-# behind a passing badge. Most of the 44 are mechanical (a missing return
-# type, a bare `dict` needing type arguments) — see the "good first issue"
-# label for bounded slices of it.
+# Strict, as of 2026-08-27. It was not, and the reason it was not was
+# arithmetic rather than principle: strict mode reported 44 findings on this
+# tree, and silencing them to claim a level the repository had not reached
+# would have been the opposite of what the rest of it argues for. The
+# findings were closed instead (issues #34-#37, all mechanical — a missing
+# return type, a bare `dict` needing type arguments, one import taken through
+# a module that does not re-export it), so the reason expired.
+#
+# Running the check is the point, not reaching zero once. A tree that reports
+# zero with the check switched off reports one on the next pull request and
+# nothing says so. There are no per-module overrides and there is no
+# `ignore_errors` anywhere, which `tests/test_code_quality.py` holds: a
+# strict gate with an excused module is a strict-looking gate.
+#
+# `files` is `cairn` only. The top-level scripts (audit_guard.py,
+# import_corpus.py, the pilot tooling) are dev tooling and have never been in
+# scope here; widening it is its own decision with its own findings.
 [tool.mypy]
 python_version = "3.12"
 files = ["cairn"]
+strict = true
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true

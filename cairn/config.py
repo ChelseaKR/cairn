@@ -18,6 +18,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, TypeVar
 
 from cairn.language import LANGUAGES
 
@@ -161,7 +162,10 @@ class Config:
         return self.contact_by_language.get(lang, self.contact)
 
 
-def _get(section: dict, key: str, kind: type, default):
+_Value = TypeVar("_Value")
+
+
+def _get(section: dict[str, Any], key: str, kind: type[_Value], default: _Value) -> _Value:
     if key not in section:
         return default
     value = section[key]
@@ -172,7 +176,7 @@ def _get(section: dict, key: str, kind: type, default):
     return value
 
 
-def _contacts(refusal: dict, defaults: dict[str, str]) -> dict[str, str]:
+def _contacts(refusal: dict[str, Any], defaults: dict[str, str]) -> dict[str, str]:
     """Per-language overrides, resolved the way every other key here resolves.
 
     A key absent from the file means "use the built-in default", and this one
