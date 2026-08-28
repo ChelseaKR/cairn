@@ -33,8 +33,26 @@ from cairn.language import LANGUAGES, direction_of
 from cairn.messages import catalogue_for
 from cairn.messages import text as message
 
-# Interface languages, in a stable order, for the selector.
-SELECTABLE = ("en", "es", "ar")
+# The selector's options: every interface language, in the order
+# `cairn.language.LANGUAGES` declares them.
+#
+# Derived rather than listed. It was `("en", "es", "ar")`, written by hand
+# before French existed and never revisited, and the cost was not a missing
+# dropdown entry. `cairn/server.py`'s `_resolve_lang` reads this tuple to
+# decide whether a requested language is real, and falls back to the
+# configured default when it is not -- silently, which is right for a
+# garbage query string and wrong for a language the interface genuinely
+# speaks. So a French speaker asking the served page or the JSON API in
+# French was answered in English, with a cross-language notice explaining
+# that the French source was "in another language". Every other layer knew
+# better: `LANGUAGES` had the entry, `messages.py` had the full catalogue,
+# `available_languages()` offered it, and `cairn ask --lang fr` worked.
+#
+# Found by tests/test_live.py the moment French corpus content existed for
+# the served engine to get wrong, which is three years of nobody looking
+# compressed into one afternoon. `tests/test_ui.py` now holds this tuple to
+# `LANGUAGES` so it cannot drift again.
+SELECTABLE = tuple(LANGUAGES)
 
 # The element the script reads its own voice out of, before it has fetched
 # anything.

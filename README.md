@@ -13,10 +13,10 @@ that makes the `audit` job a gate rather than a report is applied and
 verified — see the Standards Conformance table below. Every capability in
 the specification is implemented: ingest with idempotent indexing, grounded
 answers with citations, refusal as a first-class outcome, an operator
-explain mode that diagnoses a bad answer to the right stage, three languages
+explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 807 tests plus
+evidence and, separately, against the running server. 811 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -64,8 +64,8 @@ directly:
 
 ```console
 $ python3 -m cairn index
-Indexed 40 passages from 10 documents (10 marked synthetic) and 1 structured table in 3 languages [ar, en, es] -> .cairn/index.json
-Corpus fingerprint: b757efed04dd (corpus/demo)
+Indexed 44 passages from 11 documents (11 marked synthetic) and 1 structured table in 4 languages [ar, en, es, fr] -> .cairn/index.json
+Corpus fingerprint: 02a35a0907d9 (corpus/demo)
 
 $ python3 -m cairn ask "How much unpaid rent does the housing relief grant cover?"
 ## How much the grant covers
@@ -100,7 +100,7 @@ verdict for each stage that could have gone wrong.
 $ python3 -m cairn ask --explain "What vaccinations does my dog need?"
 Threshold: 0.165 (retrieval.threshold)
 ...
-Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
+Attempt 1 (restricted to 'en'): 16 passages scored, 28 excluded, 4 candidates
   question terms:      does, dog, need, vacci, what
   in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
@@ -320,11 +320,11 @@ a separate project, pinned to an exact commit in
 
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
-Recorded 29 items (22 answers, 7 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
 Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 9d86048ced72, run ...
+GATE: PASS — target cairn-demo, dataset 124f7e4a41ba, run ...
 all 14 suites passed:
   ...
   multilingual           score 0.9655  floor 0.95  PASS  n=29  ci 0.828-0.994  mde 0.134
@@ -517,7 +517,7 @@ page argues against.
 | Observability | Applies — this is a local tool with no service to instrument, so the observable surface is the evidence rather than telemetry. `cairn record` writes what the real engine answered, `--explain` attributes a bad answer to the stage that caused it, and the audit report and committed baseline make a score change visible in a diff. Nothing phones home and there is no analytics anywhere. | `plumbline/bundle`, `plumbline/baseline.json`, `audit_guard.py`, [`site/index.html`](site/index.html) |
 | Performance | Applies — the served page is one small static document with no external resource of any kind, and retrieval is lexical over a local index with no model call in the path. `tests/test_performance.py`, gated in `make verify`, budgets both: page weight exactly (deterministic — no timing, so the budget is tight against the ~21KB measured baseline) and demo-corpus query latency deliberately loosely (two orders of magnitude above the ~3.3ms measured, wide enough that CI runner noise cannot trip it while a real algorithmic regression still would). `benchmark_index.py` separately measures where query latency stops being "milliseconds" at larger-than-demo corpus scale — unbudgeted and not gated, because an absolute number at scale does not survive running somewhere else (see DESIGN.md, "Measured, not only asserted"). | `tests/test_performance.py`, `benchmark_index.py`, `cairn.toml` bounding the retrieval work itself. |
 | Accessibility | Applies — WCAG 2.2 AA as behaviour rather than attributes, checked in two layers: `tests/test_ui.py` for markup, semantics, and computed contrast offline, and `tests/browser/` for what only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. **No person has driven this page with a screen reader**, that session has not happened, and no automated check here stands in for it. | `tests/test_ui.py`, `tests/browser/`, `cairn/ui/contrast.py` |
-| Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French ships with no bundled corpus content, deliberately — see "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
+| Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French shipped with no bundled corpus content for five days, deliberately and written down as a gap, and closed it on 2026-08-27 with one document and one audit item — which found that the served interface could not answer in French at all, because `SELECTABLE` was a hand-written tuple that never gained `fr` and `_resolve_lang` reads it to decide whether a requested language is real. Corpus coverage stays deliberately uneven: French has the grocery allowance and nothing else. See "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
 | AI Evaluation | N/A — there is no model. Retrieval is deterministic lexical scoring over a corpus the operator supplies, and answers are passages quoted verbatim rather than generated, so there is no prompt, no sampling, and nothing to evaluate as a model. | The runtime has zero dependencies, which makes the no-model claim mechanically checkable; `tests/test_answering.py` holds every answer to its source text. |
 | Documentation | Applies — and the pages are tested, which is the part that matters. `tests/test_docs.py` executes every command block in [docs/demo.md](docs/demo.md) and holds its output byte for byte, and executes the README's blocks under a looser rule that still forbids showing a word the command never printed. | This README, [DESIGN.md](DESIGN.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [WORKLOG.md](WORKLOG.md), [docs/I18N.md](docs/I18N.md), [docs/authoring.md](docs/authoring.md), [docs/onboarding.md](docs/onboarding.md), [docs/deployment.md](docs/deployment.md), [docs/embedding.md](docs/embedding.md), [docs/refusal-analytics.md](docs/refusal-analytics.md), [docs/followup.md](docs/followup.md), [docs/compliance.md](docs/compliance.md), [docs/screen-reader-test-script.md](docs/screen-reader-test-script.md), [docs/release.md](docs/release.md), [docs/pilot-usagov.md](docs/pilot-usagov.md), [docs/pilot-ca.md](docs/pilot-ca.md), [docs/pilot-ca-elicitation.md](docs/pilot-ca-elicitation.md), and the ADR log at [docs/adr/](docs/adr/). |
 | Quality & Metrics | Applies — the floors are measured rather than aspirational, and a floor that differs from the auditor's own default must carry a written reason that `audit_guard.py` enforces against the pinned harness's source. The guard also catches what a floor cannot: a score that moved without breaching one, in either direction. | `plumbline/target.toml`, `audit_guard.py`, `tests/test_audit_guard.py`, and the 85% branch-coverage floor in `pyproject.toml`. |

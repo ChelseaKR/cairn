@@ -217,7 +217,7 @@ class TestAgainstTheDemoCorpus(unittest.TestCase):
             )
         self.assertEqual(code, 0)
         text = out.getvalue()
-        self.assertIn("0.165      0.909         0.048", text)
+        self.assertIn("0.165      0.913         0.045", text)
         self.assertIn("<- configured", text)
         self.assertIn("ck-022       answer  wrong-answer     wrong-passage", text)
         self.assertIn("layers unknown", text)
