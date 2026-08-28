@@ -1163,3 +1163,22 @@ One line per implementation session: date, what was built, from what input.
   802 tests, 92% branch coverage. `cairn record --diff-against`: no
   difference from the committed bundle, so nothing here touches the
   audited evidence.
+
+- 2026-08-27 — Session 21 (AI implementation session). Input: issue #51,
+  filed out of #49's review. `split_intents` merges two dataclasses by
+  hand and every field on both has a default, so a forgotten field takes
+  the default and the trace reads plausible — which is what #46 and #49
+  both were, and both were found by a person reading explain-mode output
+  rather than by anything failing. Built the coverage the issue asked
+  for and one half it did not: every field is named with the treatment
+  the merge owes it, and every field's merged value is recomputed
+  independently from the part traces and compared, because a table of
+  names catches a field nobody handled and cannot catch a field handled
+  wrongly. Also asserted the premise the merge's own comment states and
+  nothing checked — that every part scans the same index under the same
+  restriction, so `scoped` and `excluded` are one part's rather than the
+  sum. Proved the guard against all three: a new `RetrievalTrace` field
+  the merge never sees, #46's bug reintroduced, and #49's two bugs
+  reintroduced (11 failures). No behaviour change; `split_intents` is
+  untouched. `make verify`: ruff, mypy --strict, 807 tests, 92% branch
+  coverage.
