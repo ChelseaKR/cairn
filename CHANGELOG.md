@@ -84,6 +84,20 @@ becomes a version section like any other.
 
 #### Added
 
+- A field-coverage guard on `split_intents`' hand-written merge
+  (`tests/test_query.py`). Every field of `RetrievalTrace` and `Candidate`
+  carries a default, so a field the merge forgets falls back to the default
+  and the trace reads plausible; #46 (`query_terms` taken from one part) and
+  #49 (`matched` picked rather than unioned, `scoped`/`excluded` summed) were
+  both exactly that, and both were found by a person reading explain-mode
+  output. The guard names every field and what the merge should do with it,
+  then recomputes each one independently from the part traces and compares -
+  the second half matters, because a table of names catches a field nobody
+  handled and would not catch a field handled wrongly. It also asserts the
+  premise the merge's own comment states and nothing checked: that every part
+  scans the same index, so `scoped` and `excluded` are one part's and not the
+  sum. No behaviour change.
+
 - `tests/test_disclosure.py`, and the rule it enforces: a disclosure is not
   made until a person can read it. Three defects in this repository have been
   the same defect - a disclosure correct in a field and missing from every
