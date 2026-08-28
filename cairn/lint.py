@@ -157,6 +157,87 @@ def _staleness_issues(
     return issues
 
 
+def _empty_passage_issues(docs: list[Document]) -> tuple[set[str], list[LintIssue]]:
+    """Passages that tokenize to nothing at all, and the warning each earns.
+
+    The ids come back alongside the issues because the reachability check has
+    to skip exactly these: a passage with no scoring terms scores 0.0 on every
+    term it holds, so it would otherwise be reported a second time as
+    unreachable — true, and already said once.
+    """
+    empty_passages: set[str] = set()
+    issues: list[LintIssue] = []
+    for doc in docs:
+        for passage in doc.passages:
+            # The exact text `cairn index` scores this passage on: title,
+            # repeated at TITLE_WEIGHT, ahead of the body. Anything else would
+            # be a second, drifting idea of what "has scoring terms" means.
+            scored = tokenize(f"{passage.title}\n" * TITLE_WEIGHT + passage.text)
+            if not scored:
+                empty_passages.add(passage.passage_id)
+                issues.append(
+                    LintIssue(
+                        "warning",
+                        doc.path,
+                        f"passage {passage.passage_id!r} has no scoring terms after "
+                        f"tokenization (title included): no question can retrieve it",
+                    )
+                )
+    return empty_passages, issues
+
+
+def _reachability_issues(
+    corpus_dir: str | Path,
+    docs: list[Document],
+    empty_passages: set[str],
+    *,
+    threshold: float,
+) -> list[LintIssue]:
+    """The two findings that need a real index rather than a parsed document:
+    a language too small for the document-frequency floor to engage, and a
+    passage no one-word question naming a term it holds would reach.
+
+    `build_index` re-reads the corpus from scratch rather than re-parsing
+    `docs` — the one call in a lint that can afford that, since a lint runs
+    once per author edit, not once per question.
+    """
+    issues: list[LintIssue] = []
+    index = build_index(corpus_dir)
+    for lang, stats in sorted(index.languages.items()):
+        if stats.dilution_exempt:
+            issues.append(
+                LintIssue(
+                    "warning",
+                    f"[{lang}]",
+                    f"{stats.passage_count} passage(s) in {lang!r}: too few for the "
+                    f"document-frequency floor to suppress anything, so every term "
+                    f"is exempted from suppression rather than scored down (see "
+                    f"DESIGN.md, 'The document-frequency floor has one exemption'). "
+                    f"Add more {lang!r} content to let the floor engage normally.",
+                )
+            )
+    doc_paths = {doc.doc_id: doc.path for doc in docs}
+    for indexed in index.passages:
+        if indexed.passage_id in empty_passages:
+            continue  # already reported, and every single-term score is 0.0 anyway
+        stats = index.stats_for(indexed.lang)
+        scores = single_term_scores(indexed, stats)
+        best = max(scores.values(), default=0.0)
+        if best < threshold:
+            issues.append(
+                LintIssue(
+                    "warning",
+                    doc_paths[indexed.doc_id],
+                    f"no single term in {indexed.passage_id!r} would clear "
+                    f"retrieval.threshold ({threshold:.3f}) alone (best {best:.3f}). "
+                    f"Not proof it is unreachable — a combination of otherwise-common "
+                    f"terms can still retrieve it together (see DESIGN.md, `ck-022`) — "
+                    f"only that no one-word question naming a term it holds will.",
+                )
+            )
+    return issues
+
+
 def lint_corpus(
     corpus_dir: str | Path,
     *,
@@ -185,63 +266,15 @@ def lint_corpus(
         issues += _staleness_issues(
             docs, max_age_days=max_age_days, as_of=as_of or date.today()
         )
-    empty_passages: set[str] = set()
-    for doc in docs:
-        for passage in doc.passages:
-            # The exact text `cairn index` scores this passage on: title,
-            # repeated at TITLE_WEIGHT, ahead of the body. Anything else would
-            # be a second, drifting idea of what "has scoring terms" means.
-            scored = tokenize(f"{passage.title}\n" * TITLE_WEIGHT + passage.text)
-            if not scored:
-                empty_passages.add(passage.passage_id)
-                issues.append(
-                    LintIssue(
-                        "warning",
-                        doc.path,
-                        f"passage {passage.passage_id!r} has no scoring terms after "
-                        f"tokenization (title included): no question can retrieve it",
-                    )
-                )
-    # Reachability needs a real index, and `build_index` re-reads the corpus
-    # from scratch rather than re-parsing `docs` — the one call that can
-    # afford that, since a lint runs once per author edit, not once per
-    # question. Skipped when a structural error already stands: an index
-    # built around a corpus lint has already flagged as broken would just
-    # repeat what `load_corpus` itself would refuse.
+    empty_passages, passage_issues = _empty_passage_issues(docs)
+    issues += passage_issues
+    # Reachability needs a real index. Skipped when a structural error already
+    # stands: an index built around a corpus lint has already flagged as broken
+    # would just repeat what `load_corpus` itself would refuse.
     if docs and not any(i.severity == "error" for i in issues):
-        index = build_index(corpus_dir)
-        for lang, stats in sorted(index.languages.items()):
-            if stats.dilution_exempt:
-                issues.append(
-                    LintIssue(
-                        "warning",
-                        f"[{lang}]",
-                        f"{stats.passage_count} passage(s) in {lang!r}: too few for the "
-                        f"document-frequency floor to suppress anything, so every term "
-                        f"is exempted from suppression rather than scored down (see "
-                        f"DESIGN.md, 'The document-frequency floor has one exemption'). "
-                        f"Add more {lang!r} content to let the floor engage normally.",
-                    )
-                )
-        doc_paths = {doc.doc_id: doc.path for doc in docs}
-        for indexed in index.passages:
-            if indexed.passage_id in empty_passages:
-                continue  # already reported, and every single-term score is 0.0 anyway
-            stats = index.stats_for(indexed.lang)
-            scores = single_term_scores(indexed, stats)
-            best = max(scores.values(), default=0.0)
-            if best < threshold:
-                issues.append(
-                    LintIssue(
-                        "warning",
-                        doc_paths[indexed.doc_id],
-                        f"no single term in {indexed.passage_id!r} would clear "
-                        f"retrieval.threshold ({threshold:.3f}) alone (best {best:.3f}). "
-                        f"Not proof it is unreachable — a combination of otherwise-common "
-                        f"terms can still retrieve it together (see DESIGN.md, `ck-022`) — "
-                        f"only that no one-word question naming a term it holds will.",
-                    )
-                )
+        issues += _reachability_issues(
+            corpus_dir, docs, empty_passages, threshold=threshold
+        )
     ordered = tuple(sorted(issues, key=lambda i: (i.path, i.message)))
     return LintReport(corpus_dir=str(corpus_dir), doc_count=len(docs), issues=ordered)
 
