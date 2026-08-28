@@ -123,7 +123,8 @@ Phases 3 and 4 together are what would let `C90` into `pyproject.toml`'s
 
 ## Phase 5: a hand-written merge cannot silently drop a field
 
-**Status: open.** Issue [#51](https://github.com/ChelseaKR/cairn/issues/51).
+**Status: built.** Closes issue
+[#51](https://github.com/ChelseaKR/cairn/issues/51).
 
 `split_intents` merges `RetrievalTrace` and `Candidate` field by field. Every
 field on both carries a default, so a field the merge forgets falls back to the
@@ -132,8 +133,17 @@ that: `query_terms` in #46, and `matched`/`scoped`/`excluded` in #49. Both were
 found by tracing explain-mode output by hand.
 
 This is the same shape as Phase 1 one layer down, and the repository already
-has the pattern: `tests/test_config_report.py` holds `diff_from_defaults` to
+had the pattern: `tests/test_config_report.py` holds `diff_from_defaults` to
 `fields(Config)` so a new config key cannot be silently ignored.
+
+The issue offered two options and named (a), a field-coverage test, as the
+smaller. It was built with a second half the issue did not ask for: every field
+is not only *named* but *recomputed* independently from the part traces and
+compared, because a table of names catches a field nobody handled and would
+not catch a field handled wrongly, which is what both prior bugs actually
+were. It also asserts the premise the merge's own comment states and nothing
+checked, that every part scans the same index so `scoped` and `excluded` are
+identical across parts rather than additive.
 
 ## Phase 6: French has corpus content, so the audit can score it
 
