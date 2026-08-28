@@ -24,6 +24,7 @@ happening instead of presenting the second attempt as if it were the first.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from cairn.answer import Answer, Source, compose
 from cairn.config import Config
@@ -56,7 +57,7 @@ class Attempt:
     scope: str  # "language" (restricted) or "corpus" (widened fallback)
     trace: RetrievalTrace
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, Any]:
         return {
             "scope": self.scope,
             "lang": self.trace.lang,
@@ -74,7 +75,7 @@ class AskResult:
     # passage retrieval (see cairn.tabular). Payload-ready: the CLI's --json
     # and the server attach it beside the answer so a consumer can tell
     # "counted from rows" from "quoted from passages".
-    tool: dict | None = None
+    tool: dict[str, Any] | None = None
 
     @property
     def lang(self) -> str:

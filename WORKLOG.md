@@ -1130,3 +1130,36 @@ One line per implementation session: date, what was built, from what input.
   no suite moved. The baseline's dataset id is therefore one run stale
   and adopting the new one is left to the maintainer, which is what
   DESIGN.md says a baseline move is.
+
+- 2026-08-27 — Session 20 (AI implementation session). Input: issues #34
+  through #37, and `pyproject.toml`'s own account of what they cost.
+  Closed all four: 44 `mypy --strict` findings to zero across 13 files
+  under `cairn/`, every one an annotation on code that already worked,
+  no `# type: ignore` and no per-module override anywhere. `Any` only
+  where a value is genuinely JSON- or TOML-shaped and varies field to
+  field; `Source.to_payload` got the precise `dict[str, str]` because
+  it was the one that could. Two needed reading rather than
+  pattern-matching: the server's `lang` fallback, restructured to the
+  idiom the same file already uses twice, verified identical across six
+  query shapes; and `tabular._OPS`, a dict of bare lambdas, which mypy
+  reads as untyped functions so every dispatch through it was a
+  `no-untyped-call`. Annotating `serve()`'s return surfaced a
+  forty-fifth finding that was not in the 44 — typeshed types a socket
+  address as `str | bytes` because `socketserver` covers Unix sockets —
+  handled with the checked-invariant idiom this codebase already uses
+  three times, not a `cast`. Then flipped `make verify` to strict,
+  because zero findings with the check off is a number that rots on the
+  next pull request. That is a change to what every contributor's gate
+  demands and it is one line to revert; the argument sits beside the
+  setting. Separately, and not what the session set out to find: the
+  other half of the same README row was wrong. `pyproject.toml` named
+  eight functions over the complexity limit and ruff reports twelve —
+  the pilot tooling added four in sessions 17 and 18 and nothing
+  recompiled a hand-kept list. Same defect class as the published test
+  count, which this repository already holds with a test. The inventory
+  moved to `tests/test_code_quality.py`; `PR-BODY.md`, unreferenced by
+  anything and three generations stale, got a dated header saying what
+  it is rather than being deleted. `make verify`: ruff, mypy --strict,
+  802 tests, 92% branch coverage. `cairn record --diff-against`: no
+  difference from the committed bundle, so nothing here touches the
+  audited evidence.
