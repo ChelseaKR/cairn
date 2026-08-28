@@ -1,6 +1,19 @@
 # The development gate, in one place, so that "what CI runs" and "what a
-# contributor runs" cannot be two different lists that drift apart. CI's `core`
-# job calls these targets rather than repeating their commands.
+# contributor runs" cannot be two different lists that drift apart.
+#
+# That sentence used to end "CI's `core` job calls these targets rather than
+# repeating their commands", and it was not true. The job repeated a subset:
+# `ruff check .` and a bare `unittest discover`, with no `mypy`, no
+# `uv lock --check`, and no `coverage report` -- so the type check and the
+# coverage floor were things a contributor ran and CI could not fail on, which
+# is the drift the sentence claimed was impossible. The job runs all four now.
+#
+# It still spells the commands out rather than invoking these targets, because
+# every target here goes through `uv run --locked` and therefore one pinned
+# interpreter, while `core` is matrixed across supported Python versions and
+# must use each one. tests/test_gate_parity.py holds the two lists equal with
+# exactly that difference (`$(UVRUN)`) allowed and nothing else, so the claim
+# above is now checked rather than asserted.
 #
 # `verify` is deliberately the offline half of the story and nothing more:
 # lint, types, and the test suite, with no network and no auditor. The merge

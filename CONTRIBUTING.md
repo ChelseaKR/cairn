@@ -8,7 +8,11 @@ behaviour less checkable is not an improvement here.
 ## The two gates, and which one is which
 
 **`make verify` is the local gate.** It is offline, it needs no auditor, and it
-is what you run before opening a pull request:
+is what you run before opening a pull request. CI's `core` job runs the same
+four checks, step for step, and `tests/test_gate_parity.py` fails when the two
+lists stop matching — which they had, silently, for the life of the repository:
+`core` ran the linter and a bare `unittest discover`, so `mypy`, the lockfile
+check and the coverage floor were things only a contributor could fail.
 
 ```sh
 make install   # uv sync --locked --extra dev

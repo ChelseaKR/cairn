@@ -1,13 +1,37 @@
 """The gauntlet interlock, checked offline.
 
-The full gate needs a checkout of the pinned harness and is CI's job. What
-the core dev path can hold without it — and therefore what these tests hold —
-is the same discipline tests/test_interlock.py applies to the audit side:
-the pin says exactly one thing, the suites are structurally sound, the gate
-fails closed when its harness cannot be resolved, and nothing here can drift
-from those facts quietly.
+The full gate needs a checkout of the pinned harness. What the core dev path
+can hold without it — and therefore what most of these tests hold — is the
+same discipline tests/test_interlock.py applies to the audit side: the pin
+says exactly one thing, the suites are structurally sound, the gate fails
+closed when its harness cannot be resolved, and nothing here can drift from
+those facts quietly.
+
+`TestTheFullGate` is the one that needs the checkout, and it used to say
+`"Runs only where a sibling checkout exists; CI runs it always."` **No CI job
+ran it.** It looked for `../gauntlet`, a sibling of the repository root, and:
+
+- the three jobs that run the test suite (`core` twice over the matrix,
+  `core-windows`, `core-macos`) check out this repository and nothing else,
+  so no sibling exists in any of them;
+- the `gauntlet` job clones the harness to `$RUNNER_TEMP/gauntlet` and passes
+  it as `GAUNTLET_CHECKOUT` — the variable `gauntlet-gate.sh` resolves first
+  and this file did not read — and then runs the gate directly rather than
+  running unittest at all.
+
+So it skipped in every environment that existed: in CI for want of a sibling,
+and on a laptop unless somebody happened to have a checkout at exactly the
+pinned commit, which is the same "ran on a laptop, nowhere else, while its
+docstring said it ran in CI" that `.github/workflows/ci.yml` already records
+closing for `tests/test_audit_guard.py`.
+
+Both halves are fixed below: the skip now resolves a checkout the way the
+gate itself does, and `TestCiRunsTheFullGateSuite` holds the workflow to
+running this module in the one job that has a checkout — so the docstring's
+claim is checked rather than believed.
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -25,6 +49,39 @@ GATE = ROOT / "gauntlet-gate.sh"
 KNOWN_GATES = {"grounding", "adversarial", "refusal", "false_positive", "golden"}
 
 SHA256_RE = re.compile(r"^commit = \"([0-9a-f]{40})\"$", re.M)
+
+WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def pinned_commit() -> str:
+    return SHA256_RE.search(PIN.read_text(encoding="utf-8")).group(1)
+
+
+def resolved_checkout() -> Path | None:
+    """A checkout at the pinned commit, found the way the gate finds one.
+
+    `gauntlet-gate.sh` reads `$GAUNTLET_CHECKOUT` first and falls back to
+    `../gauntlet` then `./gauntlet-checkout`. This used to look only at the
+    sibling, which is why it never ran in the one CI job that has a checkout:
+    that job passes the path in the environment variable.
+    """
+    commit = pinned_commit()
+    candidates = []
+    from_env = os.environ.get("GAUNTLET_CHECKOUT")
+    if from_env:
+        candidates.append(Path(from_env))
+    candidates += [ROOT.parent / "gauntlet", ROOT / "gauntlet-checkout"]
+    for candidate in candidates:
+        if not (candidate / ".git").is_dir():
+            continue
+        head = subprocess.run(
+            ["git", "-C", str(candidate), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        if head.returncode == 0 and head.stdout.strip() == commit:
+            return candidate
+    return None
 
 
 class TestThePin(unittest.TestCase):
@@ -152,7 +209,9 @@ class TestTheGateFailsClosed(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    (ROOT.parent / "gauntlet" / ".git").is_dir(), "no local gauntlet checkout"
+    resolved_checkout() is not None,
+    "no checkout of the harness at the pinned commit (set GAUNTLET_CHECKOUT, "
+    "or put one at ../gauntlet or ./gauntlet-checkout)",
 )
 @unittest.skipIf(
     sys.platform == "win32",
@@ -160,22 +219,98 @@ class TestTheGateFailsClosed(unittest.TestCase):
     "TestTheGateFailsClosed's skip reason above.",
 )
 class TestTheFullGate(unittest.TestCase):
-    """Runs only where a sibling checkout exists; CI runs it always."""
+    """Runs wherever a checkout at the pinned commit is resolvable, by the
+    gate's own resolution order — which is what makes the `gauntlet` CI job
+    one of those places. See the module docstring for what this said before,
+    and why nothing ran it."""
 
-    def test_the_gate_passes_against_the_local_pinned_checkout(self):
-        head = subprocess.run(
-            ["git", "-C", str(ROOT.parent / "gauntlet"), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-        if head != SHA256_RE.search(PIN.read_text(encoding="utf-8")).group(1):
-            self.skipTest("sibling checkout is not at the pinned commit")
+    def test_the_gate_passes_against_the_pinned_checkout(self):
+        checkout = resolved_checkout()
+        self.assertIsNotNone(checkout, "the class skip should have caught this")
+        environment = {"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"}
+        # Forwarded, not inherited: the subprocess gets a deliberately minimal
+        # environment, so a checkout named only in GAUNTLET_CHECKOUT would be
+        # invisible to the gate and it would exit 4 on a machine where the
+        # test had just found one.
+        if os.environ.get("GAUNTLET_CHECKOUT"):
+            environment["GAUNTLET_CHECKOUT"] = os.environ["GAUNTLET_CHECKOUT"]
         completed = subprocess.run(
             [str(GATE)], capture_output=True, text=True,
-            env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"},
+            env=environment,
             timeout=300,
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertIn("overall: PASS", completed.stdout)
+
+
+class TestCiRunsTheFullGateSuite(unittest.TestCase):
+    """The claim, checked.
+
+    A skipped test and a passing test are one green line apart, and the
+    difference lives in a log nobody opens — the same argument
+    `.github/workflows/ci.yml` makes about a skipped gate. `TestTheFullGate`
+    can only run where a checkout exists, and exactly one job has one, so
+    that job has to be the one that runs it.
+    """
+
+    def test_the_gauntlet_job_runs_this_module(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "tests.test_gauntlet_interlock",
+            workflow,
+            "no CI job runs this module, so TestTheFullGate is skipped "
+            "everywhere and its assertions are never made",
+        )
+
+    def test_the_step_that_runs_it_names_the_checkout(self):
+        """`GAUNTLET_CHECKOUT` is what makes the checkout findable, and it has
+        to be on *that step*. A step running this module without it skips
+        exactly as before, with a green tick to show for it.
+
+        The first version of this test asserted the variable appeared anywhere
+        in the `gauntlet` job, and the job's other step already sets it -- so
+        deleting the variable from the new step left the test green. Found by
+        breaking it on purpose, which is the only way that kind of hole is
+        ever found.
+        """
+        steps = self.gauntlet_job_steps()
+        running = [
+            step for step in steps if "tests.test_gauntlet_interlock" in step
+        ]
+        self.assertEqual(
+            len(running), 1, "exactly one step should run the interlock suite"
+        )
+        self.assertIn(
+            "GAUNTLET_CHECKOUT",
+            running[0],
+            "the step that runs the suite does not name the checkout, so "
+            "TestTheFullGate skips inside it and the run is green anyway:\n"
+            + running[0],
+        )
+
+    def gauntlet_job_steps(self) -> list[str]:
+        """The `gauntlet` job's steps, one string each."""
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        split = workflow.split("\n  gauntlet:\n", 1)
+        self.assertEqual(len(split), 2, "no `gauntlet:` job in ci.yml")
+        body = split[1]
+        # A job ends where the next two-space key begins.
+        for index, line in enumerate(body.splitlines()):
+            if re.match(r"^  [a-z][\w-]*:\s*$", line):
+                body = "\n".join(body.splitlines()[:index])
+                break
+        steps: list[str] = []
+        current: list[str] = []
+        for line in body.splitlines():
+            if re.match(r"^      - (name|uses):", line):
+                if current:
+                    steps.append("\n".join(current))
+                current = [line]
+            elif current:
+                current.append(line)
+        if current:
+            steps.append("\n".join(current))
+        return steps
 
 
 if __name__ == "__main__":
