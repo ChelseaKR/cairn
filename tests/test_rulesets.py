@@ -126,8 +126,40 @@ class TestTheRulesetMatchesTheWorkflow(unittest.TestCase):
         # merge to gate.
         self.assertIn("pull_request", self.rules)
 
-    def test_nobody_can_bypass_it(self):
-        self.assertEqual(self.ruleset["bypass_actors"], [])
+    def test_only_the_repository_owner_can_bypass_it(self):
+        """Exactly one bypass actor, and it is the repository owner's own.
+
+        This asserted `bypass_actors == []` until 2026-08-28, and both the
+        assertion and the paragraph in `.github/rulesets/README.md` arguing for
+        it were wrong. The owner's standing bypass is deliberate and permanent.
+        An agent once applied a ruleset with no bypass and locked the owner out
+        of their own repository, and restoring access took a sweep across eight
+        rulesets in this portfolio; the standing instruction since is that the
+        owner must always be able to bypass, in any repository. See "Why the
+        owner can bypass" in that file.
+
+        Equality with the single-element list, rather than deleting the check
+        or loosening it to "the owner is in there somewhere", is what keeps
+        this falsifiable in the two directions that matter:
+
+        - a bypass granted to a **team, a GitHub App or a second role** fails
+          here, which is the threat actually worth guarding;
+        - the owner's bypass being **removed** fails here too, which is the
+          incident that produced the rule. An empty list is not a stricter
+          gate; it is the lockout.
+        """
+        self.assertEqual(
+            self.ruleset["bypass_actors"],
+            [
+                {
+                    "actor_id": 5,
+                    "actor_type": "RepositoryRole",
+                    "bypass_mode": "always",
+                }
+            ],
+            "the committed ruleset must record exactly the owner's standing "
+            "bypass: no second actor, and not an empty list",
+        )
 
     def test_it_would_actually_be_enforced_if_applied(self):
         self.assertEqual(self.ruleset["enforcement"], "active")

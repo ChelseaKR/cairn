@@ -1398,8 +1398,12 @@ What a file could do, before any of that, and still does:
   after. It requires the CI check runs (named exactly as GitHub names
   them, read off a real run rather than guessed; ten as of `gauntlet`
   joining them), requires a pull request so
-  there is a merge for them to gate, forbids deletion and force-push, and has
-  an empty bypass list.
+  there is a merge for them to gate, forbids deletion and force-push, and
+  records exactly one bypass actor: the repository owner's own, deliberately
+  and permanently, because a ruleset with no bypass once locked the owner out
+  of their own repository. An empty bypass list here is not a stricter gate,
+  it is that incident; `.github/rulesets/README.md`'s "Why the owner can
+  bypass" has the account and the three checks that hold it.
 - `.github/rulesets/README.md` says how it was applied, what each rule
   costs — including that direct pushes to `main` stopped working, which
   ended this repository's own commit style — and which number in it is a
