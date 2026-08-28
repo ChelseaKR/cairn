@@ -28,8 +28,8 @@ $ cd cairn
 
 ```console
 $ python3 -m cairn index
-Indexed 40 passages from 10 documents (10 marked synthetic) and 1 structured table in 3 languages [ar, en, es] -> .cairn/index.json
-Corpus fingerprint: b757efed04dd (corpus/demo)
+Indexed 44 passages from 11 documents (11 marked synthetic) and 1 structured table in 4 languages [ar, en, es, fr] -> .cairn/index.json
+Corpus fingerprint: 02a35a0907d9 (corpus/demo)
 ```
 
 The count of synthetic documents is not decoration. Every file in the bundled
@@ -162,12 +162,12 @@ translated policy amount is an unsourced policy amount. Set
 $ python3 -m cairn ask --explain "What vaccinations does my dog need?"
 === retrieval trace ==========================================================
 Question:  What vaccinations does my dog need?
-Index:     40 passages from 10 documents (.cairn/index.json)
+Index:     44 passages from 11 documents (.cairn/index.json)
 Threshold: 0.165 (retrieval.threshold)
 Language:  en (vocabulary)
-           corpus vocabulary coverage: en 0.40, es 0.00
+           corpus vocabulary coverage: en 0.40, es 0.00, fr 0.00
 
-Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
+Attempt 1 (restricted to 'en'): 16 passages scored, 28 excluded, 4 candidates
   question terms:      does, dog, need, vacci, what
   in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
@@ -183,7 +183,7 @@ Attempt 1 (restricted to 'en'): 16 passages scored, 24 excluded, 4 candidates
           ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
           matched 1/5: what
 
-Attempt 2 (widened to every language): 40 passages scored, 0 excluded, 4 candidates
+Attempt 2 (widened to every language): 44 passages scored, 0 excluded, 4 candidates
   question terms:      does, dog, need, vacci, what
   in no passage:       does, dog, vacci
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
@@ -249,7 +249,7 @@ tell you why, and the two are different findings:
 ```text
 $ python3 -m cairn serve
 cairn: serving the chat interface on http://127.0.0.1:8765/  (ctrl-c to stop)
-cairn: 40 passages, 10 documents, languages ar, en, es
+cairn: 44 passages, 11 documents, languages ar, en, es, fr
 ```
 
 Open that address. The page binds to this machine only, loads no external
@@ -287,11 +287,11 @@ in [`plumbline.pin`](../plumbline.pin).
 
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
-Recorded 29 items (22 answers, 7 refusals) in 3 languages [ar, en, es] -> plumbline/bundle
+Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
 Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
-GATE: PASS — target cairn-demo, dataset 9d86048ced72, run ...
+GATE: PASS — target cairn-demo, dataset 124f7e4a41ba, run ...
 all 14 suites passed:
   ...
   passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci 0.742-0.990  mde 0.214  3 unverifiable

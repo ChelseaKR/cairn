@@ -1182,3 +1182,38 @@ One line per implementation session: date, what was built, from what input.
   reintroduced (11 failures). No behaviour change; `split_intents` is
   untouched. `make verify`: ruff, mypy --strict, 807 tests, 92% branch
   coverage.
+
+- 2026-08-27 — Session 22 (AI implementation session). Input: issue #40,
+  and `docs/I18N.md`'s own account of the one flip condition French had
+  not met. Authored `corpus/demo/grocery-allowance.fr.md` — a
+  translation of an existing program rather than a new one, so the same
+  $212 is now asked in four languages and the four answers check against
+  each other — plus `ck-031`, same-language and deliberately not a
+  second cross-language item, because DESIGN.md already works out that a
+  second one costs the `multilingual` floor. Two things had to be true
+  that were not, and neither could have been found before there was
+  French content to be wrong about. The pinned harness refused to score
+  French rather than guess: its judge separates Latin-script languages
+  by function words and ships en/es only. Declared
+  `[judge.languages.fr]` in both audit configs, built from French
+  function words absent from both shipped profiles and — checked with
+  the harness's own `normalize`, not assumed — absent from every
+  existing corpus document, prompt and expected answer, so it cannot
+  retune how an English or Spanish response is classified. And the
+  served interface could not answer in French at all: `SELECTABLE` was a
+  hand-written `("en", "es", "ar")` and `_resolve_lang` reads it to
+  decide whether a requested language is real, so `cairn ask --lang fr`
+  answered in French while the page and the JSON API answered the same
+  question in English, under a notice explaining the French source was
+  in another language. Third stale hand-kept list this arc has found,
+  after the complexity inventory and the mypy count; derived from
+  `LANGUAGES` now, with a test holding them equal. Caught by
+  tests/test_live.py, not by reading. French is also the corpus's
+  clearest illustration of the document-frequency floor: four passages,
+  eleven terms suppressed including the program's own name, and the item
+  answers anyway on the words the floor left alone. `make verify`: ruff,
+  mypy --strict, 811 tests, 92% branch coverage. `./plumbline-gate.sh`:
+  GATE PASS, 14 suites, multilingual 0.9667 over 30 items where it
+  scored 0.9655 over 29. Baseline adopted through the harness's own
+  `plumbline baseline` command as a reviewed diff, and the gate re-run
+  against it: `audit_guard.py` GUARD PASS, no suite moved.

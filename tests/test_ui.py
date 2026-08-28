@@ -203,6 +203,24 @@ class TestDocumentStructure(ServerHarness):
         self.assertIn(f">{CATALOGUE['en']['send_button']}</button>", markup)
         self.assertNotIn(">Go</button>", markup)
 
+    def test_the_selector_offers_every_language_the_interface_speaks(self):
+        """`SELECTABLE` decides two things, and the second one is not obvious.
+
+        It fills the dropdown, and `cairn/server.py`'s `_resolve_lang` reads
+        it to decide whether a requested `lang` is real, falling back to the
+        configured default when it is not. A hand-kept tuple that fell behind
+        `LANGUAGES` therefore did not merely hide an option: it made the
+        served engine answer a French question in English, silently, while
+        `cairn ask --lang fr` answered it in French. Derived now, and held
+        here so the two cannot part again.
+        """
+        from cairn.language import LANGUAGES
+
+        self.assertEqual(SELECTABLE, tuple(LANGUAGES))
+        for code in SELECTABLE:
+            with self.subTest(lang=code):
+                self.assertIn(code, CATALOGUE, "a selectable language must speak")
+
     def test_the_language_selector_is_labelled_and_marks_each_option(self):
         page = self.page()
         self.assertEqual(page.find("label", **{"for": "lang"})["for"], "lang")
