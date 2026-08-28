@@ -16,7 +16,7 @@ is this question written in, and whose vocabulary does it use.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from cairn.text import dominant_script, tokenize
 
@@ -106,7 +106,7 @@ class Detection:
     basis: str  # "requested" | "script" | "vocabulary" | "default"
     coverage: tuple[tuple[str, float], ...]  # per-language vocabulary coverage
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, Any]:
         return {
             "lang": self.lang,
             "basis": self.basis,

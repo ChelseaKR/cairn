@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterator
+from typing import Any
 
 from cairn.answer import Answer
 
@@ -69,7 +70,7 @@ def _chunks(text: str) -> list[str]:
     return parts
 
 
-def events(answer: Answer) -> Iterator[dict]:
+def events(answer: Answer) -> Iterator[dict[str, Any]]:
     """The ordered event sequence for one composed answer."""
     yield {
         "event": "start",
@@ -91,7 +92,7 @@ def events(answer: Answer) -> Iterator[dict]:
     }
 
 
-def format_sse(event: dict) -> str:
+def format_sse(event: dict[str, Any]) -> str:
     """One event as a server-sent-events frame. Keys sort, so the same event
     always renders as the same bytes."""
     payload = json.dumps(event, ensure_ascii=False, sort_keys=True)

@@ -56,6 +56,32 @@ becomes a version section like any other.
   make false. Same-language answers are byte-identical, and the committed
   evidence bundle re-records unchanged.
 
+#### Changed
+
+- `make verify` runs `mypy --strict`. It ran the default check because strict
+  reported 44 findings, and the findings are now zero (issues #34, #35, #36,
+  #37 - a missing return type, a bare `dict` needing type arguments, one
+  import taken through a module that does not re-export it, all mechanical
+  and none of them a behaviour change). Reaching zero was never the
+  deliverable: a tree that reports zero with the check switched off reports
+  one on the next pull request and nothing says so. No per-module override
+  exists and `tests/test_code_quality.py` holds that, because a strict gate
+  with an excused module is a strict-looking gate.
+
+#### Fixed
+
+- The published count of functions over the complexity limit was wrong.
+  `pyproject.toml` named eight, one at a time with a number each, and said
+  "the numbers here are the bar that refactor is aiming at"; ruff reported
+  twelve. The four it missed - `assemble_corpus.py`'s `plan` and
+  `import_corpus.py`'s `handle_starttag`, `handle_endtag` and `scaffold_one` -
+  arrived with the pilot tooling and nothing recompiled a list that is only
+  ever recompiled by hand. The inventory moved into
+  `tests/test_code_quality.py`, where ruff confirms it, and `pyproject.toml`
+  and the README now cite the count instead of listing the members. Same
+  defect class as the published test count, which this repository already
+  holds with a test for exactly this reason.
+
 #### Added
 
 - `tests/test_disclosure.py`, and the rule it enforces: a disclosure is not

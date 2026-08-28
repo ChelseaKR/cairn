@@ -49,13 +49,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, replace
+from typing import Any
 
+from cairn.answer import Answer
 from cairn.config import Config
 from cairn.engine import AskResult, EngineError, ask, available_languages
-from cairn.index import Index
+from cairn.index import Index, IndexedPassage, LanguageStats
 from cairn.language import isolate
 from cairn.messages import text as message
-from cairn.retrieve import tokenize
+from cairn.text import tokenize
 
 # How many terms may be carried forward from prior citations, and how many
 # prior turns may contribute them. Three terms keeps the rewritten query
@@ -87,7 +89,7 @@ class TurnResult:
     context_terms: tuple[str, ...] = ()
 
     @property
-    def answer(self):
+    def answer(self) -> Answer:
         return self.result.answer
 
 
@@ -236,7 +238,7 @@ class Session:
                 return retry, tuple(sorted(source_turns)), tuple(terms)
         return None
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, list[dict[str, Any]]]:
         """The wire form the stateless server accepts back."""
         return {
             "turns": [
@@ -246,7 +248,7 @@ class Session:
         }
 
     @classmethod
-    def from_payload(cls, payload: dict) -> Session:
+    def from_payload(cls, payload: dict[str, Any]) -> Session:
         session = cls()
         for entry in payload.get("turns") or []:
             if not isinstance(entry, dict) or not entry.get("question"):
@@ -302,14 +304,14 @@ def _disclosed(result: AskResult, prior_question: str) -> AskResult:
     return replace(result, answer=replace(answer, notice=notice))
 
 
-def _passage_by_id(index: Index, passage_id: str):
+def _passage_by_id(index: Index, passage_id: str) -> IndexedPassage | None:
     for passage in index.passages:
         if passage.passage_id == passage_id:
             return passage
     return None
 
 
-def _idf_of(term: str, stats) -> float:
+def _idf_of(term: str, stats: LanguageStats) -> float:
     """The same smoothed IDF the scorer uses, for the one guard above."""
     if term in stats.suppressed:
         return 0.0

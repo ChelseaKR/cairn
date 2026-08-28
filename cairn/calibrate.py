@@ -25,6 +25,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from cairn.config import Config
 from cairn.engine import ask
@@ -104,13 +105,13 @@ class CalibrationReport:
         return not self.misclassified and self.gap is not None
 
 
-def load_probes(path: str | Path) -> list[dict]:
+def load_probes(path: str | Path) -> list[dict[str, Any]]:
     file = Path(path)
     if not file.is_file():
         raise CalibrationError(f"no probe file at {file}")
     with open(file, "rb") as handle:
         data = tomllib.load(handle)
-    probes = data.get("probe", [])
+    probes: list[dict[str, Any]] = data.get("probe", [])
     if not probes:
         raise CalibrationError(f"{file}: no [[probe]] entries")
     for probe in probes:

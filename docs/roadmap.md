@@ -57,29 +57,46 @@ of waiting for a reader.
 
 It also fixes the third defect, which was live when the phase started.
 
-## Phase 2: `mypy --strict` reports zero
+## Phase 2: `mypy --strict` reports zero, and runs
 
-**Status: open.** Issues [#34](https://github.com/ChelseaKR/cairn/issues/34),
+**Status: built.** Closes issues
+[#34](https://github.com/ChelseaKR/cairn/issues/34),
 [#35](https://github.com/ChelseaKR/cairn/issues/35),
 [#36](https://github.com/ChelseaKR/cairn/issues/36),
 [#37](https://github.com/ChelseaKR/cairn/issues/37).
 
-Strict mode reports 44 findings. `pyproject.toml` says so at the point of
-configuration and the README's Code Quality row says so in public, which is the
-honest handling of a gap and not a substitute for closing it. The findings are
+Strict mode reported 44 findings. `pyproject.toml` said so at the point of
+configuration and the README's Code Quality row said so in public, which is the
+honest handling of a gap and not a substitute for closing it. The findings were
 mechanical: a missing return type, a bare `dict` needing type arguments, one
 import taken through a module that does not re-export it.
 
-The deliverable is not "fewer findings". It is that the project can then decide
-whether `make verify` runs strict mode, which is a decision it cannot make
-today because the answer is forced.
+The deliverable was never "fewer findings". A tree that reports zero with the
+check switched off reports one on the next pull request and nothing says so, so
+`make verify` now runs strict mode and the gate is the guard. There are no
+per-module overrides, and a test holds that: a strict gate with an excused
+module is a strict-looking gate.
 
-## Phase 3: the four small complexity findings
+Turning the check on is a change to what every contributor's gate demands, and
+it is one line to revert if the maintainer would rather have zero findings
+unenforced. The argument for running it is in `pyproject.toml` beside the
+setting.
+
+The same phase found the *other* half of that conformance row was simply wrong.
+`pyproject.toml` named eight functions over the complexity limit, one at a time
+with a number each; ruff reported twelve. Four arrived with the pilot tooling
+and nothing recompiled a hand-kept list. The inventory moved into
+`tests/test_code_quality.py`, where ruff confirms it.
+
+## Phase 3: the small complexity findings
 
 **Status: open.** Issues [#38](https://github.com/ChelseaKR/cairn/issues/38),
-[#39](https://github.com/ChelseaKR/cairn/issues/39), plus
-`audit_guard.py`'s `harness_defaults` and `regression_findings` and
-`cairn/tabular.py`'s `parse_count_query`, which have no issues of their own.
+[#39](https://github.com/ChelseaKR/cairn/issues/39), plus six more with no
+issue of their own: `audit_guard.py`'s `harness_defaults` and
+`regression_findings`, `cairn/tabular.py`'s `parse_count_query`,
+`assemble_corpus.py`'s `plan`, and `import_corpus.py`'s `handle_starttag`,
+`handle_endtag` and `scaffold_one`. The last four were not in the published
+count until Phase 2 recomputed it.
 
 Each is 11 against a configured limit of 10, and each is presentation or
 orchestration code with comprehensive tests already watching its output. The
