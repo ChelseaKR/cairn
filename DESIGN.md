@@ -883,8 +883,8 @@ rather than on work. This section stays the argument; the roadmap is the order.
   own definition — the body of the response really is English — and Cairn is
   right too, because translating the source would produce an unsourced policy
   statement. Two correct positions, one number, and the number is zero. The
-  suite score is 0.9655, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 28/30 = 0.9333 and the gate to red.
+  suite score is 0.9667, which clears its 0.95 floor by one item and no more:
+  a second cross-language item takes it to 29/31 = 0.9355 and the gate to red.
   (That arithmetic was published as 25/28 = 0.8929, which is not what adding
   one failing item to 26-of-27 gives. The conclusion held and the number did
   not, which is why it is computed from the committed baseline now — see

@@ -147,7 +147,18 @@ identical across parts rather than additive.
 
 ## Phase 6: French has corpus content, so the audit can score it
 
-**Status: open.** Issue [#40](https://github.com/ChelseaKR/cairn/issues/40).
+**Status: built.** Closes issue
+[#40](https://github.com/ChelseaKR/cairn/issues/40).
+
+It found two things nothing could have found earlier, because both needed
+French content to be wrong about. The pinned harness refused to score French
+rather than guess, and asked for the `[judge.languages.fr]` profile it now
+has. And the served interface could not answer in French at all:
+`SELECTABLE` was a hand-written tuple that never gained `fr`, and
+`_resolve_lang` reads it to decide whether a requested language is real, so
+`cairn ask --lang fr` answered in French while the served page and the JSON
+API answered the same question in English. Third hand-kept list this arc has
+found stale, after the complexity inventory and the mypy count.
 
 `fr` has a full `LANGUAGES` entry, a complete message catalogue, and passes
 every interface-language test, and there is no French corpus content at all, so

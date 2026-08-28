@@ -7,10 +7,10 @@ an invented county, invented programs, invented amounts. It demonstrates that
 the instrument and the target work together. It measures nothing about any
 real benefit program.
 
-- 29 items (5 ar, 15 en, 9 es).
-- 22 expected answers, 7 expected refusals, 6 of
+- 30 items (5 ar, 15 en, 9 es, 1 fr).
+- 23 expected answers, 7 expected refusals, 6 of
   them adversarial probes.
-- 14 items are not in English. 12 of them are
+- 15 items are not in English. 13 of them are
   translations of an English item and carry `"review": "unreviewed"`, which
   every run says out loud; the remaining 2 were
   authored directly in their own language. No non-English string in this
