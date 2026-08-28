@@ -1,35 +1,40 @@
-"""The two configured-but-unenforced limits are described accurately.
+"""Both limits are enforced by the gate now, so this file guards the wording.
 
-`pyproject.toml` configures a complexity limit of 10 and deliberately leaves
-`C90` out of ruff's `select`, because functions are over it. That is the
-honest handling of a gap, and it depends entirely on the description being
-true.
+For most of this repository's history `pyproject.toml` configured a complexity
+limit of 10, left `C90` out of ruff's `select` because functions were over it,
+and said so in a comment. That is the honest handling of a gap, and it depends
+entirely on the description being true.
 
-It was not. The comment named eight functions, one by one, with a number
-each, and said "the numbers here are the bar that refactor is aiming at". Ruff
+It was not. The comment named eight functions, one by one, with a number each,
+and said "the numbers here are the bar that refactor is aiming at". Ruff
 reported twelve. Four arrived with the pilot tooling in sessions 17 and 18 -
 `assemble_corpus.py`'s `plan`, `import_corpus.py`'s `handle_starttag`,
 `handle_endtag` and `scaffold_one` - and nobody recomputed a list that is only
 ever recomputed by hand. The README's Code Quality row inherited the same
 eight.
 
-This is the defect this repository already knows about in another place. Its
+This is the defect this repository already knew about in another place. Its
 own test for the published test count says it: a claim "was updated by hand
 each time somebody remembered, which means a commit that deletes forty tests
 can leave the sentence standing and read as a commit that deleted nothing."
 The same sentence works here with "adds four complex functions" in the middle.
 
-So the inventory moved out of the comment and into `OVER_THE_LIMIT` below,
-where a test holds it to what ruff actually reports, and `pyproject.toml` and
-the README now cite the count instead of listing the members. Reducing a
-function past the limit fails this test until the entry comes out, which is
-the direction the gap is supposed to move; adding a complex function fails it
-until somebody writes the entry, which is the moment to notice.
+So the inventory moved out of the comment and into a table a test held to what
+ruff actually reported. Twelve, then five, then zero, over 2026-08-27. At zero
+the table is not the guard any more: `C90` is in `select`, so a thirteenth
+complex function fails the lint step rather than joining a list, and the rule
+is stricter than any inventory could be.
 
-`mypy` needs no equivalent, and did until this file was written. Strict mode
-reports zero on `cairn/` now, so `make verify` runs it strictly and the gate
-itself is the guard. A number in prose only needs a test when nothing else
-holds it.
+`OVER_THE_LIMIT` stays, empty, rather than being deleted with the tests around
+it. Emptiness is the claim now, and an empty table that ruff is checked
+against says "nothing is over the limit" in a way that deleting the file
+cannot. `test_the_rule_is_enforced_rather_than_inventoried` is what would have
+to be rewritten to put the gap back, which is the right amount of friction for
+a change that would be reintroducing one.
+
+`mypy` is here for the same reason, one line down: strict mode reports zero on
+`cairn/` and `make verify` runs it, so what needs holding is that the
+configuration still says so and that no module has been excused.
 """
 
 import shutil
@@ -43,21 +48,11 @@ ROOT = Path(__file__).resolve().parent.parent
 # number it reports. Kept here rather than in `pyproject.toml`'s comment
 # because a list nothing checks is a list that goes stale, and this one did.
 #
-# It held twelve when it was written and holds five. The seven that came out
-# were the ones at 11 and 12, each closed by extraction with no behaviour
-# change; `audit_guard.py`'s terminal output was checked byte-for-byte against
-# a real report either side. What is left is the five that are not a "reduce a
-# few branches" task: two request-handler closures that four features' worth of
-# branching landed in, a measured ranking algorithm whose current shape is the
-# survivor of three failed designs, and two HTML parser state machines. See
-# docs/roadmap.md phase 4, and issues #42 and #43.
-OVER_THE_LIMIT = {
-    ("cairn/server.py", "build_handler"): 56,
-    ("cairn/server.py", "_handle_ask"): 19,
-    ("cairn/session.py", "_retry_with_context"): 18,
-    ("import_corpus.py", "handle_starttag"): 18,
-    ("import_corpus.py", "handle_endtag"): 20,
-}
+# It held twelve when it was written, then five, and now none: `C90` is in
+# ruff's `select`, so ruff itself refuses a thirteenth rather than this table
+# recording one. Kept empty rather than deleted, because "nothing is over the
+# limit" is a claim, and a claim wants something checking it.
+OVER_THE_LIMIT: dict[tuple[str, str], int] = {}
 
 MAX_COMPLEXITY = 10
 
@@ -113,23 +108,22 @@ class TestThePublishedComplexityGapIsTheGap(unittest.TestCase):
             "README's Code Quality row with it",
         )
 
-    def test_pyproject_publishes_the_count_and_not_a_hand_kept_list(self):
+    def test_the_rule_is_enforced_rather_than_inventoried(self):
+        """`C90` in `select` is what makes the emptiness above hold.
+
+        Without it, `make verify` would pass on a tree with a
+        thirteenth complex function in it and only this file would
+        notice, which is the arrangement that let the count sit at eight
+        while ruff said twelve.
+        """
         text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn(f"max-complexity = {MAX_COMPLEXITY}", text)
-        self.assertIn(f"{len(OVER_THE_LIMIT)} functions are over it", text)
-
-    def test_the_readme_publishes_the_same_count(self):
-        text = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn(f"{len(OVER_THE_LIMIT)} functions are over it", text)
-
-    def test_turning_the_rule_on_is_still_a_refactor(self):
-        """The reason `C90` is out of `select`, stated as a fact rather than
-        left as a claim: there is something for it to catch. If this ever
-        fails, the gap is closed and the rule can simply be switched on."""
-        self.assertTrue(
+        self.assertIn('"C90"', text, "C90 is no longer in ruff's select")
+        self.assertFalse(
             OVER_THE_LIMIT,
-            "nothing is over the limit any more: add C90 to pyproject.toml's "
-            "select, delete this inventory, and delete this test",
+            "the rule is enforced, so nothing can be over the limit; if "
+            "something is, ruff has been switched off rather than the code "
+            "fixed",
         )
 
 

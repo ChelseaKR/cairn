@@ -1277,3 +1277,38 @@ One line per implementation session: date, what was built, from what input.
   The inventory guard from session 20 failed on the first run, which is
   what it is for; the published count moved from 12 to 5 with it. `make
   verify`: ruff, mypy --strict, 816 tests, 92% branch coverage.
+
+- 2026-08-27 — Session 25 (AI implementation session). Input: issues #42
+  and #43, and the five functions session 24 left. All five under the
+  limit, and `C90` is in ruff's select, which is what sessions 24 and 25
+  were both for: the rule is on or off for the whole tree, so neither
+  half could do it alone. The seams were specific rather than generic.
+  `build_handler` was 56 because ruff folds a nested class's methods
+  into the enclosing function, so every branch of every route counted
+  toward the factory; `CairnHandler` is a module-level class now with
+  its configuration as class attributes and `build_handler` returns a
+  fresh subclass that assigns them — fresh rather than mutating the
+  base, because the tests routinely run two servers in one process.
+  `_handle_ask` split along the order the request is read, each step an
+  early return the code already had. The two parser state machines
+  became short dispatchers over per-concern helpers, with the ordering
+  that matters preserved literally and the one genuine find recorded:
+  the `_PARAGRAPH_TAGS` branch bodies in start and end were
+  character-for-character identical and are now one function.
+  `_retry_with_context` got exactly the two helpers #43 named and
+  nothing else; every constant, factor, tie-break and guard condition is
+  byte-identical, and each of the three rejected-design comments moved
+  with the code it explains. Behaviour held to more than the suite:
+  `audit_guard.py`'s whole terminal report, the HTML extractor over all
+  132 pages in `source_pages/`, and 480 multi-turn sequences across
+  three languages (138 of them taking the context-retry path) each run
+  through old and new and compared byte-for-byte. Two pre-existing bugs
+  found and left alone with issues filed: #67, a `bindings` list
+  `parse_count_query` builds and never reads, whose docstring describes
+  an ambiguity rule the code does not implement; and #68, a JSON body
+  that parses but is not an object killing the handler thread —
+  `[1,2]`, `"s"`, `5` and `null` all return no status and no body and
+  put a traceback on stderr, which is the same defect class
+  `_read_body`'s docstring records closing once already, one door along.
+  Both reproduced on origin/main. `make verify`: ruff with C90, mypy
+  --strict, 814 tests, 93% branch coverage.
