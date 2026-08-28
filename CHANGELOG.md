@@ -100,6 +100,24 @@ becomes a version section like any other.
 
 #### Changed
 
+- `C90` is in ruff's `select`, so `make verify` fails on a function over the
+  complexity limit of 10. It was configured and unenforced for most of this
+  repository's history because functions were over it; twelve refactors closed
+  that. The last five were the ones that were not a "reduce a few branches"
+  task: `cairn/server.py`'s `build_handler` (56) and `_handle_ask` (19),
+  `cairn/session.py`'s `_retry_with_context` (18), and `import_corpus.py`'s
+  `handle_starttag` (18) and `handle_endtag` (20). Closes #42 and #43.
+  `build_handler` was 56 because ruff folds a nested class's methods into the
+  enclosing function; `CairnHandler` is a module-level class now and
+  `build_handler` returns a fresh subclass carrying the configuration.
+  `_retry_with_context` got exactly the two helpers #43 named, with the
+  ranking's every constant, factor, tie-break and guard condition
+  byte-identical and every measurement comment moved with the code it
+  explains. No behaviour change: `audit_guard.py`'s terminal report, the HTML
+  extractor over all 132 pages in `source_pages/`, and 480 multi-turn session
+  sequences across three languages were each run through both the old and new
+  code and compared byte-for-byte.
+
 - Seven of the twelve functions over the configured complexity limit are
   under it: `assemble_corpus.py`'s `plan`, `audit_guard.py`'s
   `harness_defaults`, `regression_findings` and `render_terminal`,

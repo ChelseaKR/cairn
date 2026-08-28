@@ -105,23 +105,36 @@ for `audit_guard.py` that was checked the strong way rather than asserted --
 its whole terminal report, run against a real gate report, is byte-for-byte
 what it was before.
 
-## Phase 4: the two large complexity findings
+## Phase 4: the large complexity findings, and `C90` goes on
 
-**Status: open.** Issues [#42](https://github.com/ChelseaKR/cairn/issues/42)
-(`build_handler`, 56) and [#43](https://github.com/ChelseaKR/cairn/issues/43)
-(`_retry_with_context`, 18).
+**Status: built.** Closes issues
+[#42](https://github.com/ChelseaKR/cairn/issues/42) (`build_handler`, 56) and
+[#43](https://github.com/ChelseaKR/cairn/issues/43) (`_retry_with_context`,
+18), plus `_handle_ask` (19) and `import_corpus.py`'s two parser state
+machines (18 and 20).
 
-Neither is a "reduce a number" task. `build_handler` is a closure factory that
-four features' worth of branching landed in because it was the least-friction
-place at the time; the work is finding the right shape for a handler that now
-genuinely routes, gates, negotiates format, and dispatches between table,
-stream, session and plain answers. `_retry_with_context` carries a measured
-ranking algorithm whose comments document three designs that were tried and
-failed, so a reshuffle that changes which term wins a close tie is a finding,
-not a cleanup.
+None of these was a "reduce a number" task, and the seams turned out to be
+specific.
 
-Phases 3 and 4 together are what would let `C90` into `pyproject.toml`'s
-`select`. Neither alone does: the rule is on or off for the whole tree.
+`build_handler` was 56 because ruff folds a nested class's methods into the
+enclosing function, so every branch of every route counted toward the factory.
+Making `CairnHandler` a module-level class with its configuration as class
+attributes, and having `build_handler` return a fresh subclass that assigns
+them, is what moved it. A fresh subclass per call rather than mutating the
+base, because the tests routinely run two servers in one process.
+
+`_retry_with_context` got exactly the two helpers issue #43 named and nothing
+else. The title-weighting factor, the digit exclusion, the first-writer-wins
+rule, the tie-break, and the shared-term guard's condition are byte-identical,
+and every measurement comment moved with the code it explains.
+
+`C90` is in `select` now, which is what phases 3 and 4 were for. The rule is on
+or off for the whole tree, so neither phase alone could do it.
+
+Behaviour was held to more than the suite. `audit_guard.py`'s terminal report,
+the HTML extractor over all 132 pages in `source_pages/`, and 480 multi-turn
+session sequences across three languages were each run through both the old
+and new code and compared byte-for-byte.
 
 ## Phase 5: a hand-written merge cannot silently drop a field
 
