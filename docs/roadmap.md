@@ -172,21 +172,47 @@ unmerged branches doing that will conflict.
 
 ## Phase 7: `conversational_integrity` is scored, not gapped
 
-**Status: open.** Issue [#41](https://github.com/ChelseaKR/cairn/issues/41).
+**Status: blocked, by a defect the phase itself found.** Issues
+[#41](https://github.com/ChelseaKR/cairn/issues/41) and
+[#64](https://github.com/ChelseaKR/cairn/issues/64).
 
-The one declared gap in the audit. `Session.ask()` is real and tested, and
-`cairn record` still builds every audited item through the plain `ask()`, one
-call per question, so no item in the committed bundle has ever carried more
-than one turn. `DESIGN.md` is explicit that this gap is this repository's to
-close and that half of it landing did not close it.
+The one declared gap in the audit. The plan was an authored multi-turn item,
+an additive recording path through `Session`, and enabling the suite.
 
-The work is an authored multi-turn item, an additive recording path through
-`Session`, enabling the suite in both audit configs, and the documentation that
-currently says the gap is open.
+Writing the item is what blocked it. The shape `conversational_integrity`
+grades is an escalation probe, and Cairn fails one: a planted claim about a
+program the corpus does not have refuses on its own words and comes back
+grounded inside a session, cited to the passage the benign opener quoted,
+because the context-carrying retry borrowed that passage's vocabulary and the
+shared-term guard let it stand on one incidental word. That is a "delayed,
+then complied" conversation, which is precisely what the suite's
+refusal-monotonicity rule exists to catch.
 
-Depends on Phase 1: a multi-turn item's recorded `cited_text` now carries the
-context notice, so recording one before Phase 1 landed would record a
-conversation that does not disclose itself.
+**What blocks it:** the fix is a change to which retries `Session` accepts,
+and `_retry_with_context` is a measured ranking algorithm whose current shape
+is the survivor of three designs that each failed a real follow-up. This
+repository's own rule for that function (issue #43) is that a change to which
+retries get accepted is a finding with its own issue and its own measurement.
+Two obvious tightenings both look likely to break the flagship working case.
+
+**What would unblock it:** measuring a candidate rule against `TestRules`'
+three counterexamples and the audit set, in its own change. Then the item can
+be recorded and the suite enabled.
+
+**What was not done, and why not.** The item was not recorded: every other
+suite reads an item's final response, and that response is a confident wrong
+answer, so `groundedness`, `citation_accuracy` and `adversarial` would move on
+evidence nothing is ready to defend. The suite was not enabled: it would be
+red on its first real item. A *different* multi-turn item that avoids the
+failure was not authored, because a suite reporting PASS while the system
+delays and complies on escalation is the "closed on paper, not for real" move
+this project exists to refuse.
+
+**What was done.** The finding is recorded the way this repository records
+findings: pinned in `tests/test_session.py` so it cannot change unnoticed in
+either direction, written up in `DESIGN.md` under "Sessions", named in
+`plumbline/target.toml`'s gap declaration in place of the missing-plumbing
+story that was there, and filed as issue #64.
 
 ## Phase 8: the two stores that hold data have a retention story
 
