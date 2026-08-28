@@ -56,7 +56,41 @@ becomes a version section like any other.
   make false. Same-language answers are byte-identical, and the committed
   evidence bundle re-records unchanged.
 
+#### Added
+
+- French corpus content, and the French audit item that scores it.
+  `corpus/demo/grocery-allowance.fr.md` is a translation of an existing
+  program rather than a new one, so the same $212 is now asked in four
+  languages and the four answers check against each other; `ck-031` is the
+  item, same-language and deliberately not a second cross-language item,
+  which DESIGN.md works out would cost the `multilingual` floor. Closes the
+  one flip condition `docs/I18N.md` recorded French as not having met.
+
+#### Fixed
+
+- The served interface could not answer in French. `cairn/ui/page.py`'s
+  `SELECTABLE` was a hand-written `("en", "es", "ar")`, written before French
+  existed, and `cairn/server.py`'s `_resolve_lang` reads it to decide whether
+  a requested language is real, falling back to the configured default when
+  it is not. So `cairn ask --lang fr` answered in French while the served page
+  and the JSON API answered the same question in English, silently, under a
+  cross-language notice explaining that the French source was "in another
+  language". Every other layer knew better: `LANGUAGES` had the entry,
+  `messages.py` had the catalogue, `available_languages()` offered it.
+  `SELECTABLE` is derived from `LANGUAGES` now and `tests/test_ui.py` holds
+  them equal. Found by `tests/test_live.py` the moment there was French
+  content for the served engine to get wrong.
+
 #### Changed
+
+- `plumbline/target.toml` and `plumbline/live.toml` declare
+  `[judge.languages.fr]`. The pinned harness tells Latin-script languages
+  apart by function words and ships profiles for English and Spanish only, so
+  it refused to score French rather than guess — a configuration error, not a
+  silent pass. The declared words appear in neither shipped profile and,
+  checked rather than assumed, nowhere in the existing corpus or question set,
+  so declaring them cannot retune how an English or Spanish response is
+  classified.
 
 - `make verify` runs `mypy --strict`. It ran the default check because strict
   reported 44 findings, and the findings are now zero (issues #34, #35, #36,

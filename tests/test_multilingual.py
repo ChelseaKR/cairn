@@ -35,6 +35,9 @@ QUESTIONS = {
 }
 # The transit pass exists only in English, on purpose (corpus/demo/README.md).
 ENGLISH_ONLY_QUESTION = "How much does the GoPass cost per year?"
+# French has exactly one document, the grocery allowance, added so the
+# multilingual audit suite has French evidence to score (docs/I18N.md).
+FRENCH_QUESTION = "Combien reçoit par mois un ménage d'une personne ?"
 
 
 class MultilingualHarness(unittest.TestCase):
@@ -336,10 +339,16 @@ class TestTheNoticeDescribesWhatIsActuallyQuoted(MultilingualHarness):
         # composition quoted `max_passages` of them, so at 2 an Arabic reader
         # could be handed a Spanish passage and an English one under a notice
         # naming Spanish alone and calling it "the only source".
+        # The pair moved from {es, en} to {es, fr} when the French grocery
+        # document landed, because it carries the same $212 and outranks the
+        # English one. What the fixture has to be is two foreign languages at
+        # once; which two is a fact about the corpus, and pinning it means a
+        # corpus edit that collapses this case to one language fails here
+        # rather than quietly stopping exercising the plural wording.
         result = ask("212", self.index, Config(max_passages=2), lang="ar")
         answer = result.answer
         quoted = {source.lang for source in answer.sources}
-        self.assertEqual(quoted, {"es", "en"}, "this fixture needs two languages")
+        self.assertEqual(quoted, {"es", "fr"}, "this fixture needs two languages")
         for code in quoted:
             self.assertIn(endonym_of(code), answer.notice)
 
@@ -455,10 +464,22 @@ class TestASmallLanguageIsStillARetrievableLanguage(unittest.TestCase):
     # off-by-one in document counting or a tokenizer change that merged two
     # terms moved both sides together and the check held while every
     # retrieval score in the corpus moved.
+    #
+    # `fr` arrived on 2026-08-27 with one document and four passages, and it
+    # is the clearest illustration in the corpus of what this floor costs a
+    # small language: eleven terms suppressed, the program's own name among
+    # them ("alloc", "alime", "nouve", "dépar"), exactly the "at two passages
+    # the floor bites again" limitation the test above states. The French
+    # audit item still answers, on the words the question and the passage
+    # share that the floor left alone. That is the honest shape of it -- not
+    # that the floor is harmless, but that a language can be under it and
+    # still be retrievable, which is the claim `dilution_exempt` is for.
     SUPPRESSED = {
         "ar": ("هاربر",),
         "en": ("and", "harbo", "the"),
         "es": ("del", "harbo", "hogar", "los", "por", "que", "una"),
+        "fr": ("alime", "alloc", "comté", "dans", "dépar", "ménag", "nouve",
+               "par", "perso", "une", "vous"),
     }
 
     def test_the_demo_corpus_suppresses_exactly_what_it_did(self):
@@ -474,14 +495,51 @@ class TestASmallLanguageIsStillARetrievableLanguage(unittest.TestCase):
                 self.assertEqual(index.stats_for(code).suppressed, frozenset(expected))
 
 
-class TestFrenchAsAnInterfaceLanguageWithNoCorpusContent(MultilingualHarness):
-    """French is a full interface language (`LANGUAGES`, a complete
-    `messages.py` catalogue) with **no** French corpus content shipped —
-    deliberately, the same shape as the GoPass document existing only in
-    English (`corpus/demo/README.md`): a real agency's translated interface
-    always outruns its translated documents. An interface language needs no
-    corpus behind it to be answerable at all; see `engine.available_languages`.
+class TestFrenchWithOneDocumentBehindIt(MultilingualHarness):
+    """French is a full interface language with exactly one corpus document.
+
+    It had none until 2026-08-27, deliberately, and `docs/I18N.md` named that
+    as the one flip condition French had not met: an interface language needs
+    no corpus behind it to be *answerable* (see `engine.available_languages`),
+    but the multilingual audit suite has nothing to score for a language whose
+    corpus is empty, so French added nothing to the evidence and moved nothing
+    that was already scored.
+
+    One document, not four. The uneven coverage is the point and survives:
+    French has the grocery allowance and nothing else, so a French question
+    about the GoPass still crosses languages and still says so, and a French
+    question about the utility credit still crosses. What changed is that
+    French is now also answerable *without* crossing, which is what the audit
+    needed to have anything to score.
     """
+
+    def test_the_one_french_document_answers_in_french_without_crossing(self):
+        result = self.ask(FRENCH_QUESTION, lang="fr")
+        answer = result.answer
+        self.assertEqual(answer.kind, "grounded")
+        self.assertEqual(answer.lang, "fr")
+        self.assertFalse(result.cross_language)
+        self.assertIsNone(answer.notice, "nothing crossed, so nothing to disclose")
+        self.assertEqual([s.lang for s in answer.sources], ["fr"])
+
+    def test_the_french_amount_is_the_amount_the_other_three_publish(self):
+        """The document is a translation of an existing program, so the same
+        fact asked in four languages must come back the same number. That is
+        what makes `fact_id` worth having in the audit set, and it is checkable
+        here without the auditor."""
+        answers = {
+            lang: self.ask(question, lang=lang).answer
+            for lang, question in (list(QUESTIONS.items()) + [("fr", FRENCH_QUESTION)])
+        }
+        for lang, answer in answers.items():
+            with self.subTest(lang=lang):
+                self.assertEqual(answer.kind, "grounded")
+                self.assertIn("212", answer.text)
+
+    def test_coverage_is_still_uneven_so_french_still_crosses(self):
+        result = self.ask(ENGLISH_ONLY_QUESTION, lang="fr")
+        self.assertTrue(result.cross_language)
+        self.assertEqual([s.lang for s in result.answer.sources], ["en"])
 
     def test_a_french_question_with_an_english_answer_falls_back_and_says_so(self):
         result = self.ask(ENGLISH_ONLY_QUESTION, lang="fr")
@@ -500,10 +558,14 @@ class TestFrenchAsAnInterfaceLanguageWithNoCorpusContent(MultilingualHarness):
         self.assertIn("Je n'ai aucune source", result.answer.text)
         self.assertIn(CFG.contact_by_language["fr"].split(" (")[0][:20], result.answer.text)
 
-    def test_french_is_offered_without_indexing_any_french_document(self):
+    def test_french_is_a_corpus_language_and_an_interface_language(self):
         langs = {d.lang for d in load_corpus(DEMO)}
-        self.assertNotIn("fr", langs, "the whole point: no French corpus content ships")
+        self.assertIn("fr", langs)
         self.assertIn("fr", available_languages(self.index))
+        french = [d for d in load_corpus(DEMO) if d.lang == "fr"]
+        self.assertEqual(len(french), 1, "one document, deliberately")
+        for doc in french:
+            self.assertTrue(doc.synthetic)
 
     def test_french_direction_is_left_to_right(self):
         self.assertEqual(direction_of("fr"), "ltr")
