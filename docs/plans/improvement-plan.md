@@ -422,9 +422,15 @@ now).
 
 - `.github/rulesets/README.md` records H2 beside the paragraph it falsifies.
 - `CONTRIBUTING.md` records H1 beside the sentence it corrects.
-- `README.md`'s published test count moved 783 -> 828, because
+- `README.md`'s published test count moved to 851 (783 on the branch's own
+  base, 802 after rebasing onto `origin/main`, which #61 had already moved),
+  because
   `tests/test_docs.py::test_the_published_test_count_is_the_count` failed
-  until it did. That guard working is worth noting: it is the same idiom this
+  until it did. Rebasing onto `origin/main` then surfaced two more of the
+  repository's own guards, both correctly: the count again, and #61's
+  complexity inventory, which caught `job_run_commands` at 13 in a file
+  this branch added. Split under the limit rather than added to the
+  inventory; the break-and-restore for it still passes afterwards. That guard working is worth noting: it is the same idiom this
   session added two more of.
 - `CHANGELOG.md` and `WORKLOG.md` were deliberately **not** touched. The six
   open pull requests rewrite both heavily (+171 and +245 lines on #70 alone),

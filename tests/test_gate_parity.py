@@ -120,58 +120,61 @@ def verify_commands(text: str) -> list[str]:
     return commands
 
 
-def job_run_commands(text: str, job: str) -> list[str]:
-    """Every shell command in a job's `run:` steps, in order.
-
-    A four-line parser rather than a YAML dependency, matching
-    `tests/test_rulesets.py`'s reasoning: the core dev path is standard-library
-    only, and this reads a file we own.
-    """
-    commands: list[str] = []
+def _job_lines(text: str, job: str) -> list[str]:
+    """The raw lines belonging to one job under `jobs:`, in order."""
+    lines: list[str] = []
     in_jobs = False
     in_job = False
-    block: list[str] | None = None
-    block_indent = 0
     for raw in text.splitlines():
-        line = raw.rstrip()
-        if line == "jobs:":
+        if raw.rstrip() == "jobs:":
             in_jobs = True
             continue
         if not in_jobs:
             continue
-        if re.match(r"^  [a-z][\w-]*:\s*$", line):
-            in_job = line.strip().rstrip(":") == job
-            block = None
+        if re.match(r"^  [a-z][\w-]*:\s*$", raw.rstrip()):
+            in_job = raw.strip().rstrip(":") == job
             continue
-        if not in_job:
-            continue
-        if block is not None:
+        if in_job:
+            lines.append(raw)
+    return lines
+
+
+def _is_command(line: str) -> bool:
+    """A comment is not a command.
+
+    Without this, `# mypy` inside a `run: |` block satisfied the parity check
+    below -- this file's own version of the defect it exists to catch, and it
+    was there until `test_a_commented_out_command_does_not_count` was written.
+    """
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith("#")
+
+
+def job_run_commands(text: str, job: str) -> list[str]:
+    """Every shell command in a job's `run:` steps, in order.
+
+    A small parser rather than a YAML dependency, matching
+    `tests/test_rulesets.py`'s reasoning: the core dev path is standard-library
+    only, and this reads a file we own.
+    """
+    commands: list[str] = []
+    block_indent: int | None = None
+    for raw in _job_lines(text, job):
+        line = raw.rstrip()
+        if block_indent is not None:
             indent = len(raw) - len(raw.lstrip())
             if line.strip() and indent >= block_indent:
-                stripped = raw.strip()
-                # A comment is not a command. Without this, `# mypy` inside a
-                # `run: |` block satisfied the parity check below -- this
-                # file's own version of the defect it exists to catch, and it
-                # was there until `test_a_commented_out_command_does_not_count`
-                # was written.
-                if stripped and not stripped.startswith("#"):
-                    block.append(stripped)
+                if _is_command(raw):
+                    commands.append(raw.strip())
                 continue
-            commands.extend(block)
-            block = None
-        found = re.match(r"^(\s*)- name:.*$", line)
-        if found:
+            block_indent = None
+        opened = re.match(r"^(\s*)run:\s*\|\s*$", line)
+        if opened:
+            block_indent = len(opened.group(1)) + 2
             continue
-        found = re.match(r"^(\s*)run:\s*\|\s*$", line)
-        if found:
-            block = []
-            block_indent = len(found.group(1)) + 2
-            continue
-        found = re.match(r"^\s*run:\s*(\S.*)$", line)
-        if found:
-            commands.append(found.group(1).strip())
-    if block is not None:
-        commands.extend(block)
+        inline = re.match(r"^\s*run:\s*(\S.*)$", line)
+        if inline:
+            commands.append(inline.group(1).strip())
     return commands
 
 

@@ -58,7 +58,7 @@ def _resolve_lang(raw: str | None, default: str) -> str:
     return raw if raw in SELECTABLE else default
 
 
-def _json_object(raw: bytes) -> dict:
+def _json_object(raw: bytes) -> dict[str, Any]:
     """The request body as a JSON *object*, or `ValueError`.
 
     Parsing is only half of reading a body. `json.loads(b"[1,2]")` succeeds,
