@@ -22,6 +22,20 @@ tests/test_session.py:
    past answers were actually built from, not from everything the user has
    typed, so a question's own noise cannot leak forward either.
 
+A fourth rule holds the contract *open* rather than shut, and is enforced in
+tests/test_disclosure.py. When the retry stands, the passages quoted were
+retrieved for a question the person did not type, so the answer says which
+words were borrowed. :attr:`TurnResult.resolved_with_context` and
+:attr:`TurnResult.context_terms` are the machine-readable half; the notice on
+the answer is the sentence a reader actually gets. Both halves or neither.
+Until 2026-08-27 only the first half existed, so `cairn chat` answered a
+rewritten question and showed no sign of it, and the served JSON carried the
+rewrite in a field no rendering surface reads. That is the third instance of
+one defect class, after the cross-language notice missing from
+`Answer.cited_text` and the structured-table path crossing languages in
+silence; the parity test now enumerates the class rather than waiting for a
+fourth.
+
 The session is deliberately dumb about *why* a bare question refused: it
 cannot tell an ellipsis from a genuinely off-topic question, so the retry is
 bounded — one attempt, terms from cited passages only, same threshold — and
@@ -34,11 +48,13 @@ including in Spanish and Arabic.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from cairn.config import Config
 from cairn.engine import AskResult, EngineError, ask, available_languages
 from cairn.index import Index
+from cairn.language import isolate
+from cairn.messages import text as message
 from cairn.retrieve import tokenize
 
 # How many terms may be carried forward from prior citations, and how many
@@ -104,7 +120,13 @@ class Session:
         if retry is None:
             return self._record(question, result)
         resolved, source_turns, terms = retry
-        record = self._record(question, resolved)
+        # The most recent turn that supplied terms, which is the one the
+        # ranking weights hardest and the one a reader will recognize.
+        # `source_turns` is never empty here: a retry that stands is a retry
+        # that borrowed from at least one recorded turn, and this turn is not
+        # recorded until the line below.
+        prior = self.turns[max(source_turns)].question
+        record = self._record(question, _disclosed(resolved, prior))
         return TurnResult(
             result=record.result,
             resolved_with_context=True,
@@ -237,6 +259,47 @@ class Session:
                 )
             )
         return session
+
+
+def _disclosed(result: AskResult, prior_question: str) -> AskResult:
+    """The same answer, carrying the sentence that says it was a follow-up.
+
+    Written onto ``Answer.notice`` rather than onto ``TurnResult`` because
+    the notice is the one channel every rendering surface already reads: the
+    terminal, the transcript markup, the stream's opening frame, and
+    ``cited_text`` for the clients with nowhere else to put it. A field on
+    ``TurnResult`` would have had to be plumbed into each of those by hand,
+    which is exactly how the previous two disclosures came to exist in JSON
+    and nowhere a person could see them.
+
+    It leads. A cross-language notice, when there is also one, answers "what
+    language is this in"; this answers "what question is this an answer to",
+    and a reader needs the second before the quote either way.
+
+    What it names is the earlier *question*, not the terms that were
+    borrowed from it. The terms are what the index stores, and what the index
+    stores is truncation-stemmed: the first draft of this notice offered a
+    reader "per, recei, allow" as the words it had searched with, two of
+    which are not words and none of which appear in the answer above them. A
+    disclosure a reader cannot act on is decoration. The stems remain in
+    ``TurnResult.context_terms`` for the operator, where explain mode and the
+    JSON payload already speak in index vocabulary.
+
+    The question is the person's own text and may be in a different script
+    from the answer, so it is bidi-isolated in a right-to-left answer the way
+    the contact string is. First-strong isolation, not forced right-to-left,
+    because forcing the run would reorder a Latin-script question inside an
+    Arabic sentence.
+    """
+    answer = result.answer
+    rtl = answer.direction == "rtl"
+    sentence = message(
+        "context_notice",
+        answer.lang,
+        question=isolate(prior_question) if rtl else prior_question,
+    )
+    notice = f"{sentence} {answer.notice}" if answer.notice else sentence
+    return replace(result, answer=replace(answer, notice=notice))
 
 
 def _passage_by_id(index: Index, passage_id: str):

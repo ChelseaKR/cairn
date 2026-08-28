@@ -16,7 +16,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, three languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 783 tests plus
+evidence and, separately, against the running server. 796 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -324,7 +324,7 @@ Recorded 29 items (22 answers, 7 refusals) in 3 languages [ar, en, es] -> plumbl
 Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset b7a28017910b, run ...
+GATE: PASS — target cairn-demo, dataset 9d86048ced72, run ...
 all 14 suites passed:
   ...
   multilingual           score 0.9655  floor 0.95  PASS  n=29  ci 0.828-0.994  mde 0.134

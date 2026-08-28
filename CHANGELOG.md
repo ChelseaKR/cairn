@@ -22,6 +22,23 @@ becomes a version section like any other.
 
 #### Fixed
 
+- A multi-turn follow-up says which question it was answered against.
+  `Session.ask()` resolves an elliptical follow-up by rewriting it with terms
+  borrowed from what a previous turn cited, recorded that in
+  `TurnResult.resolved_with_context` and `context_terms`, and put both in the
+  server's JSON response. No surface that renders an answer to a person read
+  either, so `cairn chat` printed an answer to a question the person had not
+  typed with no sign of the rewrite. The disclosure now goes in
+  `Answer.notice`, where the cross-language and table-count notices already
+  live, so it reaches the terminal, the transcript markup, the event stream
+  and `cited_text` at once. It names the earlier question rather than the
+  borrowed terms, because the terms are truncation-stemmed index vocabulary
+  and offering a reader "per, recei, allow" as the words searched for is a
+  disclosure nobody can act on. `context_notice` ships in all four interface
+  languages. Turns that were not rewritten are byte-identical, and the
+  recorded evidence bundle's items and responses are unchanged, because
+  `cairn record` records no conversations yet.
+
 - The structured-table path enforces the cross-language guarantee. `ask()`
   ran the count tool over every table in the corpus regardless of language
   and returned before the notice logic, so a Spanish question bound the
@@ -40,6 +57,24 @@ becomes a version section like any other.
   evidence bundle re-records unchanged.
 
 #### Added
+
+- `tests/test_disclosure.py`, and the rule it enforces: a disclosure is not
+  made until a person can read it. Three defects in this repository have been
+  the same defect - a disclosure correct in a field and missing from every
+  sentence - and every one was found by somebody reading the code. The test
+  reads the disclosures out of `cairn.messages` (every key carrying `_notice`
+  in its name) and holds the surfaces as the real renderers that ship them,
+  then checks the cross product. A fifth notice with no scenario fails it, a
+  new field on `AskResult` or `TurnResult` with no recorded decision fails it,
+  and a surface that stops rendering the notice fails it by name. See ADR 0001
+  and DESIGN.md's "Disclosure parity".
+
+- `docs/roadmap.md`: the phases this repository's remaining work is ordered
+  into, each carrying `built`, `open`, or `blocked`, with blocked phases
+  naming what blocks them and what would unblock them. Also the list of work
+  deliberately not planned, with the measurement or argument that refused it,
+  so a later reader does not re-propose something `DESIGN.md` already
+  measured and reverted.
 
 - `collect_queries.py`: candidate questions for the pilot from public
   sources of questions nobody wrote for Cairn — MS MARCO's real search

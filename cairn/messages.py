@@ -15,8 +15,19 @@ Two rules this module enforces, both tested:
    first half, which an audit of recorded answers caught — a standard refusal
    detector read it as an answer, and so would a person skimming.
 2. A key's placeholders are the same in every language. ``{contact}``,
-   ``{language}``, and ``{count}`` are the whole vocabulary; anything else is
-   a typo waiting to raise at the worst possible moment.
+   ``{language}``, ``{count}``, ``{total}``, ``{title}`` and ``{question}``
+   are the whole vocabulary; anything else is a typo waiting to raise at the
+   worst possible moment.
+
+A key whose name ends in ``_notice`` is a third thing, and the narrowest:
+Cairn's own voice about the answer directly below it, carried in
+``Answer.notice`` and therefore reaching every surface that renders an
+answer. That naming is load-bearing rather than decorative. Three separate
+defects have been a machine-readable disclosure that no human-readable
+sentence repeated, so ``tests/test_disclosure.py`` enumerates the
+``_notice`` keys out of this catalogue and requires each one to have a
+scenario proving it reaches a reader on every surface. Adding a fourth
+without one fails that test rather than shipping quiet.
 """
 
 from __future__ import annotations
@@ -53,6 +64,18 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "That number is not quoted from a document — I counted it over "
             "the {title} table: {count} of its {total} rows match. The "
             "matching rows are quoted below exactly as published."
+        ),
+        # Spoken when a multi-turn session resolved an elliptical follow-up
+        # by borrowing terms from what a previous turn cited (see
+        # cairn.session). The answer below quotes passages retrieved for a
+        # question the person did not type, so the question they were
+        # actually answered is stated before the quote rather than left in a
+        # JSON field only a client can read.
+        "context_notice": (
+            "That question found no source on its own. I read it as a "
+            "follow-up to \"{question}\" and searched again using words from "
+            "the sources that answered it. If that is not what you meant, ask "
+            "again and name the program."
         ),
         "sources_heading": "Sources:",
         "copy_answer_summary": "Copy answer text",
@@ -136,6 +159,13 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "tabla {title}: {count} de sus {total} filas coinciden. Las filas "
             "que coinciden se citan abajo tal como fueron publicadas."
         ),
+        "context_notice": (
+            "Esa pregunta por sí sola no encontró ninguna fuente. La entendí "
+            "como un seguimiento de «{question}» y volví a buscar con "
+            "palabras de las fuentes que respondieron a esa pregunta. Si no "
+            "era eso lo que quería decir, pregunte otra vez indicando el "
+            "nombre del programa."
+        ),
         "sources_heading": "Fuentes:",
         "copy_answer_summary": "Copiar el texto de la respuesta",
         "page_title": "Cairn — preguntas sobre los beneficios del Condado de Harbor",
@@ -218,6 +248,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "{count} من أصل {total} صفوف تطابق. الصفوف المطابقة مقتبسة أدناه "
             "تمامًا كما نُشرت."
         ),
+        "context_notice": (
+            "لم يجد هذا السؤال وحده أي مصدر. قرأته على أنه متابعة لسؤال "
+            "«{question}» وبحثت مرة أخرى بكلمات من المصادر التي أجابت عنه. "
+            "إذا لم يكن هذا ما تقصده، فاسأل مرة أخرى مع ذكر اسم البرنامج."
+        ),
         "sources_heading": "المصادر:",
         "copy_answer_summary": "نسخ نص الإجابة",
         "page_title": "كايرن — اسأل عن مساعدات مقاطعة هاربر",
@@ -294,6 +329,12 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "du tableau {title} : {count} de ses {total} lignes correspondent. "
             "Les lignes correspondantes sont citées ci-dessous exactement "
             "telles qu'elles ont été publiées."
+        ),
+        "context_notice": (
+            "Cette question seule n'a trouvé aucune source. Je l'ai lue comme "
+            "une suite de « {question} » et j'ai cherché de nouveau avec des "
+            "mots des sources qui y avaient répondu. Si ce n'était pas votre "
+            "intention, reposez la question en nommant le programme."
         ),
         "sources_heading": "Sources :",
         "copy_answer_summary": "Copier le texte de la réponse",
