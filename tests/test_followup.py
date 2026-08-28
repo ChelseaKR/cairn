@@ -34,6 +34,76 @@ ROOT = Path(__file__).resolve().parent.parent
 DEMO = ROOT / "corpus" / "demo"
 
 
+class TestTheStoredRecordIsExactlyWhatIsPublished(unittest.TestCase):
+    """Three fields, and nothing may join them without somebody deciding to.
+
+    This is the one file Cairn writes that holds personal data a person typed
+    about themselves, and three documents reason about exactly what is in it:
+    `docs/followup.md` publishes the stored line verbatim, `docs/compliance.md`
+    describes it for a records-retention review, and DESIGN.md argues the
+    consent boundary around the one optional field. All three are prose, and
+    prose about a data shape is checked by reading until something checks it.
+
+    Reading is what it got, and reading missed one. `cairn/followup.py`'s own
+    module docstring said the store held "a contact and a timestamp" from the
+    day it was written until 2026-08-27, and no record has ever carried a
+    timestamp. That was harmless in itself and it is the shape of the harmful
+    version: a field added to `record()` for an ordinary operational reason -
+    a timestamp for the retention schedule `docs/compliance.md` says the
+    agency has to build itself, a client address for rate-limiting, a session
+    id - would make all three documents quietly false about what an agency is
+    holding on the people who contacted it.
+
+    So the keys are enumerated here. A new one fails this test, which is the
+    moment to write down why it is there and to move the three documents with
+    it. That is deliberately more friction than adding a dict key, because
+    this dict is somebody's phone number.
+    """
+
+    # The line `docs/followup.md` publishes, and the whole of it.
+    STORED_FIELDS = {"lang", "contact", "question"}
+
+    def record_one(self, **kwargs):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "store.jsonl"
+            FollowupStore(path).record(**kwargs)
+            return json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+
+    def test_a_record_carries_these_fields_and_no_others(self):
+        for question in (None, "why was my application denied"):
+            with self.subTest(question=question):
+                entry = self.record_one(
+                    lang="en", contact="a@example.gov", question=question
+                )
+                self.assertEqual(set(entry), self.STORED_FIELDS)
+
+    def test_the_published_line_is_the_line_that_is_written(self):
+        """Not "the fields match" but "the bytes match", against the example
+        `docs/followup.md` shows an operator. A key added and documented in
+        one place and not the other still fails here."""
+        published = (
+            Path(__file__).resolve().parent.parent / "docs" / "followup.md"
+        ).read_text(encoding="utf-8")
+        entry = self.record_one(
+            lang="en", contact="someone@example.gov", question=None
+        )
+        self.assertIn(
+            json.dumps(entry, ensure_ascii=False, sort_keys=True), published
+        )
+
+    def test_nothing_about_when_or_from_where_is_kept(self):
+        """The two fields an append-only store of contact information most
+        naturally grows, named so that growing one is a decision rather than
+        an afternoon. A timestamp is what `cairn/followup.py`'s docstring
+        claimed for months and what a retention period would need; an address
+        is what the refusal counter refuses by construction."""
+        entry = self.record_one(lang="en", contact="a@example.gov", question=None)
+        for absent in ("timestamp", "time", "at", "received", "date",
+                       "ip", "address", "client", "session", "id"):
+            with self.subTest(field=absent):
+                self.assertNotIn(absent, entry)
+
+
 class TestFollowupStore(unittest.TestCase):
     def test_a_missing_file_is_fine_to_start_from(self):
         with tempfile.TemporaryDirectory() as d:

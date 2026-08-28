@@ -229,16 +229,41 @@ either direction, written up in `DESIGN.md` under "Sessions", named in
 `plumbline/target.toml`'s gap declaration in place of the missing-plumbing
 story that was there, and filed as issue #64.
 
-## Phase 8: the two stores that hold data have a retention story
+## Phase 8: what the follow-up store actually holds
 
-**Status: open.** No issue.
+**Status: built, and much smaller than it was planned as. The reason is worth
+recording.**
 
-The README's Data Governance row says it: `--refusal-stats` and
-`--followup-store` are the two opt-in features that hold data past the
-no-storage default, and "neither has a built-in retention period". The refusal
-counter is structurally incapable of holding a question, so its exposure is
-bounded by shape; the follow-up store holds real contact information given by
-consent, and its exposure is bounded by nothing.
+The phase was scoped from the README's Data Governance row, which says
+`--refusal-stats` and `--followup-store` "neither has a built-in retention
+period", and read as a gap to close.
+
+It is not a gap. `docs/compliance.md` has a whole "Records retention" section
+that states plainly that Cairn enforces no retention period on any file it
+writes, gives the reason per file, and puts the obligation on the agency in
+as many words: *"If your agency operates under a public-records retention
+schedule... your agency is responsible for implementing that bound... because
+Cairn does not implement one for you."* That is a documented boundary with an
+argument, like the loopback-and-no-auth default, and building a retention
+period would have been contradicting a stated position rather than closing a
+gap. It would also have meant storing a time, which is a new per-person fact,
+which is exactly the kind of decision this roadmap says is not an
+implementer's to take quietly.
+
+What *was* wrong is smaller and real. `cairn/followup.py`'s module docstring
+said the store held "a contact and a timestamp", and no record has ever
+carried a timestamp. `docs/followup.md` published the stored line in a
+different key order from the one `record()` writes. Neither mattered on its
+own; both are the same shape as everything else this arc found, which is a
+claim about the system with nothing holding it, and this is the one file Cairn
+writes that holds personal data a person typed about themselves.
+
+So the record shape is enumerated and tested: the fields, the bytes against
+the published example, and the two fields such a store most naturally grows
+(a timestamp, a client address) asserted absent by name. A field added to
+`record()` fails a test, which is the moment to write down why it is there and
+move the three documents that describe it. That is deliberately more friction
+than adding a dict key, because this dict is somebody's phone number.
 
 ## Phase 9: a person drives the page with a screen reader
 

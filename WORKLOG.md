@@ -1312,3 +1312,27 @@ One line per implementation session: date, what was built, from what input.
   `_read_body`'s docstring records closing once already, one door along.
   Both reproduced on origin/main. `make verify`: ruff with C90, mypy
   --strict, 814 tests, 93% branch coverage.
+
+- 2026-08-27 — Session 26 (AI implementation session). Input: the
+  README's Data Governance row, read as a gap: "neither has a built-in
+  retention period". It is not a gap. `docs/compliance.md` has a whole
+  Records retention section saying Cairn enforces no retention period on
+  anything it writes, why, per file, and that the agency owns the bound.
+  Building one would have contradicted a stated position and would have
+  meant storing a time, which is a new per-person fact and not an
+  implementer's call. So the phase came out much smaller than planned
+  and the reason is in docs/roadmap.md rather than only here. What was
+  actually wrong: `cairn/followup.py`'s docstring claimed the store held
+  "a contact and a timestamp" and no record has ever had one, and
+  `docs/followup.md` published the stored line with its keys in a
+  different order from the one `record()` writes, so the example was not
+  the bytes. Both small, both the same shape as everything else this arc
+  turned up — a claim about the system with nothing holding it — and
+  this is the one file Cairn writes that holds personal data somebody
+  typed about themselves. The record shape is enumerated and tested now:
+  the fields, the bytes against the published example, and a timestamp
+  and a client address asserted absent by name, those being the two
+  fields such a store most naturally grows. Proved by adding a
+  `received_at` to `record()`: three tests fail and name the field.
+  `make verify`: ruff with C90, mypy --strict, 817 tests, 93% branch
+  coverage.

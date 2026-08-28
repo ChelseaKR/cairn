@@ -98,6 +98,21 @@ becomes a version section like any other.
   them equal. Found by `tests/test_live.py` the moment there was French
   content for the served engine to get wrong.
 
+#### Fixed
+
+- `cairn/followup.py`'s module docstring said the store held "a contact and a
+  timestamp". No record has ever carried a timestamp: `record()` writes
+  `lang`, `contact` and `question`, which is what `docs/followup.md` has
+  always published and what `docs/compliance.md` reasons about for a
+  records-retention review. `docs/followup.md` also showed the stored line
+  with its keys in a different order from the one `record()` writes, so the
+  example was not the bytes. Both corrected, and `tests/test_followup.py` now
+  holds `record()` to the published line rather than to a description of it -
+  the fields, the bytes, and the two fields such a store most naturally grows
+  (a timestamp, a client address) asserted absent by name. This is the one
+  file Cairn writes that holds personal data a person typed about themselves,
+  and a field joining it should cost more than a dict key.
+
 #### Changed
 
 - `C90` is in ruff's `select`, so `make verify` fails on a function over the

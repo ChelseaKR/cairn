@@ -11,13 +11,23 @@ not a printed number the asker has to act on themselves.
 
 Two things distinguish this from `cairn/refusal_stats.py`, deliberately:
 
-- It stores individual, actionable records — a contact and a timestamp, not
-  an aggregate count — because a handoff has to name someone to hand off to.
-  It cannot make the same "structurally cannot hold a question" promise
+- It stores individual, actionable records rather than an aggregate count,
+  because a handoff has to name someone to hand off to. Three fields, and
+  this list is the whole of it: `lang`, `contact`, and `question`. It cannot
+  make the same "structurally cannot hold a question" promise
   `cairn/refusal_stats.py` makes; instead it makes a narrower one, held by
   `cairn/server.py`: the question is stored *only* when the asker checked
   the "include my question" box on that specific submission, never by
   default and never silently.
+
+  This sentence said "a contact and a timestamp" until 2026-08-27, and no
+  record has ever carried a timestamp. `docs/followup.md` publishes the
+  stored line verbatim and has always been right; `docs/compliance.md`
+  reasons about exactly what this file holds for a records-retention review.
+  A module docstring inventing a field for a store of real contact
+  information is the kind of wrong that a compliance reader would have
+  carried away, so `tests/test_followup.py` now holds the written keys to
+  this list rather than leaving prose to be checked by reading.
 - Nothing here is automatic. No follow-up is ever sent unless the asker
   fills in the form themselves and submits it — there is no code path that
   reaches this module from anywhere but that one explicit action.

@@ -33,10 +33,11 @@ questions, or anyone else's questions is touched.
 
 ## What gets stored, and what doesn't
 
-Every submission writes one line to the file named after `--followup-store`:
+Every submission writes one line to the file named after `--followup-store`,
+and this is that line exactly, keys sorted the way `record()` writes them:
 
 ```json
-{"lang": "en", "contact": "someone@example.gov", "question": null}
+{"contact": "someone@example.gov", "lang": "en", "question": null}
 ```
 
 `question` is `null` unless the asker checked "Include the question I
@@ -44,13 +45,21 @@ asked" **on that specific submission** — never by default, never inferred,
 never carried over from a different session. Checking the box:
 
 ```json
-{"lang": "en", "contact": "someone@example.gov", "question": "why was my application denied"}
+{"contact": "someone@example.gov", "lang": "en", "question": "why was my application denied"}
 ```
 
 There is no third state. A submission either names the question or it does
 not; there is no way to submit "some of the question" or to opt in after
 the fact — the checkbox is checked at the moment of submission or it is
 not, and the store only ever reflects that one moment.
+
+Three fields, and that is the whole record. Not a timestamp, not the client's
+address, not a session id, not anything about the conversation the refusal
+came from. `tests/test_followup.py` holds `record()` to exactly the line above
+rather than to a description of it, because this page, `docs/compliance.md`
+and DESIGN.md all reason about what an agency ends up holding on the people
+who contacted it, and until 2026-08-27 `cairn/followup.py`'s own docstring
+described a field that was never there.
 
 ## Reading the queue
 
