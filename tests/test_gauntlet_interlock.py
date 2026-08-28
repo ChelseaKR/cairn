@@ -227,13 +227,20 @@ class TestTheFullGate(unittest.TestCase):
     def test_the_gate_passes_against_the_pinned_checkout(self):
         checkout = resolved_checkout()
         self.assertIsNotNone(checkout, "the class skip should have caught this")
-        environment = {"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"}
-        # Forwarded, not inherited: the subprocess gets a deliberately minimal
-        # environment, so a checkout named only in GAUNTLET_CHECKOUT would be
-        # invisible to the gate and it would exit 4 on a machine where the
-        # test had just found one.
-        if os.environ.get("GAUNTLET_CHECKOUT"):
-            environment["GAUNTLET_CHECKOUT"] = os.environ["GAUNTLET_CHECKOUT"]
+        # The environment is inherited, and that is a correction rather than a
+        # convenience. This used to hand the gate a hand-built
+        # `{"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"}` -- a
+        # laptop's PATH, with Homebrew on it -- and the first CI run of this
+        # test, which is to say the first run of it anywhere, failed with
+        #
+        #     gauntlet-gate.sh: 78: uv: not found        (exit 127)
+        #
+        # because `astral-sh/setup-uv` puts uv somewhere no hard-coded list
+        # can predict. The gate needs a real PATH, a HOME for uv's cache, and
+        # the UV_* variables the runner sets; enumerating those by hand is the
+        # same guess that just failed. `GAUNTLET_CHECKOUT` is passed through
+        # from the environment for the same reason it always was.
+        environment = dict(os.environ)
         completed = subprocess.run(
             [str(GATE)], capture_output=True, text=True,
             env=environment,

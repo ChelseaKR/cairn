@@ -196,6 +196,26 @@ owner's bypass is asserted against each side independently.
 Before this change `ruleset-check.yml` failed against the live configuration.
 It passes now, and still fails on every genuine drift above.
 
+##### And running it found a second thing, immediately
+
+The first CI run of `TestTheFullGate` -- which is to say the first run of it
+anywhere -- failed:
+
+```
+gauntlet-gate.sh: 78: uv: not found        (exit 127)
+```
+
+The test handed the gate a hand-built environment,
+`{"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"}`. That is a
+laptop's PATH, Homebrew included, and `astral-sh/setup-uv` installs uv
+somewhere no hard-coded list predicts. The assumption had been in the file
+since it was written and could not fail while nothing ran it.
+
+That is the return on H3 arriving within one CI run, and it is the argument
+for the whole finding: a skipped test is not a passing test, and the way you
+learn what it was assuming is to make it run. The environment is inherited
+now, with the reason written next to it.
+
 #### H3. A test whose docstring claimed CI ran it, skipped everywhere
 
 `tests/test_gauntlet_interlock.py::TestTheFullGate` -- *"Runs only where a
