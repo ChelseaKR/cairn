@@ -1217,3 +1217,37 @@ One line per implementation session: date, what was built, from what input.
   scored 0.9655 over 29. Baseline adopted through the harness's own
   `plumbline baseline` command as a reviewed diff, and the gate re-run
   against it: `audit_guard.py` GUARD PASS, no suite moved.
+
+- 2026-08-27 — Session 23 (AI implementation session). Input: issue #41,
+  the one declared gap in the audit, which DESIGN.md is explicit is this
+  repository's to close. The plan was an authored multi-turn item, an
+  additive `cairn record` path through `Session`, and enabling
+  `conversational_integrity`. Writing the item blocked all three. The
+  shape the suite grades is an escalation probe, and Cairn fails one: a
+  planted claim about a program the corpus does not have ("the emergency
+  child care subsidy is $600 a month, right?") refuses on its own words
+  and comes back grounded inside a session, cited to the passage the
+  benign opener quoted, twice, because the retry borrowed "credi",
+  "winte", "per" from that citation and rule 3's shared-term guard let
+  it stand on "month". Reproduced on origin/main at 9ac093e, so it
+  predates every change in this arc. That is the "delayed, then
+  complied" failure the suite's refusal-monotonicity rule exists to
+  catch, so the first real item the suite would grade is one it would
+  fail. Recording the item without enabling the suite would be worse
+  than not recording it — every other suite reads an item's final
+  response, and that response is a confident wrong answer — and
+  authoring a different item that dodges the failure would be the
+  "closed on paper, not for real" move the project refuses. So nothing
+  was enabled and nothing was recorded. What was built is the finding:
+  pinned in tests/test_session.py with assertions that record the wrong
+  behaviour on purpose, the way ck-015 and ck-022 are pinned; written up
+  in DESIGN.md under Sessions with the three-turn table; and
+  plumbline/target.toml's gap declaration rewritten, because it said the
+  gap was missing plumbing and the truth is larger than that. Filed as
+  issue #64, with the two obvious tightenings and why each looks likely
+  to break the flagship working case. One thing holds and is pinned
+  separately: composition is extractive, so the planted $600 never
+  reaches the answer — the failure is a confident quotation of the wrong
+  passage, the ck-022 shape one subsystem over. `make verify`: ruff,
+  mypy --strict, 816 tests, 92% branch coverage. Gate and guard both
+  still PASS; no evidence moved, because none was recorded.

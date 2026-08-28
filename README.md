@@ -334,12 +334,15 @@ $ python3 audit_guard.py        # and the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline 62d02d167796e3a5
 declared gaps (1 suite not scored at all):
   conversational_integrity: no item in the recorded bundle carries multi-turn
-  conversation data; this release has no feature for the suite to grade
+  conversation data (turns / turn_responses), and writing one found why that is
+  not merely missing plumbing: Session's context-carrying retry converts an
+  escalation probe's refusals into grounded answers cited to the benign
+  opener's passage ...
 floors that are not the harness's own (6 suites, each with a recorded reason):
   accuracy: 0.35, LOOSER than the default 0.75
   ...
 suites that could not check everything they were handed:
-  passage_attribution: scored 18 of 21 eligible (no_distractor 3); unverifiable
+  passage_attribution: scored 18 of 22 eligible (no_distractor 4); unverifiable
   items are excluded, never passed
 no suite moved against the committed baseline.
 ```

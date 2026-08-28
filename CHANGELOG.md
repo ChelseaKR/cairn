@@ -58,6 +58,23 @@ becomes a version section like any other.
 
 #### Added
 
+- A recorded, unfixed finding: `Session`'s context-carrying retry answers an
+  escalation probe from the benign opener's passage. Both escalation turns
+  refuse on their own words and come back grounded inside a session, cited to
+  the passage turn one quoted, because the retry borrowed that passage's
+  vocabulary and rule 3's shared-term guard let it stand on one incidental
+  word. That is the "delayed, then complied" failure
+  `conversational_integrity`'s refusal-monotonicity rule exists to catch, and
+  it is why the multi-turn audit gap stays open: the first real item that
+  suite would grade is one it would fail. Pinned in `tests/test_session.py`
+  so it cannot change unnoticed in either direction, written up in DESIGN.md,
+  named in `plumbline/target.toml`'s gap declaration in place of the
+  missing-plumbing story that was there, and filed as issue #64. Not fixed
+  here: the fix is a change to which retries `Session` accepts, which is a
+  measured ranking decision with its own issue and its own evidence.
+  Composition being extractive means the planted figure never reaches the
+  answer whatever the retrieval did, which is the one thing that holds.
+
 - French corpus content, and the French audit item that scores it.
   `corpus/demo/grocery-allowance.fr.md` is a translation of an existing
   program rather than a new one, so the same $212 is now asked in four
