@@ -58,6 +58,30 @@ def _resolve_lang(raw: str | None, default: str) -> str:
     return raw if raw in SELECTABLE else default
 
 
+def _json_object(raw: bytes) -> dict:
+    """The request body as a JSON *object*, or `ValueError`.
+
+    Parsing is only half of reading a body. `json.loads(b"[1,2]")` succeeds,
+    and the route then called `.get` on a list -- killing the handler thread
+    with an `AttributeError` on stderr and giving the client no status and no
+    body, which a caller cannot tell apart from a network fault. Every other
+    bad request on these routes gets a 400 in the client's own content type.
+
+    So "parsed to something that is not an object" is raised as the same
+    `ValueError` that "did not parse" already raises, and lands on the same
+    400: a caller who sent `[1,2]` has made the same class of mistake as one
+    who sent `{`. `bytes.decode` raises `UnicodeDecodeError`, itself a
+    `ValueError`, so an undecodable body arrives at the same place.
+
+    The mirror of `_read_body`'s own docstring, one door along: there, a
+    header that would not parse; here, a body that parsed to the wrong thing.
+    """
+    parsed = json.loads(raw.decode("utf-8") or "{}")
+    if not isinstance(parsed, dict):
+        raise ValueError("the request body must be a JSON object")
+    return parsed
+
+
 def build_handler(
     cfg: Config,
     index: Index,
@@ -243,7 +267,7 @@ def build_handler(
             wants_json = "application/json" in (self.headers.get("Content-Type") or "")
             if wants_json:
                 try:
-                    submitted = json.loads(raw.decode("utf-8") or "{}")
+                    submitted = _json_object(raw)
                 except ValueError:
                     self._json({"error": "malformed JSON body"}, status=400)
                     return
@@ -377,7 +401,7 @@ def build_handler(
             wants_json = "application/json" in (self.headers.get("Content-Type") or "")
             if wants_json:
                 try:
-                    submitted = json.loads(raw.decode("utf-8") or "{}")
+                    submitted = _json_object(raw)
                 except ValueError:
                     self._json({"error": "malformed JSON body"}, status=400)
                     return

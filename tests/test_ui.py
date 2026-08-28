@@ -12,6 +12,8 @@ offline with no dependencies; the browser checks catch the things markup
 cannot promise.
 """
 
+import contextlib
+import io
 import json
 import re
 import threading
@@ -367,6 +369,60 @@ class TestTheRequestItselfIsHandledSafely(ServerHarness):
         self.assertTrue(out.startswith(b"HTTP/1.1 400"), out[:80])
         # And the server is still answering afterwards.
         self.assertEqual(self.post_json({"question": "212", "lang": "en"})["lang"], "en")
+
+    def test_a_json_body_that_parses_but_is_not_an_object_is_a_bad_request(self):
+        """#68. `json.loads` succeeded, so the malformed-JSON 400 above never
+        fired, and then `.get` was called on a list, a string, an int or None.
+        The handler thread died with an `AttributeError` on stderr and the
+        client got no status and no body at all -- a dropped connection it
+        cannot tell apart from a network fault, on the one route where every
+        other bad request is answered with a 400 in the client's own content
+        type.
+
+        This is the same defect class `_read_body`'s docstring records closing
+        once already for a non-numeric `Content-Length`, one door along: the
+        body parsed, and what it parsed to was never checked.
+        """
+        for body in (b"[1,2]", b'"hello"', b"5", b"null", b"true"):
+            with self.subTest(body=body):
+                request = urllib.request.Request(
+                    self.base + "/ask",
+                    data=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                # Every failure mode of the bug is caught here, not just the
+                # status: a dropped connection raises RemoteDisconnected out
+                # of urlopen, which is neither an HTTPError nor a 400.
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(request)
+                self.assertEqual(raised.exception.code, 400)
+                self.assertEqual(
+                    json.loads(raised.exception.read().decode("utf-8")),
+                    {"error": "malformed JSON body"},
+                    "a caller who sent [1,2] made the same class of mistake as "
+                    "one who sent `{`, and gets the same answer",
+                )
+        # And the server is still answering afterwards.
+        self.assertEqual(self.post_json({"question": "212", "lang": "en"})["lang"], "en")
+
+    def test_a_non_object_json_body_puts_no_traceback_on_stderr(self):
+        """The operator half of #68. `cairn serve --quiet` is an explicit
+        request not to be shown per-request noise, and a traceback per request
+        is exactly that -- printed by `socketserver.handle_error` before the
+        connection is dropped, so redirecting stderr around the request
+        catches it without racing the client.
+        """
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            for body in (b"[1,2]", b"null"):
+                request = urllib.request.Request(
+                    self.base + "/ask",
+                    data=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                with contextlib.suppress(urllib.error.HTTPError):
+                    urllib.request.urlopen(request)
+        self.assertEqual(captured.getvalue(), "", "a handled bad request says nothing")
 
 
 class TestOfflineAndPolicy(ServerHarness):
