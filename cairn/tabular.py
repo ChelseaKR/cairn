@@ -218,6 +218,28 @@ def _is_measure_column(table: Table, index: int) -> bool:
         return False
 
 
+def _earliest_comparator(text: str) -> tuple[str, int] | None:
+    """The comparison phrase that starts earliest in ``text``, as its operator
+    symbol and the offset just past the phrase — or ``None`` when the question
+    names no comparison at all.
+
+    Earliest rather than first-listed, because the number the filter acts on is
+    read forward from the end of the phrase (:func:`_parse_number`): a phrase
+    further along the sentence would take its number from past the one the
+    reader meant. Two phrases starting at the same offset are settled by
+    ``_COMPARATORS`` order, which is why the comparison is strict — the entry
+    listed first, the longer one, keeps the binding.
+    """
+    found: tuple[str, int] | None = None
+    position = -1
+    for pattern, symbol in _COMPARATORS:
+        match = re.search(pattern, text)
+        if match and (position == -1 or match.start() < position):
+            found = (symbol, match.end())
+            position = match.start()
+    return found
+
+
 def parse_count_query(question: str, tables: tuple[Table, ...]) -> TableQuery | None:
     """Bind every part of a count query, or decline entirely.
 
@@ -249,16 +271,10 @@ def parse_count_query(question: str, tables: tuple[Table, ...]) -> TableQuery | 
         return None
     table, column_index = measures[0]
 
-    comparator = None
-    position = -1
-    for pattern, symbol in _COMPARATORS:
-        match = re.search(pattern, lowered)
-        if match and (position == -1 or match.start() < position):
-            comparator = symbol
-            position = match.start()
-            end = match.end()
-    if comparator is None:
+    comparison = _earliest_comparator(lowered)
+    if comparison is None:
         return None
+    comparator, end = comparison
     value = _parse_number(lowered, end)
     if value is None:
         return None

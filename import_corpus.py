@@ -33,7 +33,7 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
-from cairn.corpus import CorpusError, load_document
+from cairn.corpus import CorpusError, Document, load_document
 
 _SLUG_RE = re.compile(r"[^a-z0-9._:-]+")
 
@@ -452,6 +452,24 @@ def build_scaffold(
     )
 
 
+def _print_chunk_preview(doc: Document) -> None:
+    """Show the reviewer the passages `cairn.corpus` actually made, one line
+    each.
+
+    Printed from the loaded document rather than from the paragraph list this
+    script assembled, because a paragraph boundary is this script's guess and a
+    passage boundary is the corpus loader's decision — and the boundaries are
+    the main thing the review is for. Whitespace is collapsed and long text is
+    cut at 70 characters: this is an orientation aid, not the document.
+    """
+    print(f"Chunk preview ({len(doc.passages)} passage(s), via cairn.corpus.load_document):")
+    for p in doc.passages:
+        preview = " ".join(p.text.split())
+        if len(preview) > 70:
+            preview = preview[:69] + "…"
+        print(f"  {p.passage_id}: {preview}")
+
+
 def scaffold_one(
     src: Path,
     out_path: Path,
@@ -540,12 +558,7 @@ def scaffold_one(
         )
         return 1, len(paragraphs)
 
-    print(f"Chunk preview ({len(doc.passages)} passage(s), via cairn.corpus.load_document):")
-    for p in doc.passages:
-        preview = " ".join(p.text.split())
-        if len(preview) > 70:
-            preview = preview[:69] + "…"
-        print(f"  {p.passage_id}: {preview}")
+    _print_chunk_preview(doc)
     return 0, len(paragraphs)
 
 
