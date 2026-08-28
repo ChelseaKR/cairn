@@ -799,6 +799,9 @@ things.
 ### What is still open
 
 Not a wish list — the things a reader could reasonably expect and will not find.
+`docs/roadmap.md` orders this list into phases and carries a status per phase,
+including the ones blocked on a person, a licence, or an upstream project
+rather than on work. This section stays the argument; the roadmap is the order.
 
 - **One known colloquial-recall failure**, `ck-015` — now closed as a
   finding rather than left as a to-do. The earlier diagnosis said the ranking
@@ -2036,10 +2039,70 @@ follow-ups in Arabic land on sibling paragraphs more often than English
 ones. History lives client-side; the server reconstructs a session per
 request and stores nothing.
 
+A fourth rule holds the contract open rather than shut, and it was added on
+2026-08-27 rather than with the other three. When the retry stands, the
+passages quoted were retrieved for a question the person did not type, so the
+answer says which earlier question it was read against. It says it in
+`Answer.notice`, where the cross-language and table-count disclosures already
+live, which is why one line of code puts it in the terminal, the transcript,
+the event stream and `cited_text` at once.
+
+Until then only the machine-readable half existed: `resolved_with_context` and
+`context_terms` on `TurnResult`, both correct, both in the server's JSON
+response, and neither read by any surface that renders an answer to a person.
+`cairn chat` printed an answer to a rewritten question with no sign of the
+rewrite. That is the third instance of one defect class in this repository, and
+it is the subject of the next section.
+
+What the notice names is the earlier question, not the borrowed terms. The
+terms are index vocabulary and the index truncation-stems, so the first draft
+offered a reader "per, recei, allow" as the words it had searched with, two of
+which are not words and none of which appear in the answer above them.
+
 `cairn record` does not use `Session` — every recorded item is still one
 `ask()` call — so this feature exists without the audited evidence bundle
 containing a single conversation. See "The multi-turn gap, open, and this
 repository's to close" above for what that leaves open in the audit.
+
+## Disclosure parity: the field and the sentence cannot disagree
+
+Cairn says three things in its own voice, and each is also a piece of
+machine-readable state. The cross-language notice pairs with
+`AskResult.cross_language`, the table-count notice with `AskResult.tool`, and
+the context notice with `TurnResult.resolved_with_context`.
+
+Three defects have been the gap between the two halves, and every one of them
+had the machine-readable half right:
+
+1. `Answer.cited_text` was composed without the notice, so a client with one
+   channel got a foreign passage and no explanation. Recorded above under "The
+   cross-language path, in the evidence", which ends: "It was fixed by reading
+   the code. The next one will not be."
+2. The structured-table path bound tables without filtering by language and
+   returned before the notice logic ran. `cross_language` was returning `True`
+   on that path throughout.
+3. `Session` rewrote an elliptical follow-up and disclosed it only in JSON.
+
+All three were found by a person reading the code, and the per-feature tests
+were green through all three. They were right to be. A test that knows about
+the cross-language notice cannot notice that a different notice is missing, and
+a test that checks one surface cannot notice that a fourth surface exists.
+
+`tests/test_disclosure.py` is the mechanism the sentence above promised. It
+reads the disclosures out of `cairn.messages` — every key carrying `_notice`
+in its name — and holds the surfaces as real renderers imported from the
+modules that ship them, and checks the cross product. A fifth notice added
+without a scenario fails it. A field added to `AskResult` or `TurnResult`
+without recording whether a reader needs to be told fails it. A surface that
+stops rendering the notice fails it by name.
+
+Two bounds, stated rather than implied. The `_notice` suffix is a convention
+held by review, so a disclosure named something else would not be caught; it is
+written down in `cairn/messages.py` beside the keys. And four surfaces are
+enumerated, so a fifth renderer added later is covered on the day somebody adds
+it to the list and not before. What this buys is that every disclosure crosses
+every surface anyone has written down, which is strictly more than the nothing
+that held it before. See [ADR 0001](docs/adr/0001-a-disclosure-is-not-made-until-a-person-can-read-it.md).
 
 ## The gauntlet interlock
 

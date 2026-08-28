@@ -1091,3 +1091,42 @@ One line per implementation session: date, what was built, from what input.
   released to PyPI and GHCR on the maintainer's instruction and confirmed
   against both registries; `docs/release.md`'s "by hand" sentence is now
   one release out of date.
+
+- 2026-08-27 — Session 19 (AI implementation session). Input: this
+  repository's own state, its twelve open issues, and PR #59, which
+  landed hours earlier. #59 fixed the structured-table path crossing
+  languages in silence, and left behind a shape worth reading twice:
+  `AskResult.cross_language` had been returning `True` on that path the
+  whole time. The machine-readable half was never wrong. Searched for
+  the shape again and found it one subsystem over: `Session` rewrites an
+  elliptical follow-up with terms borrowed from a prior turn's
+  citations, records `resolved_with_context` and `context_terms`, puts
+  both in the server's JSON, and no surface that renders an answer to a
+  person reads either — so `cairn chat` printed an answer to a question
+  nobody typed. Third instance of one defect class, after `cited_text`
+  dropping the cross-language notice and the table path. Fixed by
+  putting the disclosure in `Answer.notice`, the one channel every
+  surface already reads, and by making the class mechanical:
+  `tests/test_disclosure.py` reads the disclosures out of the message
+  catalogue and the surfaces out of the modules that ship them and
+  checks the cross product, so a fourth instance fails a test instead of
+  waiting for a reader. Proved each new guard can fail, against real
+  reverted code rather than by assertion: session.py at `origin/main`
+  (4 failures, 9 errors), engine.py at `8935e09` (the pre-#59 tree, 3
+  failures in three languages, the invariant catching #59's defect
+  without knowing the table path exists), a fifth `_notice` key with no
+  scenario, the terminal renderer with its notice line removed, and a
+  new field on `TurnResult`. The notice names the earlier question and
+  not the borrowed terms: the first draft offered a reader "per, recei,
+  allow", two of which are not words. Also `docs/roadmap.md`, ordering
+  what is left into twelve phases with a status each, including four
+  blocked on a person, a licence, a signing key, or an upstream project
+  — written down as blocked rather than left to look like work nobody
+  got to. `make verify`: ruff, mypy, 796 tests, 92% branch coverage.
+  `./plumbline-gate.sh`: GATE PASS, all 14 suites at their previous
+  scores, dataset moved to 9d86048ced72 because a new catalogue key
+  changes the page the bundle snapshots — the same consequence
+  `table_count_notice` had in session 12. `audit_guard.py`: GUARD PASS,
+  no suite moved. The baseline's dataset id is therefore one run stale
+  and adopting the new one is left to the maintainer, which is what
+  DESIGN.md says a baseline move is.
