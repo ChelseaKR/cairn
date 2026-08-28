@@ -214,7 +214,7 @@ class TestWhatTheSuiteCanAndCannotSeeHere(unittest.TestCase):
         single = [item["id"] for item in items()
                   if item["behavior"] == "answer" and len(item.get("sources", [])) == 1
                   and item.get("sources") == item.get("answering_sources")]
-        self.assertEqual(single, ["ck-002", "ck-012", "ck-014"])
+        self.assertEqual(single, ["ck-002", "ck-012", "ck-014", "ck-031"])
 
     def test_the_bundle_records_every_accepted_passage_not_only_the_quoted_one(self):
         # Recording only what composition quoted would make every item
