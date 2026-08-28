@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import textwrap
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from cairn.answer import Answer
 from cairn.engine import AskResult
@@ -49,7 +49,7 @@ class StageVerdict:
     code: str  # machine-stable identifier
     detail: str  # one or two sentences for a human operator
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, Any]:
         return {"stage": self.stage, "ok": self.ok, "code": self.code, "detail": self.detail}
 
 
@@ -66,7 +66,7 @@ class Diagnosis:
                 return verdict
         raise KeyError(name)
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, Any]:
         return {
             "grounded": self.grounded,
             "blame": self.blame,
@@ -343,7 +343,7 @@ def render(
     return "\n".join(lines)
 
 
-def trace_payload(trace: RetrievalTrace, *, margin_warn: float | None = None) -> dict:
+def trace_payload(trace: RetrievalTrace, *, margin_warn: float | None = None) -> dict[str, Any]:
     """Machine-readable candidate list for ``ask --explain --json``.
 
     ``margin_warn`` is optional so a caller with no configured threshold in

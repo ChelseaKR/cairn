@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from cairn import __version__
@@ -68,7 +69,7 @@ def build_handler(
     embed_origins: tuple[str, ...] = (),
     refusal_counter: RefusalCounter | None = None,
     followup_store: FollowupStore | None = None,
-):
+) -> type[BaseHTTPRequestHandler]:
     """A request handler class bound to one configuration and index.
 
     `auth_token`, `rate_limiter`, `cors_origins`, `embed_origins`,
@@ -96,7 +97,7 @@ def build_handler(
 
         # --- plumbing ---------------------------------------------------
 
-        def log_message(self, fmt, *args):  # noqa: A002 - stdlib signature
+        def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A002 - stdlib signature
             if not quiet:
                 super().log_message(fmt, *args)
 
@@ -152,7 +153,7 @@ def build_handler(
         def _html(self, markup: str, status: int = 200) -> None:
             self._send(status, markup.encode("utf-8"), "text/html; charset=utf-8")
 
-        def _json(self, payload: dict, status: int = 200) -> None:
+        def _json(self, payload: dict[str, Any], status: int = 200) -> None:
             body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
             self._send(status, body, "application/json; charset=utf-8")
 
@@ -202,14 +203,15 @@ def build_handler(
 
         # --- routes -----------------------------------------------------
 
-        def do_GET(self):  # noqa: N802 - stdlib naming
+        def do_GET(self) -> None:  # noqa: N802 - stdlib naming
             if not self._gate():
                 return
             route = urlparse(self.path)
             if route.path == "/":
                 query = parse_qs(route.query)
+                lang_values = query.get("lang")
                 lang = _resolve_lang(
-                    (query.get("lang") or [None])[0], cfg.default_lang
+                    lang_values[0] if lang_values else None, cfg.default_lang
                 )
                 self._html(render_page(lang))
             elif route.path == "/app.css":
@@ -225,7 +227,7 @@ def build_handler(
 
         do_HEAD = do_GET
 
-        def do_POST(self):  # noqa: N802 - stdlib naming
+        def do_POST(self) -> None:  # noqa: N802 - stdlib naming
             if not self._gate():
                 return
             route = urlparse(self.path).path
@@ -428,7 +430,7 @@ def build_handler(
                     )
                 )
 
-        def do_OPTIONS(self):  # noqa: N802 - stdlib naming
+        def do_OPTIONS(self) -> None:  # noqa: N802 - stdlib naming
             """A CORS preflight response — deliberately not gated.
 
             A browser's preflight `OPTIONS` request never carries the
@@ -470,7 +472,7 @@ def serve(
     embed_origins: tuple[str, ...] = (),
     refusal_stats_path: Path | None = None,
     followup_store_path: Path | None = None,
-):
+) -> ThreadingHTTPServer:
     """Build a server. The caller decides when to start serving.
 
     `auth_token`, `rate_limit_per_minute`, `cors_origins`, `embed_origins`,

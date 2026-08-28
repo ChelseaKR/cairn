@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -269,7 +270,7 @@ def parse_count_query(question: str, tables: tuple[Table, ...]) -> TableQuery | 
     )
 
 
-_OPS = {
+_OPS: dict[str, Callable[[float, float], bool]] = {
     "<": lambda a, b: a < b,
     ">": lambda a, b: a > b,
     "<=": lambda a, b: a <= b,

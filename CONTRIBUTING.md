@@ -49,11 +49,19 @@ a command prints, the pages change in the same commit.
 
 ## Types and complexity, honestly
 
-`mypy` runs in its default mode, not `--strict`, because strict reports 28
-findings on this tree today. The complexity limit is configured at 10 and the
-`C90` rule is deliberately not switched on, because four functions are over it.
-Both gaps are written in the README's conformance table rather than hidden.
-Closing either is welcome; silencing either with a blanket ignore is not.
+`mypy` runs in `--strict` mode over `cairn/`, and `make verify` fails on a
+finding. It did not until 2026-08-27, and the reason it did not was that
+strict reported 44 findings; those were closed rather than excused, so the
+reason expired. There are no per-module overrides and there is no
+`ignore_errors`, and a test holds that, because a strict gate with an excused
+module is a strict-looking gate.
+
+The complexity limit is configured at 10 and the `C90` rule is deliberately
+not switched on, because 12 functions are over it. That gap is written in the
+README's conformance table rather than hidden, and its inventory is in
+`tests/test_code_quality.py` rather than in a comment, because the comment
+version said eight while ruff said twelve. Closing it is welcome; silencing it
+with a blanket ignore is not.
 
 ## Decisions get recorded
 

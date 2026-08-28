@@ -1,5 +1,13 @@
 # Standards: mechanical lane
 
+> **This is the body of a pull request that merged on 2026-08-18, kept as a
+> record of that change.** It is not a description of the repository today and
+> nothing reads it. Its two numbers were true when it was written and are not
+> now: `mypy --strict` reported 28 findings then, reports zero today and runs
+> in `make verify`; four functions were over the complexity limit then and 12
+> are now. `README.md`'s Standards Conformance row is the current statement,
+> and `tests/test_code_quality.py` is what holds it.
+
 The largest of these branches, because this repository had no Makefile, no
 lockfile, no security workflow, and no `SECURITY.md`, `CONTRIBUTING.md`,
 `CODEOWNERS`, or ADR log. Twenty-one automated checks were failing; nineteen of

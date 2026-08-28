@@ -20,7 +20,7 @@ This module composes; it does not speak.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from cairn.language import Direction, direction_of
 from cairn.retrieve import RetrievalTrace
@@ -59,7 +59,7 @@ class Source:
     def direction(self) -> Direction:
         return direction_of(self.lang)
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, str]:
         return {
             "title": self.title,
             "id": self.source_id,
@@ -166,7 +166,7 @@ class Answer:
         marks = " ".join(f"[{citation_marker(s.source_id)}]" for s in self.sources)
         return f"{body}\n{marks}"
 
-    def to_payload(self) -> dict:
+    def to_payload(self) -> dict[str, Any]:
         """Machine-readable record (CLI --json, the web interface, and the
         audit interlock's input)."""
         return {
