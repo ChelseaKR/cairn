@@ -34,8 +34,35 @@ Four sources, in descending order of how much weight they carry:
    admission to a result.
 3. **The open issues.** Twelve of them, most labelled `good first issue`,
    several with the fix already reasoned out in the issue body.
-4. **Defects found while doing the work.** Two of the phases below exist
-   because something turned up mid-change that nothing was watching.
+4. **Defects found while doing the work.** This turned out to be the largest
+   source by some distance, which is itself the finding. See below.
+
+## What the work found that nothing was watching
+
+Every phase that got built found something the phase was not looking for, and
+in each case the thing found was the same shape: a claim about the system with
+nothing holding it to being true.
+
+| Found | Where | Now |
+|---|---|---|
+| A rewritten follow-up disclosed only in JSON, the third instance of one defect class | `cairn/session.py` | fixed; the class enumerated in `tests/test_disclosure.py` (phase 1) |
+| The published count of over-complexity functions said eight; ruff said twelve | `pyproject.toml`, README | recomputed and held by a test, then driven to zero (phases 2 to 4) |
+| The served interface could not answer in French, while `cairn ask --lang fr` could | `cairn/ui/page.py`'s `SELECTABLE` | derived from `LANGUAGES`, held by a test (phase 6) |
+| `Session` answers an escalation probe from the benign opener's passage | `cairn/session.py` | pinned, written up, [#64](https://github.com/ChelseaKR/cairn/issues/64) (phase 7) |
+| `parse_count_query` builds a list nothing reads, under a docstring describing a rule that is not implemented | `cairn/tabular.py` | [#67](https://github.com/ChelseaKR/cairn/issues/67) (phase 3) |
+| A JSON body that parses but is not an object kills the handler thread | `cairn/server.py` | [#68](https://github.com/ChelseaKR/cairn/issues/68) (phase 4) |
+| The follow-up store's docstring claimed a timestamp it has never written | `cairn/followup.py` | fixed; the record shape held by a test (phase 8) |
+
+Three of those were found by a test that already existed and fired at the
+right moment: the served-French bug by `tests/test_live.py`, the complexity
+count by the inventory guard phase 2 had just added, and the evidence-bundle
+drift by `tests/test_docs.py`. The rest were found by writing something new
+and watching what it hit.
+
+The two still open as issues rather than fixes are open on purpose. Both are
+behaviour changes on paths whose current shape was arrived at by measurement,
+and this repository's rule is that those get their own change and their own
+evidence rather than riding along in a refactor.
 
 ## Phase 1: a disclosure is not made until a person can read it
 
