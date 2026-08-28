@@ -100,6 +100,18 @@ becomes a version section like any other.
 
 #### Changed
 
+- Seven of the twelve functions over the configured complexity limit are
+  under it: `assemble_corpus.py`'s `plan`, `audit_guard.py`'s
+  `harness_defaults`, `regression_findings` and `render_terminal`,
+  `cairn/lint.py`'s `lint_corpus`, `cairn/tabular.py`'s `parse_count_query`,
+  and `import_corpus.py`'s `scaffold_one`. Each by extracting a cohesive
+  block into a named helper, with no behaviour change anywhere: same output,
+  same order, same return values. `audit_guard.py`'s terminal report was
+  checked byte-for-byte against a real gate report either side of the change
+  rather than trusted to the tests alone. Five are left, and they are a
+  different kind of task; `C90` cannot go into ruff's `select` until they go
+  too. Closes #38 and #39.
+
 - `plumbline/target.toml` and `plumbline/live.toml` declare
   `[judge.languages.fr]`. The pinned harness tells Latin-script languages
   apart by function words and ships profiles for English and Spanish only, so

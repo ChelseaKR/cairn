@@ -43,22 +43,20 @@ ROOT = Path(__file__).resolve().parent.parent
 # number it reports. Kept here rather than in `pyproject.toml`'s comment
 # because a list nothing checks is a list that goes stale, and this one did.
 #
-# Four of these have issues of their own; the rest are named here and nowhere
-# else. See docs/roadmap.md, phases 3 and 4, for what closing them is worth
-# and why the two large ones are not the same task as the small ones.
+# It held twelve when it was written and holds five. The seven that came out
+# were the ones at 11 and 12, each closed by extraction with no behaviour
+# change; `audit_guard.py`'s terminal output was checked byte-for-byte against
+# a real report either side. What is left is the five that are not a "reduce a
+# few branches" task: two request-handler closures that four features' worth of
+# branching landed in, a measured ranking algorithm whose current shape is the
+# survivor of three failed designs, and two HTML parser state machines. See
+# docs/roadmap.md phase 4, and issues #42 and #43.
 OVER_THE_LIMIT = {
-    ("assemble_corpus.py", "plan"): 12,
-    ("audit_guard.py", "harness_defaults"): 11,
-    ("audit_guard.py", "regression_findings"): 11,
-    ("audit_guard.py", "render_terminal"): 11,
-    ("cairn/lint.py", "lint_corpus"): 11,
     ("cairn/server.py", "build_handler"): 56,
     ("cairn/server.py", "_handle_ask"): 19,
     ("cairn/session.py", "_retry_with_context"): 18,
-    ("cairn/tabular.py", "parse_count_query"): 11,
     ("import_corpus.py", "handle_starttag"): 18,
     ("import_corpus.py", "handle_endtag"): 20,
-    ("import_corpus.py", "scaffold_one"): 11,
 }
 
 MAX_COMPLEXITY = 10

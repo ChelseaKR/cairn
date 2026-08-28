@@ -215,6 +215,57 @@ def pinned_harness_src(pin_path: Path, cache_root: Path) -> Path:
     return cache_root / match.group(1) / "src"
 
 
+def _literal_class_attributes(node: ast.ClassDef) -> dict[str, object]:
+    """The class-body assignments simple enough to read without running them:
+    one plain name bound to one literal.
+
+    Anything else in the body — a computed default, a name bound from another
+    module, a property — is skipped rather than approximated. A suite whose
+    floor is not a literal is a suite this check cannot read, and reading it
+    wrong is worse than not finding it: `harness_defaults` treats an empty
+    result as an error for exactly that reason.
+    """
+    attrs: dict[str, object] = {}
+    for stmt in node.body:
+        if (
+            isinstance(stmt, ast.Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], ast.Name)
+            and isinstance(stmt.value, ast.Constant)
+        ):
+            attrs[stmt.targets[0].id] = stmt.value.value
+    return attrs
+
+
+def _module_suite_defaults(module: Path) -> dict[str, float]:
+    """Every suite id and default floor one harness module declares.
+
+    Every class in the file is considered, at any nesting depth, because the
+    harness's own layout is not this script's business to assume; a class that
+    does not name both an `id` and a numeric `default_floor` simply is not a
+    suite and contributes nothing.
+    """
+    try:
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as exc:
+        raise GuardError(f"cannot parse the pinned harness at {module}: {exc}") from exc
+    defaults: dict[str, float] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        attrs = _literal_class_attributes(node)
+        suite_id = attrs.get("id")
+        floor = attrs.get("default_floor")
+        if attrs.get("implemented") is False:
+            # A documented skeleton. The harness refuses to enable one, so
+            # requiring the target config to mention it would be requiring
+            # a configuration error.
+            continue
+        if isinstance(suite_id, str) and suite_id and isinstance(floor, (int, float)):
+            defaults[suite_id] = float(floor)
+    return defaults
+
+
 def harness_defaults(src_dir: Path) -> dict[str, float]:
     """Every suite the pinned harness ships, and the floor it chose for itself.
 
@@ -238,31 +289,7 @@ def harness_defaults(src_dir: Path) -> dict[str, float]:
         )
     defaults: dict[str, float] = {}
     for module in sorted(suites_dir.glob("*.py")):
-        try:
-            tree = ast.parse(module.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError) as exc:
-            raise GuardError(f"cannot parse the pinned harness at {module}: {exc}") from exc
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ClassDef):
-                continue
-            attrs: dict[str, object] = {}
-            for stmt in node.body:
-                if (
-                    isinstance(stmt, ast.Assign)
-                    and len(stmt.targets) == 1
-                    and isinstance(stmt.targets[0], ast.Name)
-                    and isinstance(stmt.value, ast.Constant)
-                ):
-                    attrs[stmt.targets[0].id] = stmt.value.value
-            suite_id = attrs.get("id")
-            floor = attrs.get("default_floor")
-            if attrs.get("implemented") is False:
-                # A documented skeleton. The harness refuses to enable one, so
-                # requiring the target config to mention it would be requiring
-                # a configuration error.
-                continue
-            if isinstance(suite_id, str) and suite_id and isinstance(floor, (int, float)):
-                defaults[suite_id] = float(floor)
+        defaults.update(_module_suite_defaults(module))
     if not defaults:
         raise GuardError(
             f"the harness at {src_dir} declares no suite default floors. Either it "
@@ -476,6 +503,99 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
     return gaps, findings
 
 
+def _suite_movement_findings(suite_id: str, current: dict, previous: dict) -> list[Finding]:
+    """Everything one suite's row can say about the move between the
+    committed baseline and this run.
+
+    Five independent readings of the same pair of rows, and deliberately not
+    an if/elif chain over them: a suite can fall *and* have had its floor
+    lowered under it in the same diff, and reporting only the first of those
+    would leave the other in the tree. The one exception is the score itself,
+    which cannot both fall and rise.
+    """
+    findings: list[Finding] = []
+    delta = current["score"] - previous["score"]
+    if delta < -TOLERANCE:
+        findings.append(
+            Finding(
+                blocking=True,
+                subject=suite_id,
+                detail=(
+                    f"score fell {previous['score']:.4f} -> "
+                    f"{current['score']:.4f} ({delta:+.4f}), above its floor of "
+                    f"{current['floor']:.2f}. A floor is a minimum, not a bar "
+                    f"the score is allowed to drift down to."
+                ),
+            )
+        )
+    elif delta > TOLERANCE:
+        findings.append(
+            Finding(
+                blocking=True,
+                subject=suite_id,
+                detail=(
+                    f"score rose {previous['score']:.4f} -> "
+                    f"{current['score']:.4f} ({delta:+.4f}), and the committed "
+                    f"baseline still says {previous['score']:.4f}. Adopt it: an "
+                    f"improvement nobody records is a bar nobody raised, and "
+                    f"every point of it can be given back later without this "
+                    f"check noticing."
+                ),
+                label="IMPROVEMENT",
+            )
+        )
+    if current["floor"] < previous["floor"] - TOLERANCE:
+        findings.append(
+            Finding(
+                blocking=True,
+                subject=suite_id,
+                detail=(
+                    f"floor lowered {previous['floor']:.2f} -> "
+                    f"{current['floor']:.2f}. Moving the bar down is how a red "
+                    f"gate becomes green without anything being fixed."
+                ),
+            )
+        )
+    if current.get("n") != previous.get("n"):
+        # A score is a fraction, and the baseline records both halves. A
+        # suite that quietly stopped being able to check most of its
+        # population reports a perfect score over what is left, and reads
+        # exactly like a suite that checked everything. `passage_attribution`
+        # is the live example: it scores only the items where a wrong
+        # paragraph was available to answer from, so its denominator is a
+        # property of the target's own retrieval and can collapse without
+        # a single answer getting worse.
+        fewer = (current.get("n") or 0) < (previous.get("n") or 0)
+        findings.append(
+            Finding(
+                blocking=True,
+                subject=suite_id,
+                detail=(
+                    f"scored {current.get('n')} items, and the baseline "
+                    f"recorded {previous.get('n')}. "
+                    + (
+                        "A score over a smaller population is a smaller "
+                        "claim, whatever the number says."
+                        if fewer else
+                        "More is checked than the record admits; adopt it, "
+                        "or the extra coverage can be lost later without "
+                        "this check noticing."
+                    )
+                ),
+                label="COVERAGE",
+            )
+        )
+    if previous["verdict"] == "PASS" and current["verdict"] != "PASS":
+        findings.append(
+            Finding(
+                blocking=True,
+                subject=suite_id,
+                detail=f"{previous['verdict']} -> {current['verdict']} since the baseline.",
+            )
+        )
+    return findings
+
+
 def regression_findings(report: dict, baseline: dict) -> list[Finding]:
     """Compare this run against the committed bar, in both directions.
 
@@ -548,86 +668,7 @@ def regression_findings(report: dict, baseline: dict) -> list[Finding]:
         )
 
     for suite_id in sorted(set(now) & set(before)):
-        current, previous = now[suite_id], before[suite_id]
-        delta = current["score"] - previous["score"]
-        if delta < -TOLERANCE:
-            findings.append(
-                Finding(
-                    blocking=True,
-                    subject=suite_id,
-                    detail=(
-                        f"score fell {previous['score']:.4f} -> "
-                        f"{current['score']:.4f} ({delta:+.4f}), above its floor of "
-                        f"{current['floor']:.2f}. A floor is a minimum, not a bar "
-                        f"the score is allowed to drift down to."
-                    ),
-                )
-            )
-        elif delta > TOLERANCE:
-            findings.append(
-                Finding(
-                    blocking=True,
-                    subject=suite_id,
-                    detail=(
-                        f"score rose {previous['score']:.4f} -> "
-                        f"{current['score']:.4f} ({delta:+.4f}), and the committed "
-                        f"baseline still says {previous['score']:.4f}. Adopt it: an "
-                        f"improvement nobody records is a bar nobody raised, and "
-                        f"every point of it can be given back later without this "
-                        f"check noticing."
-                    ),
-                    label="IMPROVEMENT",
-                )
-            )
-        if current["floor"] < previous["floor"] - TOLERANCE:
-            findings.append(
-                Finding(
-                    blocking=True,
-                    subject=suite_id,
-                    detail=(
-                        f"floor lowered {previous['floor']:.2f} -> "
-                        f"{current['floor']:.2f}. Moving the bar down is how a red "
-                        f"gate becomes green without anything being fixed."
-                    ),
-                )
-            )
-        if current.get("n") != previous.get("n"):
-            # A score is a fraction, and the baseline records both halves. A
-            # suite that quietly stopped being able to check most of its
-            # population reports a perfect score over what is left, and reads
-            # exactly like a suite that checked everything. `passage_attribution`
-            # is the live example: it scores only the items where a wrong
-            # paragraph was available to answer from, so its denominator is a
-            # property of the target's own retrieval and can collapse without
-            # a single answer getting worse.
-            fewer = (current.get("n") or 0) < (previous.get("n") or 0)
-            findings.append(
-                Finding(
-                    blocking=True,
-                    subject=suite_id,
-                    detail=(
-                        f"scored {current.get('n')} items, and the baseline "
-                        f"recorded {previous.get('n')}. "
-                        + (
-                            "A score over a smaller population is a smaller "
-                            "claim, whatever the number says."
-                            if fewer else
-                            "More is checked than the record admits; adopt it, "
-                            "or the extra coverage can be lost later without "
-                            "this check noticing."
-                        )
-                    ),
-                    label="COVERAGE",
-                )
-            )
-        if previous["verdict"] == "PASS" and current["verdict"] != "PASS":
-            findings.append(
-                Finding(
-                    blocking=True,
-                    subject=suite_id,
-                    detail=f"{previous['verdict']} -> {current['verdict']} since the baseline.",
-                )
-            )
+        findings += _suite_movement_findings(suite_id, now[suite_id], before[suite_id])
     return findings
 
 
@@ -665,6 +706,61 @@ def uncovered(report: dict) -> list[str]:
     return lines
 
 
+def _gap_lines(gaps: list[dict]) -> list[str]:
+    """The declared-gap section of the terminal report, present or absent.
+
+    The empty case is a sentence rather than no lines at all. "Nothing is
+    disabled" and "this script stopped reading the gap declarations" would
+    otherwise print identically, and only one of them is a claim.
+    """
+    if not gaps:
+        return ["declared gaps: none — every implemented suite is enabled."]
+    plural = "" if len(gaps) == 1 else "s"
+    lines = [f"declared gaps ({len(gaps)} suite{plural} not scored at all):"]
+    for gap in gaps:
+        lines.append(f"  {gap['suite']}: {gap['gap']}")
+        lines.append(f"    the fix belongs in: {gap['fix_belongs_in']}")
+    return lines
+
+
+def _override_lines(overrides: list[dict]) -> list[str]:
+    """The overridden-floor section, present or absent.
+
+    Said out loud when empty, for the same reason the coverage line is: an
+    absence here and a check that stopped reading the harness print
+    identically.
+    """
+    if not overrides:
+        return ["every floor is the pinned harness's own default — none was overridden."]
+    plural = "" if len(overrides) == 1 else "s"
+    lines = [
+        f"floors that are not the harness's own ({len(overrides)} suite{plural}, "
+        f"each with a recorded reason):"
+    ]
+    for entry in overrides:
+        lines.append(
+            f"  {entry['suite']}: {entry['floor']:.2f}, {entry['direction']} "
+            f"the default {entry['default']:.2f}"
+        )
+    return lines
+
+
+def _finding_lines(findings: list[Finding]) -> list[str]:
+    """Every finding, blocking or not, one to a line.
+
+    Non-blocking findings are printed under `note` rather than left out: this
+    section is the whole of what the run noticed, and a finding filtered out of
+    the terminal output exists only in a file nobody opened.
+    """
+    if not findings:
+        return ["no suite moved against the committed baseline."]
+    lines = []
+    for finding in findings:
+        mark = finding.label if finding.blocking else "note"
+        lines.append(f"{mark:<11} {finding.subject}: {finding.detail}")
+    return lines
+
+
 def render_terminal(
     *, report_path: Path, report: dict, baseline: dict, gaps: list[dict],
     findings: list[Finding], overrides: list[dict] = (),
@@ -683,31 +779,8 @@ def render_terminal(
         for reason in comparison.get("refusals", []):
             lines.append(f"  harness refused a numeric comparison: {reason}")
             lines.append("  this check makes it anyway; see audit_guard.py for why.")
-    if gaps:
-        plural = "" if len(gaps) == 1 else "s"
-        lines.append(f"declared gaps ({len(gaps)} suite{plural} not scored at all):")
-        for gap in gaps:
-            lines.append(f"  {gap['suite']}: {gap['gap']}")
-            lines.append(f"    the fix belongs in: {gap['fix_belongs_in']}")
-    else:
-        lines.append("declared gaps: none — every implemented suite is enabled.")
-    if overrides:
-        plural = "" if len(overrides) == 1 else "s"
-        lines.append(
-            f"floors that are not the harness's own ({len(overrides)} suite{plural}, "
-            f"each with a recorded reason):"
-        )
-        for entry in overrides:
-            lines.append(
-                f"  {entry['suite']}: {entry['floor']:.2f}, {entry['direction']} "
-                f"the default {entry['default']:.2f}"
-            )
-    else:
-        # Said out loud, for the same reason the coverage line is: an absence
-        # here and a check that stopped reading the harness print identically.
-        lines.append(
-            "every floor is the pinned harness's own default — none was overridden."
-        )
+    lines += _gap_lines(gaps)
+    lines += _override_lines(overrides)
     partial = uncovered(report)
     if partial:
         lines.append("suites that could not check everything they were handed:")
@@ -720,12 +793,7 @@ def render_terminal(
             "every suite scored everything it was handed — no suite reported "
             "holding items out."
         )
-    if findings:
-        for finding in findings:
-            mark = finding.label if finding.blocking else "note"
-            lines.append(f"{mark:<11} {finding.subject}: {finding.detail}")
-    else:
-        lines.append("no suite moved against the committed baseline.")
+    lines += _finding_lines(findings)
     if blocking:
         lines.append("")
         lines.append("If a finding above is intended, " + REGENERATE)

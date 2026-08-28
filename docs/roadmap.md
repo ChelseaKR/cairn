@@ -90,18 +90,20 @@ and nothing recompiled a hand-kept list. The inventory moved into
 
 ## Phase 3: the small complexity findings
 
-**Status: open.** Issues [#38](https://github.com/ChelseaKR/cairn/issues/38),
-[#39](https://github.com/ChelseaKR/cairn/issues/39), plus six more with no
+**Status: built.** Closes issues
+[#38](https://github.com/ChelseaKR/cairn/issues/38) and
+[#39](https://github.com/ChelseaKR/cairn/issues/39), plus five more that had no
 issue of their own: `audit_guard.py`'s `harness_defaults` and
 `regression_findings`, `cairn/tabular.py`'s `parse_count_query`,
-`assemble_corpus.py`'s `plan`, and `import_corpus.py`'s `handle_starttag`,
-`handle_endtag` and `scaffold_one`. The last four were not in the published
-count until Phase 2 recomputed it.
+`assemble_corpus.py`'s `plan`, and `import_corpus.py`'s `scaffold_one`. The
+last two were not in the published count until Phase 2 recomputed it.
 
-Each is 11 against a configured limit of 10, and each is presentation or
-orchestration code with comprehensive tests already watching its output. The
-constraint is that behaviour stays identical, which for `render_terminal` means
-byte-identical.
+Twelve over the limit, seven out, five left. Every one closed by extracting a
+cohesive block into a named helper: nothing collapsed into a dict lookup,
+nothing hidden from mccabe behind a comprehension. Behaviour is identical, and
+for `audit_guard.py` that was checked the strong way rather than asserted --
+its whole terminal report, run against a real gate report, is byte-for-byte
+what it was before.
 
 ## Phase 4: the two large complexity findings
 

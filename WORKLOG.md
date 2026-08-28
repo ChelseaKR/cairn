@@ -1251,3 +1251,29 @@ One line per implementation session: date, what was built, from what input.
   passage, the ck-022 shape one subsystem over. `make verify`: ruff,
   mypy --strict, 816 tests, 92% branch coverage. Gate and guard both
   still PASS; no evidence moved, because none was recorded.
+
+- 2026-08-27 — Session 24 (AI implementation session). Input: issues #38
+  and #39, and the corrected complexity inventory session 20 produced.
+  Seven of twelve functions over the limit are under it:
+  `assemble_corpus.py`'s `plan` (12), `audit_guard.py`'s
+  `harness_defaults`, `regression_findings` and `render_terminal` (11
+  each), `cairn/lint.py`'s `lint_corpus` (11), `cairn/tabular.py`'s
+  `parse_count_query` (11), `import_corpus.py`'s `scaffold_one` (11).
+  Every one by extracting a cohesive block into a named helper, nothing
+  collapsed into a dict lookup and nothing hidden from mccabe behind a
+  comprehension, because the point is a function a reviewer can read and
+  not a number. Behaviour identical throughout; for `audit_guard.py`
+  that was checked the strong way rather than asserted, by diffing its
+  whole terminal report against a real gate report either side of the
+  change and getting no bytes back. Two seams worth naming:
+  `lint_corpus` split at the boundary its own helpers already implied
+  (`_empty_passage_issues` returns the ids the reachability pass has to
+  skip, so the coupling stays explicit rather than becoming a shared
+  set), and `parse_count_query`'s earliest-comparator scan came out
+  whole, which also gave the "earliest, not first-listed" rule somewhere
+  to be written down. Five remain and they are a different task: two
+  request-handler closures, a measured ranking algorithm, two HTML
+  parser state machines. `C90` stays out of ruff's select until they go.
+  The inventory guard from session 20 failed on the first run, which is
+  what it is for; the published count moved from 12 to 5 with it. `make
+  verify`: ruff, mypy --strict, 816 tests, 92% branch coverage.
