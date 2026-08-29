@@ -159,6 +159,87 @@ class TestParser(unittest.TestCase):
         self.assertEqual(fired, [], f"{len(prompts)} questions checked")
 
 
+class TestTheAmbiguityRuleIsOverMeasureColumnsOnly(unittest.TestCase):
+    """#67. The parser's docstring described an ambiguity rule over *every*
+    binding column, with a conditional exemption for row labels, and kept a
+    `bindings` list nothing read. The rule that actually runs is narrower and
+    unconditional: count measure columns, ignore label columns entirely.
+
+    Rewriting the prose to match is only half the fix. These pin the rule so
+    the two can no longer drift apart in silence — a docstring is not a check.
+    """
+
+    def table(self, columns, rows, table_id="pins"):
+        return Table(
+            table_id=table_id,
+            title="Pins",
+            lang="en",
+            columns=tuple(columns),
+            rows=tuple(tuple(row) for row in rows),
+        )
+
+    def test_two_label_columns_beside_one_measure_still_bind(self):
+        """The exemption, unconditionally. `program` and `region` are both
+        named by the question and both are row labels; only
+        `monthly_benefit_usd` is a number a filter can act on, so there is
+        exactly one measure and the query binds.
+        """
+        table = self.table(
+            ("program", "region", "monthly_benefit_usd"),
+            (("Grocery", "North", "212"), ("Utility", "South", "95")),
+        )
+        query = parse_count_query(
+            "How many programs in a region have a monthly benefit over $100?",
+            (table,),
+        )
+        self.assertIsNotNone(query, "two bound label columns must not create ambiguity")
+        self.assertEqual(query.column, "monthly_benefit_usd")
+
+    def test_two_measure_columns_decline(self):
+        """The ambiguity rule that does exist. Both `monthly_benefit_usd` and
+        `monthly_hours` are all-numeric and both share `month` with the
+        question, so there is no non-arbitrary way to pick one and the honest
+        move is to hand the question to passage retrieval.
+        """
+        table = self.table(
+            ("program", "monthly_benefit_usd", "monthly_hours"),
+            (("Grocery", "212", "8"), ("Utility", "95", "4")),
+        )
+        self.assertIsNone(
+            parse_count_query("How many programs have a monthly over 5?", (table,))
+        )
+
+    def test_two_measure_columns_in_different_tables_also_decline(self):
+        """`measures` spans every loaded table, so ambiguity is not per-file."""
+        one = self.table(
+            ("program", "monthly_benefit_usd"),
+            (("Grocery", "212"),),
+            table_id="one",
+        )
+        two = self.table(
+            ("service", "monthly_benefit_usd"),
+            (("Transit", "20"),),
+            table_id="two",
+        )
+        self.assertIsNone(
+            parse_count_query(
+                "How many programs have a monthly benefit over $100?", (one, two)
+            )
+        )
+
+    def test_label_columns_alone_decline_because_no_measure_bound(self):
+        """Zero measures is the same verdict as two, for a different reason:
+        the question named its rows but no number to filter them by.
+        """
+        table = self.table(
+            ("program", "region", "monthly_benefit_usd"),
+            (("Grocery", "North", "212"),),
+        )
+        self.assertIsNone(
+            parse_count_query("How many programs in a region are over 2?", (table,))
+        )
+
+
 class TestRunCount(unittest.TestCase):
     def test_matches_respect_the_operator(self):
         tables = load_tables(CORPUS)

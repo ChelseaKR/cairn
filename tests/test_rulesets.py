@@ -11,10 +11,15 @@ into one that matches nothing. A rule that matches nothing looks exactly like
 a rule that passes.
 """
 
+import copy
+import io
 import json
 import re
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+
+import ruleset_conformance
 
 ROOT = Path(__file__).resolve().parent.parent
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
@@ -126,8 +131,34 @@ class TestTheRulesetMatchesTheWorkflow(unittest.TestCase):
         # merge to gate.
         self.assertIn("pull_request", self.rules)
 
-    def test_nobody_can_bypass_it(self):
-        self.assertEqual(self.ruleset["bypass_actors"], [])
+    def test_only_the_repository_owner_can_bypass_it(self):
+        """Exactly one bypass actor, and it is the repository owner's own.
+
+        This asserted `bypass_actors == []` until 2026-08-28, and both the
+        assertion and the paragraph in `.github/rulesets/README.md` arguing for
+        it were wrong. The owner's standing bypass is deliberate and permanent.
+        An agent once applied a ruleset that locked the owner out of their own
+        repository, and restoring access took a sweep across eight rulesets in
+        this portfolio; the standing instruction since is that the owner must
+        always be able to bypass, in any repository. See "Why the owner can
+        bypass" in that file.
+
+        Equality with the single-element list, rather than deleting the check
+        or loosening it to "the owner is in there somewhere", is what keeps
+        this falsifiable in the two directions that matter:
+
+        - a bypass granted to a **team, a GitHub App or a second role** fails
+          here, which is the threat actually worth guarding;
+        - the owner's bypass being **removed** fails here too, which is the
+          incident that produced the rule. An empty list is not a stricter
+          gate; it is the lockout.
+        """
+        self.assertEqual(
+            self.ruleset["bypass_actors"],
+            [ruleset_conformance.OWNER_BYPASS],
+            "the committed ruleset must record exactly the owner's standing "
+            "bypass: no second actor, and not an empty list",
+        )
 
     def test_it_would_actually_be_enforced_if_applied(self):
         self.assertEqual(self.ruleset["enforcement"], "active")
@@ -180,6 +211,222 @@ class TestTheRepositoryDoesNotClaimTheGateIsAdvisory(unittest.TestCase):
         self.assertIn("main.json", doc)
         self.assertIn("rulesets", doc)
         self.assertIn("Status: applied", doc)
+
+
+class TestTheEnforcedRulesetIsTheCommittedOne(unittest.TestCase):
+    """The step nothing checked, at either end.
+
+    Everything above holds `.github/rulesets/main.json` to the workflow it
+    names. `.github/workflows/ruleset-check.yml` held GitHub to "at least one
+    active ruleset exists". Between those two is the claim the whole apparatus
+    rests on -- that the ruleset being enforced is the ruleset that was
+    reviewed -- and until `ruleset_conformance.py` existed, nothing compared
+    them.
+
+    The gap was not theoretical, and closing it is also how the repository
+    learned its committed expectation was the wrong half. On 2026-08-28 the
+    enforced ruleset (id 21223426, `updated_at` four days after it was
+    created) carried a `RepositoryRole` bypass with `bypass_mode: "always"`
+    while the committed file said `[]`. Nothing compared them -- and the first
+    version of this comparison reported the enforced value as the fault, which
+    would have been a check that failed forever against a correct repository.
+    The enforced value is correct. The file, the prose and the test above were
+    what needed changing.
+
+    So the bypass rule is asserted in both directions rather than compared
+    once: the owner's bypass must be present on each side independently, and
+    any other actor is a finding. `test_both_sides_emptied_is_still_a_failure`
+    is the case a plain equality check would pass, and it is the lockout
+    incident recurring.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.committed = json.loads(RULESET.read_text(encoding="utf-8"))
+
+    def live(self, **overrides):
+        """The committed ruleset as GitHub would return it, plus overrides."""
+        ruleset = copy.deepcopy(self.committed)
+        ruleset["id"] = 21223426
+        ruleset.update(overrides)
+        return ruleset
+
+    def test_an_identical_ruleset_has_no_differences(self):
+        self.assertEqual(
+            ruleset_conformance.differences(self.live(), self.committed), []
+        )
+
+    def test_the_real_live_configuration_conforms(self):
+        """2026-08-28, byte for byte from
+        `gh api repos/ChelseaKR/cairn/rulesets/21223426`: the owner's standing
+        bypass and nothing else. This is the configuration the repository is
+        actually in, and it must read as conformance rather than as a finding.
+        A check that fails forever against a correct repository is not a
+        stricter check, it is a broken one.
+        """
+        live = self.live(bypass_actors=[ruleset_conformance.OWNER_BYPASS])
+        self.assertEqual(ruleset_conformance.differences(live, self.committed), [])
+
+    def test_a_second_bypass_actor_is_reported(self):
+        """The threat actually worth guarding: a team, a GitHub App or a
+        second role handed the ability to skip the gate."""
+        for extra in (
+            {"actor_id": 4242, "actor_type": "Team", "bypass_mode": "pull_request"},
+            {"actor_id": 99, "actor_type": "Integration", "bypass_mode": "always"},
+            {"actor_id": 2, "actor_type": "RepositoryRole", "bypass_mode": "always"},
+        ):
+            with self.subTest(actor=extra):
+                drifted = self.live(
+                    bypass_actors=[ruleset_conformance.OWNER_BYPASS, extra]
+                )
+                found = ruleset_conformance.differences(drifted, self.committed)
+                self.assertEqual(len(found), 1, found)
+                self.assertIn("unreviewed bypass actor", found[0])
+
+    def test_the_owner_losing_their_bypass_is_reported(self):
+        """The incident the rule exists for. An empty bypass list coming back
+        from the API is the owner locked out of their own repository."""
+        drifted = self.live(bypass_actors=[])
+        found = ruleset_conformance.differences(drifted, self.committed)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("is NOT enforced", found[0])
+        self.assertIn("lockout", found[0])
+
+    def test_both_sides_emptied_is_still_a_failure(self):
+        """The case equality alone would pass, and the whole reason the owner's
+        bypass is asserted against each side rather than only compared between
+        them: a tidy revert of the committed file, on a day the owner had also
+        been locked out, would otherwise report conformance on exactly the
+        incident this guards. Two findings, not zero.
+        """
+        committed = dict(self.committed, bypass_actors=[])
+        drifted = self.live(bypass_actors=[])
+        found = ruleset_conformance.differences(drifted, committed)
+        self.assertEqual(len(found), 2, found)
+        self.assertTrue(any("is NOT enforced" in line for line in found), found)
+        self.assertTrue(
+            any("no longer records" in line for line in found),
+            "the committed file losing the owner's bypass must be named too",
+        )
+
+    def test_the_committed_file_on_disk_records_the_owner_bypass(self):
+        """Not a fixture: the actual `.github/rulesets/main.json`. Reapplying a
+        ruleset file that omits the owner's bypass is one way the lockout
+        happens, so the file has to be right, not only the comparison."""
+        self.assertEqual(
+            self.committed["bypass_actors"], [ruleset_conformance.OWNER_BYPASS]
+        )
+
+    def test_a_required_check_dropped_from_the_live_ruleset_is_reported(self):
+        """The failure the whole file is named for: `audit` stops being
+        required and every pull request stays green.
+        """
+        drifted = self.live()
+        for rule in drifted["rules"]:
+            if rule["type"] == "required_status_checks":
+                rule["parameters"]["required_status_checks"] = [
+                    check
+                    for check in rule["parameters"]["required_status_checks"]
+                    if not check["context"].startswith("audit")
+                ]
+        found = ruleset_conformance.differences(drifted, self.committed)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("required check not enforced", found[0])
+        self.assertIn("audit", found[0])
+
+    def test_a_required_check_nobody_reviewed_is_reported(self):
+        drifted = self.live()
+        for rule in drifted["rules"]:
+            if rule["type"] == "required_status_checks":
+                rule["parameters"]["required_status_checks"].append(
+                    {"context": "something nobody committed"}
+                )
+        found = ruleset_conformance.differences(drifted, self.committed)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("unreviewed required check", found[0])
+
+    def test_a_stale_base_becoming_allowed_is_reported(self):
+        drifted = self.live()
+        for rule in drifted["rules"]:
+            if rule["type"] == "required_status_checks":
+                rule["parameters"]["strict_required_status_checks_policy"] = False
+        found = ruleset_conformance.differences(drifted, self.committed)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("strict_required_status_checks_policy", found[0])
+
+    def test_a_ruleset_targeting_another_branch_is_reported(self):
+        drifted = self.live()
+        drifted["conditions"] = {"ref_name": {"include": ["refs/heads/scratch"], "exclude": []}}
+        found = ruleset_conformance.differences(drifted, self.committed)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("conditions.ref_name.include", found[0])
+
+    def test_a_dropped_rule_type_is_reported(self):
+        drifted = self.live()
+        drifted["rules"] = [
+            rule for rule in drifted["rules"] if rule["type"] != "non_fast_forward"
+        ]
+        found = ruleset_conformance.differences(drifted, self.committed)
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("rule types", found[0])
+
+    def test_no_active_ruleset_at_all_is_its_own_verdict(self):
+        code, lines = ruleset_conformance.report([], self.committed)
+        self.assertEqual(code, 2)
+        self.assertIn("NOT ENFORCED", lines[0])
+        disabled = self.live(enforcement="disabled")
+        code, lines = ruleset_conformance.report([disabled], self.committed)
+        self.assertEqual(code, 2, "a disabled ruleset does not block a merge")
+
+    def test_an_active_ruleset_under_another_name_does_not_count(self):
+        """The previous check counted any active ruleset. One named something
+        else, requiring nothing, satisfied it.
+        """
+        other = {"name": "something else", "enforcement": "active", "rules": []}
+        code, lines = ruleset_conformance.report([other], self.committed)
+        self.assertEqual(code, 1)
+        self.assertIn("none named", lines[0])
+
+    def test_conformance_is_the_only_passing_verdict(self):
+        code, lines = ruleset_conformance.report([self.live()], self.committed)
+        self.assertEqual(code, 0)
+        self.assertTrue(lines[0].startswith("CONFORMS"), lines)
+
+    def test_the_cli_exits_non_zero_and_names_what_moved(self):
+        drifted = self.live(
+            bypass_actors=[
+                ruleset_conformance.OWNER_BYPASS,
+                {"actor_id": 4242, "actor_type": "Team", "bypass_mode": "always"},
+            ]
+        )
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "live.json"
+            path.write_text(json.dumps([drifted]), encoding="utf-8")
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = ruleset_conformance.main(["--live", str(path)])
+        self.assertEqual(code, 1)
+        self.assertIn("DRIFTED", out.getvalue())
+        self.assertIn("unreviewed bypass actor", out.getvalue())
+        self.assertIn("4242", out.getvalue(), "the finding names the actor")
+
+    def test_the_workflow_calls_the_comparison_and_not_a_count(self):
+        """The comparison existing is not the same as it running. This holds
+        the workflow to calling it, and to no longer deciding on a count.
+        """
+        workflow = (
+            ROOT / ".github" / "workflows" / "ruleset-check.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("ruleset_conformance.py", workflow)
+        self.assertNotIn("active_count", workflow)
+        self.assertNotIn(
+            "python3 ruleset_conformance.py --live live.json | tee",
+            workflow,
+            "`$?` after a pipeline is tee's status, which is 0 whatever the "
+            "comparison found",
+        )
 
 
 if __name__ == "__main__":

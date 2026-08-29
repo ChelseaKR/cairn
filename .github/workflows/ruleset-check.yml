@@ -13,6 +13,39 @@
 # merge is a repository setting only someone with admin rights can change
 # (.github/rulesets/README.md), and a workflow quietly seizing that decision
 # would be the opposite of the point — it reports, it never enforces.
+#
+# ---------------------------------------------------------------------------
+# What it used to ask, and why that was not enough
+# ---------------------------------------------------------------------------
+# The check was a count:
+#
+#   [.[] | select(.enforcement == "active")] | length
+#
+# One active ruleset, anywhere on the repository, of any content, satisfied
+# it. So "applied" meant "something is applied" — not that the ten required
+# contexts are required, not that `main` is the branch it targets, and not
+# that the bypass list is empty. tests/test_rulesets.py checks all of that
+# against the committed FILE; this job checked that a ruleset EXISTED; and
+# the step joining them — that the live ruleset is the committed one — was
+# checked by nothing at either end.
+#
+# That gap was live. On 2026-08-28 the enforced ruleset carried a
+# RepositoryRole bypass actor with bypass_mode "always", while
+# .github/rulesets/main.json carries `"bypass_actors": []` and
+# .github/rulesets/README.md argues that emptiness by name. Nothing was red:
+# `test_nobody_can_bypass_it` read the file, and the file was right.
+#
+# So the count is now a comparison, in ruleset_conformance.py — a module
+# rather than more `jq`, so the judgement is testable offline against
+# fixtures including that exact drift, and so the thing that fetches and the
+# thing that judges stay separable (the same split plumbline-gate.sh and
+# audit_guard.py already use).
+#
+# And the job FAILS on drift, after updating the tracking issue. That is not
+# a change of stance — it still never applies anything — it is the stance
+# this repository takes everywhere else about reports: a green scheduled run
+# next to an open issue is the "warning in a log nobody opens" that ci.yml's
+# own header refuses.
 
 name: ruleset-check
 
@@ -36,25 +69,57 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check whether an active ruleset enforces the required checks
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Check that the enforced ruleset is the committed one
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # "Applied" here means at least one ACTIVE ruleset exists on the
-          # repository. A disabled or evaluate-only ruleset does not block a
-          # merge, so it does not count — see .github/rulesets/README.md's
-          # own distinction between existing and enforcing.
-          active_count=$(gh api "repos/${REPO}/rulesets" --jq \
-            '[.[] | select(.enforcement == "active")] | length')
-          echo "active rulesets: ${active_count}"
-          if [ "${active_count}" -gt 0 ]; then
+          # The list endpoint does not expand `rules` or `bypass_actors`, so
+          # each ruleset is fetched by id. A comparison against a summary
+          # would be a comparison of the fields that happen to be summarised,
+          # which is how the previous version of this step ended up counting.
+          #
+          # No `|| true` on the API calls. "The question could not be asked"
+          # and "the answer is no rulesets" are different facts, and writing
+          # an empty list on a failed request would turn the first into the
+          # second — an unreachable API reported as an unprotected branch, or
+          # worse, a partial list reported as the whole one. `set -e` makes a
+          # failed call end the job, which is the honest report of not knowing.
+          gh api "repos/${REPO}/rulesets" --jq '.[].id' > ids.txt
+          {
+            echo "["
+            first=1
+            while read -r id; do
+              [ -n "$id" ] || continue
+              [ "$first" -eq 1 ] || echo ","
+              first=0
+              gh api "repos/${REPO}/rulesets/${id}"
+            done < ids.txt
+            echo "]"
+          } > live.json
+
+          # Deliberately not `python3 ... | tee findings.txt`: `$?` after a
+          # pipeline is the LAST command's status, so that reads tee's, which
+          # is 0 whatever the comparison found. A gate whose exit code is
+          # swallowed by a pipe is exactly the failure this file is about.
+          set +e
+          python3 ruleset_conformance.py --live live.json > findings.txt 2>&1
+          code=$?
+          set -e
+          cat findings.txt
+          echo "conformance exited ${code}"
+          if [ "$code" -eq 0 ]; then
             echo "applied=true" >> "$GITHUB_OUTPUT"
           else
             echo "applied=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
 
       - name: Open or update the tracking issue
         if: steps.check.outputs.applied == 'false'
@@ -65,16 +130,24 @@ jobs:
           set -euo pipefail
           TITLE="Branch protection ruleset is not enforced"
           CHECKED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          BODY=".github/rulesets/main.json is committed but no active ruleset \
-          currently enforces it on this repository (checked ${CHECKED_AT}). \
-          The \`audit\` job reports rather than blocks a merge until this is \
-          applied — see .github/rulesets/README.md for the two ways to apply \
-          it, both of which need admin rights on the repository.
+          FINDINGS=$(cat findings.txt 2>/dev/null || echo "(no findings written)")
+          BODY="The ruleset GitHub is enforcing is not the one committed at \
+          .github/rulesets/main.json (checked ${CHECKED_AT}).
+
+          \`\`\`
+          ${FINDINGS}
+          \`\`\`
+
+          See .github/rulesets/README.md for the two ways to reapply it, both \
+          of which need admin rights on the repository. Reapplying is delete \
+          then POST: a \`required_status_checks\` list is replaced as a whole, \
+          never merged field by field.
 
           This issue is opened and updated automatically by \
           \`.github/workflows/ruleset-check.yml\` on a weekly schedule. It \
-          does not apply the ruleset itself, only reports its absence, and \
-          it will close itself automatically once an active ruleset is found."
+          does not apply the ruleset itself, only reports the difference, and \
+          it will close itself automatically once the enforced ruleset matches \
+          the committed one."
 
           existing=$(gh issue list --repo "$REPO" --state open \
             --search "in:title \"${TITLE}\"" --json number,title \
@@ -99,6 +172,16 @@ jobs:
             --jq "[.[] | select(.title == \"${TITLE}\")][0].number // empty")
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$REPO" --body \
-              "An active ruleset now enforces the required checks (checked ${CHECKED_AT}). Closing automatically."
+              "The enforced ruleset now matches .github/rulesets/main.json (checked ${CHECKED_AT}). Closing automatically."
             gh issue close "$existing" --repo "$REPO"
           fi
+
+      # After the issue, not instead of it. A scheduled workflow that stays
+      # green while it files a report is the shape ci.yml's header rejects:
+      # the check ran, it found something, and the run summary said nothing.
+      - name: Fail the run while the enforced ruleset is not the committed one
+        if: steps.check.outputs.applied == 'false'
+        run: |
+          cat findings.txt 2>/dev/null || true
+          echo "the enforced ruleset does not match .github/rulesets/main.json" >&2
+          exit 1

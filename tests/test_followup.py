@@ -359,6 +359,36 @@ class TestStoreEnabled(FollowupServerHarness):
         body = json.loads(ctx.exception.read().decode("utf-8"))
         self.assertEqual(body, {"error": "malformed JSON body"})
 
+    def test_a_json_body_that_parses_but_is_not_an_object_is_a_400(self):
+        """#68's other route. The test above covers a body that does not
+        parse; this covers one that parses to a list, a string, a number, a
+        boolean or null, which `json.loads` accepts and `submitted.get`
+        cannot take. It killed the handler thread and dropped the connection,
+        so the asker of a refused question -- the person this whole route
+        exists for -- got no confirmation and no error.
+
+        Nothing is stored either way, and that is asserted rather than
+        assumed: a bad request must not leave a partial record in a file that
+        holds somebody's contact details.
+        """
+        before = len(load(self.store_path)) if self.store_path.is_file() else 0
+        for body in (b"[1,2]", b'"hello"', b"5", b"null", b"true"):
+            with self.subTest(body=body):
+                request = urllib.request.Request(
+                    self.base + "/follow-up",
+                    data=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(request)
+                self.assertEqual(ctx.exception.code, 400)
+                self.assertEqual(
+                    json.loads(ctx.exception.read().decode("utf-8")),
+                    {"error": "malformed JSON body"},
+                )
+        after = len(load(self.store_path)) if self.store_path.is_file() else 0
+        self.assertEqual(before, after, "a refused request stored something")
+
 
 class TestCliFollowupsCommand(unittest.TestCase):
     def run_cli(self, *argv):
