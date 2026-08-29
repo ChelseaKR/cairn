@@ -317,7 +317,32 @@ class TestTheDatasetCardCountsWhatIsInTheBundle(PublishedFigures):
         self.assertSays(CARD, f"the remaining {authored} were", self.card)
 
 
-class TestTheFloorReasonsQuoteTheCommittedBaseline(unittest.TestCase):
+class TestThePilotCandidateCountsAreCounted(PublishedFigures):
+    """`docs/pilot-ca.md` counts a file it does not read.
+
+    `corpus/pilot-ca/candidates.toml` is `collect_queries.py`'s output, and
+    the page publishes its size and its split by source. Regenerating it is
+    not possible offline — the collector draws from MS MARCO and Stack
+    Exchange dumps that are deliberately not committed — so the file itself
+    cannot be byte-compared here. Its counts can be, and are: they are the
+    part of the claim that goes stale when somebody adds or drops candidates.
+    """
+
+    def test_the_page_counts_the_candidates_that_are_committed(self):
+        candidates = tomllib.loads(
+            (ROOT / "corpus" / "pilot-ca" / "candidates.toml")
+            .read_text(encoding="utf-8"))["item"]
+        by_source: dict[str, int] = {}
+        for item in candidates:
+            by_source[item["source"]] = by_source.get(item["source"], 0) + 1
+        self.assertSays(
+            "docs/pilot-ca.md",
+            f"holds {len(candidates)} candidates "
+            f"({by_source['search-query']} search queries, "
+            f"{by_source['stackexchange']} Stack Exchange)")
+
+
+class TestTheFloorReasonsQuoteTheCommittedBaseline(PublishedFigures):
     """`plumbline/target.toml` says its measurements come from the baseline.
 
     It said so and nothing checked it, so four of them stopped being true
