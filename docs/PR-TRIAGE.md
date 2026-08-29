@@ -350,10 +350,13 @@ request at a time and watching it go green.
 **Taken on trust, or not established:**
 
 - **#71's substantive claims about the three gates and the two defects were not
-  independently re-derived.** #71's full check set is green on `cf03c41` and its
-  fixes are visible in the diff, but this triage did not mutate the fixed code
-  to prove each new test goes red. That work was delegated and had not returned
-  when this was written.
+  independently re-derived.** #71's full check set is green on `cf03c41`, its
+  two fixes are visible in the diff, and the `cairn/tabular.py` fix was executed
+  here as part of the auto-merge check. But this triage did not mutate each
+  fixed subject to prove that every new test in #71 goes red when its subject
+  regresses — which is the only thing that would establish the pull request's
+  own title. Read #71's three-gates claim as plausible and green, not as
+  audited. Anyone relying on it should do the mutation pass.
 - **#70's "the store never held a timestamp" and #62's "split_intents cannot
   silently drop a merged field" were not proved by mutation here.** #70's own
   worklog states the author proved it by adding a `received_at` to `record()`
