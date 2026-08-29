@@ -22,6 +22,17 @@ becomes a version section like any other.
 
 #### Added
 
+- The published page is checked against the page that is actually served.
+  `verify_live_site.py` regenerates the page from the checkout, fetches
+  https://chelseakr.github.io/cairn/ over HTTPS, and fails naming every
+  byte-level difference; `.github/workflows/live-integrity.yml` runs it daily
+  and on demand. Every gate this repository had graded the checkout, so a
+  pages deploy that failed, never fired, or published an older commit would
+  have left them all green while the served page said something else. The
+  check refuses to pass vacuously: an empty comparison set, a fetch that is
+  not HTTP 200, and an origin that answers a guaranteed-missing path with
+  anything but 404 are all failures rather than a quiet OK.
+
 - The published page names its own address. `site/index.html` now carries a
   self-referencing `<link rel="canonical">`, `og:url`, `og:title`,
   `og:description`, `og:type`, `og:site_name` and `twitter:card`, all built
