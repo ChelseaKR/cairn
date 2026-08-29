@@ -22,6 +22,14 @@ TWO_PART = (
     "What is the income limit for one person?"
 )
 
+# A hybrid weight inside `Config`'s [0, 0.5] bound, used by the one test that
+# needs the dense channel switched on. 0.25 is not a recommendation — the
+# shipped default is 0 and DESIGN.md keeps it there — it is the smallest of
+# the swept weights at which this corpus produces a passage whose winning part
+# is not its best-lexical part, which is what makes the merge's treatment of
+# `lexical` and `dense` observable at all.
+DENSE_WEIGHT = 0.25
+
 
 class TestOffByDefault(unittest.TestCase):
     @classmethod
@@ -274,20 +282,39 @@ class TestTheMergeHandlesEveryFieldItIsHandedOnPurpose(unittest.TestCase):
         cls.index = build_index(CORPUS)
         cls.cfg = Config(split_intents=True)
 
-    def parts_and_merge(self, question=TWO_PART, lang="en"):
+    def parts_and_merge(self, question=TWO_PART, lang="en", dense_weight=0.0):
         """The merged trace, and the per-part traces it was merged from."""
         parts = _sentence_parts(question)
         self.assertGreater(len(parts), 1, "this fixture must actually split")
         traces = [
             retrieve(part, self.index, threshold=self.cfg.threshold,
-                     candidates=self.cfg.candidates, lang=lang, dense_weight=0.0)
+                     candidates=self.cfg.candidates, lang=lang,
+                     dense_weight=dense_weight)
             for part in parts
         ]
         merged = split_intents(
             question, self.index, threshold=self.cfg.threshold,
-            candidates=self.cfg.candidates, lang=lang, dense_weight=0.0,
+            candidates=self.cfg.candidates, lang=lang, dense_weight=dense_weight,
         )
         return parts, traces, merged
+
+    @staticmethod
+    def winner_and_matched_anywhere(traces):
+        """Per passage: the part candidate that won it, and every term matched.
+
+        The winner is the first part to reach the highest score, which is the
+        merge's own rule (a strict `>` over the traces in order). Recomputed
+        from the part traces, never read back out of the merged trace.
+        """
+        winner = {}
+        matched_anywhere = {}
+        for trace in traces:
+            for candidate in trace.candidates:
+                pid = candidate.passage.passage_id
+                matched_anywhere.setdefault(pid, set()).update(candidate.matched)
+                if pid not in winner or candidate.score > winner[pid].score:
+                    winner[pid] = candidate
+        return winner, matched_anywhere
 
     def test_every_field_of_both_dataclasses_has_a_recorded_treatment(self):
         self.assertEqual(
@@ -340,22 +367,84 @@ class TestTheMergeHandlesEveryFieldItIsHandedOnPurpose(unittest.TestCase):
 
     def test_the_candidate_level_fields_are_what_the_recorded_treatment_says(self):
         _parts, traces, merged = self.parts_and_merge()
-        best_score = {}
-        matched_anywhere = {}
-        for trace in traces:
-            for candidate in trace.candidates:
-                pid = candidate.passage.passage_id
-                matched_anywhere.setdefault(pid, set()).update(candidate.matched)
-                if pid not in best_score or candidate.score > best_score[pid]:
-                    best_score[pid] = candidate.score
+        winner, matched_anywhere = self.winner_and_matched_anywhere(traces)
         self.assertTrue(merged.candidates, "this fixture must retrieve something")
         for candidate in merged.candidates:
             pid = candidate.passage.passage_id
             with self.subTest(passage=pid):
-                self.assertEqual(candidate.score, best_score[pid])
+                self.assertEqual(candidate.score, winner[pid].score)
                 self.assertEqual(candidate.accepted, candidate.score >= merged.threshold)
                 self.assertEqual(
                     candidate.matched, tuple(sorted(matched_anywhere[pid]))
+                )
+                self.assertEqual(candidate.lexical, winner[pid].lexical)
+                self.assertEqual(candidate.dense, winner[pid].dense)
+
+    def test_the_score_components_come_from_the_winning_part_not_the_best_of_each(self):
+        """`lexical` and `dense` at a weight that can tell the two apart.
+
+        Every other test in this class runs at `dense_weight=0.0`, where the
+        blend is the plain lexical score: `lexical` equals `score` for every
+        candidate of every part and `dense` is 0.0 for all of them. At that
+        weight "the winning part's lexical" and "the highest lexical any part
+        reached" are the same number and "the winning part's dense" and "the
+        field's default" are both 0.0, so those two assertions hold whichever
+        rule the merge implements. A fixture whose orderings coincide passes
+        for the wrong reason.
+
+        So run the merge with the dense channel actually on, and require a
+        passage where the orderings genuinely disagree before relying on it:
+        one part wins the passage on the fused score while the *other* part
+        gives it the higher lexical. Carrying the winner's lower lexical
+        through the merge is the whole content of the recorded treatment, and
+        it is only visible on a passage like that one.
+        """
+        _parts, traces, merged = self.parts_and_merge(dense_weight=DENSE_WEIGHT)
+        winner, _matched = self.winner_and_matched_anywhere(traces)
+        per_part = {}
+        for trace in traces:
+            for candidate in trace.candidates:
+                per_part.setdefault(candidate.passage.passage_id, []).append(candidate)
+        merged_by_id = {c.passage.passage_id: c for c in merged.candidates}
+        discriminating = [
+            pid for pid, scored in per_part.items()
+            if pid in merged_by_id and len(scored) > 1
+            and max(c.lexical for c in scored) != winner[pid].lexical
+        ]
+        self.assertTrue(
+            discriminating,
+            "no merged passage is won by one part while another part gives it "
+            "the higher lexical, so this fixture cannot tell 'the winning "
+            "part's' from 'the best any part reached' and would pass on either",
+        )
+        self.assertTrue(
+            any(c.dense > 0.0 for c in merged.candidates),
+            "the dense channel contributed nothing at this weight, so 'the "
+            "winning part's dense' is indistinguishable from the 0.0 default",
+        )
+        for candidate in merged.candidates:
+            pid = candidate.passage.passage_id
+            with self.subTest(passage=pid):
+                self.assertEqual(candidate.lexical, winner[pid].lexical)
+                self.assertEqual(candidate.dense, winner[pid].dense)
+                # The invariant Candidate's own comment states: the merged
+                # score must still be the blend of the components it carries,
+                # so a merge cannot keep a plausible score beside components
+                # taken from somewhere else.
+                self.assertAlmostEqual(
+                    candidate.score,
+                    (1.0 - DENSE_WEIGHT) * candidate.lexical
+                    + DENSE_WEIGHT * candidate.dense,
+                    places=12,
+                    msg="the merged score is not the blend of its own components",
+                )
+        for pid in discriminating:
+            with self.subTest(passage=pid):
+                self.assertNotEqual(
+                    merged_by_id[pid].lexical,
+                    max(c.lexical for c in per_part[pid]),
+                    "the merge took the best lexical any part reached, not the "
+                    "lexical of the part that actually won the passage",
                 )
 
     def test_a_passage_scored_by_both_parts_keeps_both_parts_terms(self):

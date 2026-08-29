@@ -214,6 +214,18 @@ becomes a version section like any other.
   scans the same index, so `scoped` and `excluded` are one part's and not the
   sum. No behaviour change.
 
+  Two fields of its own were named and never read. `lexical` and `dense` were
+  listed with the treatment "from the part that won" and no assertion touched
+  them, so the merge could hand back any number for either and the whole suite
+  stayed green - the guard had the shape of the bug it exists to catch. They
+  are asserted now, and asserted at a nonzero `dense_weight`, because at the
+  shipped weight of 0 the blend is the plain lexical score: `lexical` equals
+  `score` and `dense` is 0.0 for every candidate of every part, so "the
+  winning part's" and "the best any part reached" are the same number and an
+  assertion passes on whichever rule the merge implements. The added case runs
+  at 0.25 and refuses to rely on the fixture until it finds a passage one part
+  wins on the fused score while another part holds the higher lexical.
+
 - `tests/test_disclosure.py`, and the rule it enforces: a disclosure is not
   made until a person can read it. Three defects in this repository have been
   the same defect - a disclosure correct in a field and missing from every
