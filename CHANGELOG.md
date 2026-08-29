@@ -20,6 +20,19 @@ becomes a version section like any other.
 
 ### Unreleased
 
+#### Added
+
+- The published page names its own address. `site/index.html` now carries a
+  self-referencing `<link rel="canonical">`, `og:url`, `og:title`,
+  `og:description`, `og:type`, `og:site_name` and `twitter:card`, all built
+  from one title and one description constant in `site_build.py` so the share
+  card cannot describe the page differently from the page. GitHub Pages serves
+  this repository under a path on an origin five sibling projects also publish
+  under, and `https://chelseakr.github.io/` is itself a 404, so every absolute
+  reference carries `/cairn/`. `TestThePageNamesItsOwnAddress` in
+  `tests/test_site.py` fails on a canonical naming the bare origin, on a
+  missing card, and on any root-relative `href`, `src` or `content`.
+
 #### Fixed
 
 - A multi-turn follow-up says which question it was answered against.

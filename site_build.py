@@ -44,6 +44,28 @@ OUT = ROOT / "site" / "index.html"
 
 REPO = "https://github.com/ChelseaKR/cairn"
 
+# Where this page is served from, in full, including the project path.
+#
+# GitHub Pages serves this repository at a path under a shared origin, not at
+# an origin of its own: five sibling projects are published under
+# chelseakr.github.io as well, and https://chelseakr.github.io/ itself is a
+# 404. So every absolute reference here carries `/cairn/`. A root-relative
+# `/index.html` or a canonical naming the bare origin would not point at a
+# different page of this site, it would point at somebody else's project or at
+# nothing, and it would tell a crawler that six separate sites are one site.
+# tests/test_site.py holds this to the project path for that reason.
+SITE_URL = "https://chelseakr.github.io/cairn/"
+
+# The page's title and description, named once and used by both the plain tags
+# and the Open Graph ones. Two copies of a sentence are two things that can
+# drift, and a share card that describes a page differently from the page is
+# the same defect this repository exists to complain about.
+PAGE_TITLE = "Cairn — recorded evidence"
+PAGE_DESCRIPTION = (
+    "Recorded answers, refusals and audit scores from Cairn, a "
+    "grounded-or-silent reference assistant for public agencies."
+)
+
 # The evidence shown, in the order it is shown. The refusal leads: it is the
 # behaviour the project is named for, and a demonstration that opens with a
 # successful answer is a demonstration of something every assistant can do.
@@ -229,9 +251,15 @@ def render() -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cairn — recorded evidence</title>
-<meta name="description" content="Recorded answers, refusals and audit scores
- from Cairn, a grounded-or-silent reference assistant for public agencies.">
+<title>{esc(PAGE_TITLE)}</title>
+<meta name="description" content="{esc(PAGE_DESCRIPTION)}">
+<link rel="canonical" href="{esc(SITE_URL)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cairn">
+<meta property="og:url" content="{esc(SITE_URL)}">
+<meta property="og:title" content="{esc(PAGE_TITLE)}">
+<meta property="og:description" content="{esc(PAGE_DESCRIPTION)}">
+<meta name="twitter:card" content="summary">
 <style>{STYLE}</style>
 </head>
 <body>
