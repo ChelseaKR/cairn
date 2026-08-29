@@ -340,6 +340,12 @@ class TestThePilotCandidateCountsAreCounted(PublishedFigures):
             f"holds {len(candidates)} candidates "
             f"({by_source['search-query']} search queries, "
             f"{by_source['stackexchange']} Stack Exchange)")
+        # The same number is typed a second time, two hundred lines down, in
+        # the plan table. Gating only the first copy would leave the second
+        # free to go on saying whatever it says.
+        self.assertSays(
+            "docs/pilot-ca.md",
+            f"{len(candidates)} candidates collected and committed")
 
 
 class TestTheFloorReasonsQuoteTheCommittedBaseline(PublishedFigures):
