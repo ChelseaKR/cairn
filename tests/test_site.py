@@ -29,6 +29,7 @@ does not build the page; it uploads the committed file.
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
@@ -223,6 +224,77 @@ class TestThePageQuotesTheEvidence(PageHarness):
         # shown a public-benefits page that looks real.
         self.assertIn("synthetic", self.source)
         self.assertIn("fictional", self.source)
+
+
+class TestThePageNamesItsOwnAddress(PageHarness):
+    """The head must point at this project's path, not at the shared origin.
+
+    GitHub Pages serves this repository under a path on an origin five other
+    projects also publish under, and `https://chelseakr.github.io/` is itself a
+    404. Two mistakes are therefore available and both are silent: a canonical
+    or `og:url` naming the bare origin, which tells a crawler that six
+    unrelated projects are one page, and a root-relative reference, which
+    resolves against the origin rather than `/cairn/` and so points at another
+    project or at nothing at all.
+
+    Neither shows up in a browser, because a browser reads the page it was
+    already given. So the check is here rather than in a review pass.
+    """
+
+    def head(self) -> str:
+        return self.source.split("</head>", 1)[0]
+
+    def test_it_carries_a_self_referencing_canonical(self):
+        self.assertIn(
+            '<link rel="canonical" href="https://chelseakr.github.io/cairn/">',
+            self.head(),
+        )
+
+    def test_every_absolute_url_it_claims_for_itself_keeps_the_project_path(self):
+        # The canonical and og:url are the two tags whose whole job is to say
+        # which page this is. Naming the origin is the failure mode; naming it
+        # with the project path is the fix.
+        claimed = re.findall(
+            r'(?:<link rel="canonical" href|<meta property="og:url" content)="([^"]*)"',
+            self.head(),
+        )
+        self.assertEqual(len(claimed), 2, f"expected canonical and og:url, got {claimed}")
+        for url in claimed:
+            self.assertEqual(url, "https://chelseakr.github.io/cairn/")
+
+    def test_it_makes_no_root_relative_reference(self):
+        # `href="/x"` and `src="/x"` resolve against chelseakr.github.io, not
+        # against /cairn/. Protocol-relative `//host/x` is not this mistake and
+        # is excluded rather than caught by accident.
+        rooted = re.findall(r'(?:href|src|content)="(/(?!/)[^"]*)"', self.source)
+        self.assertEqual(rooted, [], f"root-relative references escape /cairn/: {rooted}")
+
+    def test_the_share_card_says_what_the_page_says(self):
+        # A card that describes the page differently from the page is a second
+        # claim nobody checked. Both come from one constant in the generator;
+        # this holds the rendered result to that.
+        head = self.head()
+        for tag, value in (
+            ("og:title", "Cairn — recorded evidence"),
+            ("og:type", "website"),
+            ("og:site_name", "Cairn"),
+        ):
+            self.assertIn(f'<meta property="{tag}" content="{value}">', head)
+        self.assertIn('<meta name="twitter:card" content="summary">', head)
+
+        description = re.search(r'<meta name="description" content="([^"]*)"', head)
+        og_description = re.search(
+            r'<meta property="og:description" content="([^"]*)"', head
+        )
+        self.assertIsNotNone(description)
+        self.assertIsNotNone(og_description)
+        self.assertEqual(description.group(1), og_description.group(1))
+
+        title = re.search(r"<title>(.*?)</title>", head, re.S)
+        og_title = re.search(r'<meta property="og:title" content="([^"]*)"', head)
+        self.assertIsNotNone(title)
+        self.assertIsNotNone(og_title)
+        self.assertEqual(title.group(1), og_title.group(1))
 
 
 class TestThePageIsNotStale(PageHarness):
