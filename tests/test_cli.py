@@ -239,17 +239,24 @@ class TestTheVersionIsRecordedOnce(unittest.TestCase):
     def test_the_readme_status_line_names_this_version(self):
         # The first thing a reader sees. It named v0.2.0 while 0.3.0 was on
         # PyPI, which is the drift this test exists for.
-        named = re.search(r"\*\*Status: released\.\*\* `v(\d+\.\d+\.\d+)` is the current version", self.readme())
+        named = re.search(
+            r"\*\*Status: released\.\*\* `v(\d+\.\d+\.\d+)` is the current version",
+            self.readme(),
+        )
         self.assertIsNotNone(named, "the README status line no longer names a current version")
         self.assertEqual(named.group(1), __version__)
 
     def test_the_conformance_row_names_this_version(self):
-        stated = re.search(r"is held together by a test, currently (\d+\.\d+\.\d+)\.", self.readme())
+        stated = re.search(
+            r"is held together by a test, currently (\d+\.\d+\.\d+)\.", self.readme()
+        )
         self.assertIsNotNone(stated, "the Release & Versioning row no longer names a version")
         self.assertEqual(stated.group(1), __version__)
 
     def test_the_readme_names_the_current_version_on_pypi(self):
-        stated = re.search(r"`cairn-assistant` (\d+\.\d+\.\d+) is the current PyPI version", self.readme())
+        stated = re.search(
+            r"`cairn-assistant` (\d+\.\d+\.\d+) is the current PyPI version", self.readme()
+        )
         self.assertIsNotNone(stated, "the README no longer names a current PyPI version")
         self.assertEqual(stated.group(1), __version__)
 
