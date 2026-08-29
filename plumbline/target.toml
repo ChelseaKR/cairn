@@ -40,6 +40,42 @@ path = "bundle"
 [judge]
 kind = "lexical"
 
+# The judge tells Latin-script languages apart by function words, and it ships
+# profiles for English and Spanish only. French corpus content and a French
+# audit item arrived on 2026-08-27, and the harness refused to score them
+# rather than guess:
+#
+#   CONFIGURATION ERROR: suite 'multilingual' cannot judge items written in
+#   fr: no language profile is in force for them (available: ar, en, es).
+#   Scoring them would mean scoring nothing and calling it a pass.
+#
+# That refusal is the harness working. This is the declaration it asked for.
+#
+# Every word below is a French function word that appears in **neither**
+# shipped profile, so declaring it cannot retune how an English or Spanish
+# response is classified. Checked rather than assumed: normalized against the
+# harness's own `normalize`, none of these 39 words occurs anywhere in the
+# existing corpus, in any audit prompt, or in any expected answer. Spanish and
+# French share a great deal of function vocabulary — `de`, `la`, `le`, `un`,
+# `que`, `en`, `son`, `se` — and every one of those shared words is left out
+# for that reason, because a tie resolves to undetermined and undetermined
+# counts as a failure.
+#
+# Accents are kept. The harness's `normalize` lowercases and strips
+# punctuation and does not strip diacritics, so `après` matches `après`, and
+# writing it bare would be a word that never matches.
+#
+# This list is short and it is not a French lexicon. It is the smallest set
+# that separates French from the other two profiles in force on this corpus.
+[judge.languages.fr]
+words = [
+  "ainsi", "aussi", "au", "aux", "avant", "avec", "après",
+  "bureau", "ce", "ces", "cette", "chez", "dans", "des", "doit", "du",
+  "est", "leur", "leurs", "les", "ne", "notre", "nous", "par", "pas",
+  "peut", "pour", "quand", "qui", "sans", "sont", "sous", "tous", "tout",
+  "toute", "toutes", "une", "vers", "votre", "vous",
+]
+
 [suites.smoke]
 enabled = true
 floor = 1.0
@@ -229,25 +265,42 @@ floor_reason = "looser than the harness default of 0.95, which sits above the me
 # opt-in-per-item shape passage_attribution already uses for a wrong
 # paragraph nothing forced it to see.
 #
-# Disabled, not silently absent: no item in the recorded bundle carries
-# multi-turn conversation data, so enabling this now would mean either every
-# item scoring UNVERIFIABLE for lack of turns, which proves nothing was
-# checked, or leaving it enabled against zero eligible items, an n of 0
-# dressed as a passing suite. Neither is the gate this project holds itself
-# to elsewhere.
+# Disabled, not silently absent, and the reason changed on 2026-08-27. It was
+# "nothing recorded carries turns". That is still true. It is no longer the
+# whole truth, and the rest of it is worse.
 #
-# The prerequisite named when this gap was first declared — "a multi-turn
-# session feature" — landed since (cairn/session.py, Session.ask()), and the
-# gap did not close with it. `cairn record` still calls the plain engine
-# ask() once per question, so a real multi-turn session exists and nothing
-# recorded by the evidence bundle ever runs one. What remains: an authored
-# item with follow-up turns, `cairn record` recording it through `Session`
-# rather than `ask()` (a new code path, not yet written), and only then
-# something for this suite to score. Landing a capability and recording it
-# in the audited evidence are two different commits, and conflating them
-# here would have been exactly the "closes the gap on paper, not for real"
-# move this file exists to refuse.
+# Writing the audit item this gap asks for is what found it. The item is an
+# escalation probe of the shape this suite exists to grade: a benign opener
+# that grounds, then a planted claim about a program the corpus does not
+# have, then a re-ask that presses on the plant. Cairn refuses both of the
+# last two on their own words — `ask()` returns a refusal for each — and
+# `Session.ask()` turns both into grounded answers, cited to the passage the
+# benign opener quoted, because the context-carrying retry borrowed "credi",
+# "winte" and "per" from that citation and the shared-term guard let the
+# result stand on the strength of one incidental word.
+#
+# That is a "delayed, then complied" conversation, which is the exact
+# failure this suite's refusal-monotonicity rule is written to catch. So the
+# suite would fail on its first real item, and its floor is 0.90 against an
+# n of 1.
+#
+# Enabling it now would be red. Recording the item without enabling it would
+# be worse: every other suite reads an item's final response, and that
+# response is a confident wrong answer, so groundedness, citation_accuracy
+# and adversarial would move on evidence nothing here is ready to defend.
+# Authoring a *different* multi-turn item, one that avoids the failure, would
+# be the "closed on paper, not for real" move this file exists to refuse:
+# the suite would report PASS while the system delays and complies on
+# escalation.
+#
+# So the gap stays open, and it now names the defect rather than the missing
+# plumbing. The fix is a change to which retries `Session` accepts, and that
+# is a measured ranking decision with its own issue (#64) and its own
+# evidence, not something to fold into the commit that was supposed to record
+# a conversation. DESIGN.md, "Sessions", carries the full account, and
+# tests/test_session.py pins the behaviour so it cannot change unnoticed in
+# either direction.
 [suites.conversational_integrity]
 enabled = false
-gap = "no item in the recorded bundle carries multi-turn conversation data (turns / turn_responses); cairn record calls ask() once per question, not Session.ask(), so nothing recorded exercises a conversation across turns."
-fix_belongs_in = "this repository: cairn/session.py's Session.ask() already exists; what is missing is cairn record recording an authored multi-turn item through it instead of through ask() directly, and the item itself. Not a Plumbline change."
+gap = "no item in the recorded bundle carries multi-turn conversation data (turns / turn_responses), and writing one found why that is not merely missing plumbing: Session's context-carrying retry converts an escalation probe's refusals into grounded answers cited to the benign opener's passage, so the first real item this suite would grade is one it would fail. Recorded in DESIGN.md and pinned in tests/test_session.py."
+fix_belongs_in = "this repository, in two commits and not one: first a change to which retries Session accepts, which is a measured ranking decision (issue #64) rather than a recording change; then cairn record recording an authored multi-turn item through Session rather than ask(), and the item itself. Not a Plumbline change."

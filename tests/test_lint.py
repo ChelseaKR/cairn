@@ -27,7 +27,7 @@ class TestLintCorpus(unittest.TestCase):
         report = lint_corpus(DEMO)
         self.assertTrue(report.ok)
         self.assertEqual(report.warning_count, 0)
-        self.assertEqual(report.doc_count, 10)
+        self.assertEqual(report.doc_count, 11)
 
     def test_it_writes_nothing_and_touches_no_index(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -207,7 +207,7 @@ class TestStaleness(unittest.TestCase):
     def test_missing_reviewed_at_is_a_warning_once_opted_in(self):
         report = lint_corpus(DEMO, max_age_days=30)
         self.assertTrue(report.ok, "still only warnings")
-        self.assertEqual(report.warning_count, 10, "one per demo document")
+        self.assertEqual(report.warning_count, 11, "one per demo document")
         self.assertTrue(
             all("no 'reviewed_at'" in i.message for i in report.issues)
         )

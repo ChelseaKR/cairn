@@ -160,41 +160,7 @@ class Session:
         preceding citations dominate.
         """
         asked = {token for token in tokenize(question)}
-        best_idf: dict[str, float] = {}
-        source_turns: list[int] = []
-        for offset, turn in enumerate(reversed(self.turns[-CONTEXT_FROM_TURNS:])):
-            turn_index = len(self.turns) - 1 - offset
-            if not turn.cited:
-                continue
-            if turn_index not in source_turns:
-                source_turns.append(turn_index)
-            for passage_id in turn.cited:
-                passage = _passage_by_id(index, passage_id)
-                if passage is None:
-                    continue
-                stats = index.stats_for(passage.lang)
-                counts: dict[str, int] = {}
-                # The title carries the *program's identity*, which is the
-                # thing an elliptical follow-up is missing; body terms carry
-                # the passage's specifics. Titles are counted twice so
-                # identity dominates the tie, and both are needed: title-only
-                # landed a household-size follow-up on the program's intro
-                # paragraph (identity without specifics), while body-only
-                # dragged a deadline follow-up back to the already-quoted
-                # amount passage (specifics without identity). Numbers are
-                # dropped entirely: they pin a query to the exact fact already
-                # quoted rather than to the program.
-                for source_text, factor in ((passage.title, 2), (passage.text, 1)):
-                    for token in tokenize(source_text):
-                        if token.isdigit():
-                            continue
-                        counts[token] = counts.get(token, 0) + factor
-                for term, count in counts.items():
-                    if term in asked or term in stats.suppressed:
-                        continue
-                    weight = _idf_of(term, stats) * (1.0 + math.log(count))
-                    if weight > best_idf.get(term, 0.0):
-                        best_idf[term] = weight
+        best_idf, source_turns = self._candidate_terms(asked, index)
         if not best_idf:
             return None
         # Highest weighted-IDF first (title tokens counted double), which
@@ -218,25 +184,45 @@ class Session:
             return None
 
         # The retry may only stand if the passage that won has *something to
-        # do with the question itself*: at least one scored term of the
-        # original follow-up must appear in it. Without this check, any
-        # off-topic follow-up after a grounded turn was "resolved" by its own
-        # refusal — the borrowed program vocabulary alone cleared the gate,
-        # and "What is the capital of France?" came back citing the grocery
-        # allowance. Found by the test written to pin rule 1; the rule and
-        # this guard are the same sentence enforced twice.
-        asked_terms = set(asked)
-        for source in retry.answer.sources:
-            passage = _passage_by_id(index, source.source_id)
-            if passage is None:
-                continue
-            stats = index.stats_for(passage.lang)
-            if any(
-                term in passage.term_counts and _idf_of(term, stats) > 0.0
-                for term in asked_terms
-            ):
-                return retry, tuple(sorted(source_turns)), tuple(terms)
+        # do with the question itself*. What that means, and the follow-up
+        # that made it a rule rather than a nicety, is in
+        # :func:`_shares_a_scored_term`.
+        if _shares_a_scored_term(retry, asked, index):
+            return retry, tuple(sorted(source_turns)), tuple(terms)
         return None
+
+    def _candidate_terms(
+        self, asked: set[str], index: Index
+    ) -> tuple[dict[str, float], list[int]]:
+        """Every term the recent citations could lend, with the weight that
+        ranks it, and the turns that lent them.
+
+        A term's weight is the smoothed IDF it has in its own passage's
+        language, raised by how often that passage uses it. A term reachable
+        from more than one cited passage keeps the highest weight any of them
+        gives it rather than their sum, which is what the comparison against
+        the recorded weight below does.
+        """
+        best_idf: dict[str, float] = {}
+        source_turns: list[int] = []
+        for offset, turn in enumerate(reversed(self.turns[-CONTEXT_FROM_TURNS:])):
+            turn_index = len(self.turns) - 1 - offset
+            if not turn.cited:
+                continue
+            if turn_index not in source_turns:
+                source_turns.append(turn_index)
+            for passage_id in turn.cited:
+                passage = _passage_by_id(index, passage_id)
+                if passage is None:
+                    continue
+                stats = index.stats_for(passage.lang)
+                for term, count in _weighted_counts(passage).items():
+                    if term in asked or term in stats.suppressed:
+                        continue
+                    weight = _idf_of(term, stats) * (1.0 + math.log(count))
+                    if weight > best_idf.get(term, 0.0):
+                        best_idf[term] = weight
+        return best_idf, source_turns
 
     def to_payload(self) -> dict[str, list[dict[str, Any]]]:
         """The wire form the stateless server accepts back."""
@@ -309,6 +295,52 @@ def _passage_by_id(index: Index, passage_id: str) -> IndexedPassage | None:
         if passage.passage_id == passage_id:
             return passage
     return None
+
+
+def _weighted_counts(passage: IndexedPassage) -> dict[str, int]:
+    """How often one passage uses each of its terms, title terms counted twice.
+
+    The title carries the *program's identity*, which is the thing an
+    elliptical follow-up is missing; body terms carry the passage's specifics.
+    Titles are counted twice so identity dominates the tie, and both are
+    needed: title-only landed a household-size follow-up on the program's
+    intro paragraph (identity without specifics), while body-only dragged a
+    deadline follow-up back to the already-quoted amount passage (specifics
+    without identity). Numbers are dropped entirely: they pin a query to the
+    exact fact already quoted rather than to the program.
+    """
+    counts: dict[str, int] = {}
+    for source_text, factor in ((passage.title, 2), (passage.text, 1)):
+        for token in tokenize(source_text):
+            if token.isdigit():
+                continue
+            counts[token] = counts.get(token, 0) + factor
+    return counts
+
+
+def _shares_a_scored_term(retry: AskResult, asked: set[str], index: Index) -> bool:
+    """Whether a passage the retry cited holds a scored term of the question
+    the person actually typed: it must appear in the passage, and it must be a
+    term the language's own statistics score above zero.
+
+    Without this check, any off-topic follow-up after a grounded turn was
+    "resolved" by its own refusal — the borrowed program vocabulary alone
+    cleared the gate, and "What is the capital of France?" came back citing
+    the grocery allowance. Found by the test written to pin rule 1; the rule
+    and this guard are the same sentence enforced twice.
+    """
+    asked_terms = set(asked)
+    for source in retry.answer.sources:
+        passage = _passage_by_id(index, source.source_id)
+        if passage is None:
+            continue
+        stats = index.stats_for(passage.lang)
+        if any(
+            term in passage.term_counts and _idf_of(term, stats) > 0.0
+            for term in asked_terms
+        ):
+            return True
+    return False
 
 
 def _idf_of(term: str, stats: LanguageStats) -> float:

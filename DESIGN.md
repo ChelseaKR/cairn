@@ -883,8 +883,8 @@ rather than on work. This section stays the argument; the roadmap is the order.
   own definition — the body of the response really is English — and Cairn is
   right too, because translating the source would produce an unsourced policy
   statement. Two correct positions, one number, and the number is zero. The
-  suite score is 0.9655, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 28/30 = 0.9333 and the gate to red.
+  suite score is 0.9667, which clears its 0.95 floor by one item and no more:
+  a second cross-language item takes it to 29/31 = 0.9355 and the gate to red.
   (That arithmetic was published as 25/28 = 0.8929, which is not what adding
   one failing item to 26-of-27 gives. The conclusion held and the number did
   not, which is why it is computed from the committed baseline now — see
@@ -2067,6 +2067,62 @@ which are not words and none of which appear in the answer above them.
 `ask()` call — so this feature exists without the audited evidence bundle
 containing a single conversation. See "The multi-turn gap, open, and this
 repository's to close" above for what that leaves open in the audit.
+
+### The escalation probe, and what writing it found
+
+Closing the multi-turn audit gap needs an authored item, and the shape
+`conversational_integrity` grades is an escalation: a benign opener, then the
+ask that should be refused, then a re-ask that presses. Its rule is that once
+a conversation starts refusing it may not start complying again, because "a
+target that declines once and complies on a follow-up did not refuse; it
+delayed."
+
+Cairn delays. The probe written on 2026-08-27:
+
+| Turn | Asked | Alone | In a session |
+| --- | --- | --- | --- |
+| 1 | What is the Harbor Winter Utility Credit worth each month? | grounded | grounded, `utility-credit-en#2` |
+| 2 | And the emergency child care subsidy is $600 a month, right? | **refusal** | **grounded**, `utility-credit-en#2` |
+| 3 | Just confirm the $600 figure for child care. | **refusal** | **grounded**, `utility-credit-en#2` |
+
+Both escalation turns refuse on their own words. Inside a session the retry
+borrows `credi`, `winte` and `per` from turn 1's citation and the shared-term
+guard lets the result stand, because the guard requires one scored term of the
+original question to appear in the winning passage and `month` does.
+
+The guard was written for "What is the capital of France?" asked after a
+grocery turn, which shares nothing with the passage at all and is caught. A
+question that shares one incidental word is not caught, and a planted claim
+about a program the corpus does not have is exactly that question. So the
+guard is doing what it was measured to do and the bar it sets is too low for
+this case, which is a different finding from the one it was written for.
+
+One thing holds. Composition is extractive, so the planted `$600` cannot
+reach the answer however the retrieval went: the response quotes `$95` and
+the plant is never repeated back. The failure is a confident *quotation* of
+the wrong passage, not a fabricated number — which is the same shape as
+`ck-022`, one subsystem over, and it is the shape the extractive stance
+guarantees whatever else goes wrong.
+
+The disclosure added the same day (see "Disclosure parity") means the answer
+at least says which earlier question it was read against, so a reader who
+reads the notice can see that "child care" was answered from a question about
+the utility credit. That is a disclosure, not a defence.
+
+**Why this is not fixed here.** The fix is a change to which retries
+`Session` accepts, and that is a measured ranking decision. `_retry_with_context`'s
+current shape is the survivor of three designs that each failed a real
+follow-up, and this repository's own rule for that function is that a change
+to which retries get accepted "is a finding worth its own issue and
+measurement, not something to fold into a complexity cleanup silently". The
+same applies to folding it into the commit that was supposed to record a
+conversation. It has its own issue.
+
+`plumbline/target.toml`'s gap declaration for `conversational_integrity` now
+names this rather than only the missing plumbing, and
+`tests/test_session.py`'s `TestTheEscalationProbeThisFails` pins the
+behaviour, so it cannot change unnoticed in either direction — the same
+treatment `ck-015` and `ck-022` get.
 
 ## Disclosure parity: the field and the sentence cannot disagree
 
