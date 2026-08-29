@@ -193,6 +193,18 @@ class TestTheVersionIsRecordedOnce(unittest.TestCase):
     would be a wrong number in somebody else's bibliography. `CHANGELOG.md`
     names one too, and a changelog whose newest section is not the current
     version is a changelog describing a release that does not exist.
+
+    Five places, since the fifth one drifted. The README's status paragraph
+    and its Release & Versioning row both say which version is current, and
+    both sat at `v0.2.0` for six days after 0.3.0 shipped — through a tag, a
+    GitHub Release, a successful `release.yml` run, and a PyPI upload. The
+    four checks above were all green the whole time, because none of them
+    reads the README. Underclaiming is the same defect as overclaiming: the
+    sentence was a statement about the artifact and it was false.
+
+    Correcting the sentence was the first half. This is the second: the
+    README's version prose is now derived from `__version__` and from the
+    changelog rather than typed beside them.
     """
 
     def test_the_package_and_the_packaging_agree(self):
@@ -220,6 +232,73 @@ class TestTheVersionIsRecordedOnce(unittest.TestCase):
         )
         self.assertTrue(headings, "the changelog has no version sections")
         self.assertEqual(headings[0], __version__, "the newest section is not this version")
+
+    def readme(self):
+        return (ROOT / "README.md").read_text(encoding="utf-8")
+
+    def test_the_readme_status_line_names_this_version(self):
+        # The first thing a reader sees. It named v0.2.0 while 0.3.0 was on
+        # PyPI, which is the drift this test exists for.
+        named = re.search(r"\*\*Status: released\.\*\* `v(\d+\.\d+\.\d+)` is the current version", self.readme())
+        self.assertIsNotNone(named, "the README status line no longer names a current version")
+        self.assertEqual(named.group(1), __version__)
+
+    def test_the_conformance_row_names_this_version(self):
+        stated = re.search(r"is held together by a test, currently (\d+\.\d+\.\d+)\.", self.readme())
+        self.assertIsNotNone(stated, "the Release & Versioning row no longer names a version")
+        self.assertEqual(stated.group(1), __version__)
+
+    def test_the_readme_names_the_current_version_on_pypi(self):
+        stated = re.search(r"`cairn-assistant` (\d+\.\d+\.\d+) is the current PyPI version", self.readme())
+        self.assertIsNotNone(stated, "the README no longer names a current PyPI version")
+        self.assertEqual(stated.group(1), __version__)
+
+    COUNT_WORDS = {
+        1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five",
+        6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten",
+    }
+
+    def released_versions(self):
+        """Every version the changelog has a section for, newest first.
+
+        The changelog is the offline record of what was released. `git tag` is
+        the other one and is not used here: CI clones shallow and without
+        tags, so a check that read them would pass locally and be vacuous
+        where it matters.
+        """
+        return re.findall(r"(?m)^## (\S+)", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+
+    def test_the_readme_lists_every_released_version(self):
+        released = self.released_versions()
+        sentence = re.search(r"(\w+) tagged releases exist: ([^\u2014]+)", self.readme())
+        self.assertIsNotNone(sentence, "the README no longer lists the tagged releases")
+        listed = re.findall(r"`v(\S+?)`", sentence.group(2))
+        self.assertEqual(
+            sorted(listed), sorted(released),
+            "the README's release list and the changelog's sections disagree",
+        )
+
+    def test_the_readme_counts_the_releases_it_lists(self):
+        released = self.released_versions()
+        sentence = re.search(r"(\w+) tagged releases exist:", self.readme())
+        self.assertIsNotNone(sentence, "the README no longer counts the tagged releases")
+        self.assertEqual(
+            sentence.group(1), self.COUNT_WORDS.get(len(released)),
+            f"the README says {sentence.group(1)!r} where the changelog has {len(released)}",
+        )
+
+    def test_the_readme_claims_no_release_the_changelog_does_not_have(self):
+        # A version anywhere in the README that the changelog has no section
+        # for is a release being described before it exists. The reverse --
+        # a released version the README never mentions -- is fine: not every
+        # release needs a sentence.
+        released = set(self.released_versions())
+        for shown in set(re.findall(r"`v(\d+\.\d+\.\d+)`", self.readme())):
+            with self.subTest(version=shown):
+                self.assertIn(
+                    shown, released,
+                    f"the README names v{shown}, which the changelog has no section for",
+                )
 
     def test_the_cli_reports_it(self):
         out = io.StringIO()
