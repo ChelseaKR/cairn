@@ -115,8 +115,15 @@ source = ["cairn"]
 [tool.coverage.report]
 # The floor is a minimum, not the measurement. Measured 89% branch coverage on
 # 2026-08-17, 92% on 2026-08-22 after six features landed in one session
-# (WORKLOG.md sessions 11-16); the floor sits below whichever is current so a
-# real regression trips the gate without a routine refactor tripping it for
-# no reason.
-fail_under = 85
+# (WORKLOG.md sessions 11-16), and 93% on 2026-08-29; the floor sits below
+# whichever is current so a real regression trips the gate without a routine
+# refactor tripping it for no reason.
+#
+# It stayed at 85 through all three of those measurements, so the cushion grew
+# to eight points and stopped being slack. Measured rather than argued: a tree
+# carrying 250 statements nothing imports scores 86%, and `coverage report`
+# exits 0 against a floor of 85 and 2 against a floor of 90 on that same
+# coverage data. Eight points is room for a collapse to pass; three is room for
+# a refactor and nothing more.
+fail_under = 90
 show_missing = true

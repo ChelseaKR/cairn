@@ -15,7 +15,7 @@ job. Three checks were therefore local-only:
   on this tree: an `int` returned from a function annotated `-> str` in
   `cairn/coverage.py` gave `mypy` one error and gave `ruff check .` and
   `unittest discover` exit 0 apiece.
-- **`coverage report`, and with it `fail_under = 85`.** `core` never ran
+- **`coverage report`, and with it `fail_under`.** `core` never ran
   `coverage` at all -- `grep -c coverage .github/workflows/*` was 0 -- so the
   floor was a number in `pyproject.toml` that no CI job could breach.
 - **`uv lock --check`.** `core` installs with pip and never reads `uv.lock`, so

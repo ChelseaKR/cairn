@@ -113,7 +113,7 @@ jobs:
       # They were two. The Makefile's header has always said this job "calls
       # these targets rather than repeating their commands", and it repeated
       # a subset instead: lint and a bare `unittest discover`. So `mypy`, the
-      # lockfile check and the `fail_under = 85` coverage floor were the
+      # lockfile check and the `fail_under` coverage floor were the
       # local gate only -- three checks a contributor runs and CI could not
       # fail on. A type error and a coverage collapse both passed here.
       #
