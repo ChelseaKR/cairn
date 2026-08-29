@@ -141,6 +141,66 @@ def _tables(layer_dir: Path) -> list[Path]:
     return sorted(tables.glob("*.csv")) if tables.is_dir() else []
 
 
+def _plan_documents(
+    docs: list[Path],
+    ids: dict[str, Path],
+    files: list[Path],
+    *,
+    allow_unreviewed: bool,
+) -> list[str]:
+    """Validate one layer's `*.md` documents, returning what is wrong with them.
+
+    `ids` and `files` belong to the whole plan rather than to this layer, and
+    are handed in for that reason: a duplicate id is a collision *between*
+    layers, so the map of who claimed what has to outlive the layer being
+    scanned. A document that will not load claims nothing, which is why the
+    `continue` comes before either claim.
+    """
+    problems: list[str] = []
+    for path in docs:
+        try:
+            doc = load_document(path)
+        except CorpusError as exc:
+            problems.append(str(exc))
+            continue
+        if not allow_unreviewed and is_unreviewed(path):
+            problems.append(
+                f"{path}: still marked 'review: unreviewed' — read it, fix the id, "
+                f"delete the marker (or pass --allow-unreviewed for a smoke run)"
+            )
+        if doc.doc_id in ids:
+            problems.append(
+                f"{path}: document id {doc.doc_id!r} is also declared by {ids[doc.doc_id]}"
+            )
+        ids[doc.doc_id] = path
+        files.append(path)
+    return problems
+
+
+def _plan_tables(tables: list[Path], ids: dict[str, Path], files: list[Path]) -> list[str]:
+    """The same for one layer's `tables/*.csv`, against the same shared `ids`.
+
+    Deliberately the same map the documents are claimed into: a citation names
+    one id space, not two, so a table id colliding with a document id is the
+    same defect as two document ids colliding and reads the same here.
+    """
+    problems: list[str] = []
+    for path in tables:
+        try:
+            table = load_table(path)
+        except CorpusError as exc:
+            problems.append(str(exc))
+            continue
+        if table.table_id in ids:
+            problems.append(
+                f"{path}: table id {table.table_id!r} is also declared by "
+                f"{ids[table.table_id]}"
+            )
+        ids[table.table_id] = path
+        files.append(path)
+    return problems
+
+
 def plan(
     pilot: Pilot,
     layers: tuple[str, ...],
@@ -170,36 +230,8 @@ def plan(
         tables = _tables(layer_dir)
         if not docs and not tables:
             warn(f"layer {layer!r} is empty ({layer_dir}); assembling without it")
-        for path in docs:
-            try:
-                doc = load_document(path)
-            except CorpusError as exc:
-                problems.append(str(exc))
-                continue
-            if not allow_unreviewed and is_unreviewed(path):
-                problems.append(
-                    f"{path}: still marked 'review: unreviewed' — read it, fix the id, "
-                    f"delete the marker (or pass --allow-unreviewed for a smoke run)"
-                )
-            if doc.doc_id in ids:
-                problems.append(
-                    f"{path}: document id {doc.doc_id!r} is also declared by {ids[doc.doc_id]}"
-                )
-            ids[doc.doc_id] = path
-            files.append(path)
-        for path in tables:
-            try:
-                table = load_table(path)
-            except CorpusError as exc:
-                problems.append(str(exc))
-                continue
-            if table.table_id in ids:
-                problems.append(
-                    f"{path}: table id {table.table_id!r} is also declared by "
-                    f"{ids[table.table_id]}"
-                )
-            ids[table.table_id] = path
-            files.append(path)
+        problems += _plan_documents(docs, ids, files, allow_unreviewed=allow_unreviewed)
+        problems += _plan_tables(tables, ids, files)
     if problems:
         raise AssembleError("\n".join(problems))
     return files

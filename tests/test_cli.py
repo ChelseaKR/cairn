@@ -46,8 +46,8 @@ class TestCli(CliHarness):
     def test_01_index_reports_counts_and_path(self):
         code, out, _ = self.run_cli("index")
         self.assertEqual(code, 0)
-        self.assertIn("Indexed 40 passages from 10 documents", out)
-        self.assertIn("(10 marked synthetic)", out)
+        self.assertIn("Indexed 44 passages from 11 documents", out)
+        self.assertIn("(11 marked synthetic)", out)
         # The path in `out` is what `cairn.toml` says, byte for byte — the
         # CLI never re-normalizes it through Path — and this harness's own
         # config writes it out with as_posix() (see setUpClass) so the value
@@ -133,7 +133,7 @@ class TestCli(CliHarness):
 
     def test_07_index_reports_the_languages_it_indexed(self):
         _, out, _ = self.run_cli("index")
-        self.assertIn("3 languages [ar, en, es]", out)
+        self.assertIn("4 languages [ar, en, es, fr]", out)
 
     def test_08_lang_selects_the_answer_language(self):
         self.run_cli("index")

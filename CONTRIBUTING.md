@@ -60,12 +60,13 @@ reason expired. There are no per-module overrides and there is no
 `ignore_errors`, and a test holds that, because a strict gate with an excused
 module is a strict-looking gate.
 
-The complexity limit is configured at 10 and the `C90` rule is deliberately
-not switched on, because 12 functions are over it. That gap is written in the
-README's conformance table rather than hidden, and its inventory is in
-`tests/test_code_quality.py` rather than in a comment, because the comment
-version said eight while ruff said twelve. Closing it is welcome; silencing it
-with a blanket ignore is not.
+The complexity limit is 10 and `C90` is in ruff's `select`, so `make verify`
+fails on a function over it. It was configured and unenforced for most of this
+repository's history, because functions were over it; twelve refactors closed
+that on 2026-08-27. The published count while it was open was eight, and ruff
+reported twelve, which is why the inventory moved out of a comment and into
+`tests/test_code_quality.py` before the rule went on. Silencing a finding with
+a per-file ignore is not welcome; extracting a helper is.
 
 ## Decisions get recorded
 

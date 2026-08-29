@@ -56,7 +56,123 @@ becomes a version section like any other.
   make false. Same-language answers are byte-identical, and the committed
   evidence bundle re-records unchanged.
 
+#### Added
+
+- A recorded, unfixed finding: `Session`'s context-carrying retry answers an
+  escalation probe from the benign opener's passage. Both escalation turns
+  refuse on their own words and come back grounded inside a session, cited to
+  the passage turn one quoted, because the retry borrowed that passage's
+  vocabulary and rule 3's shared-term guard let it stand on one incidental
+  word. That is the "delayed, then complied" failure
+  `conversational_integrity`'s refusal-monotonicity rule exists to catch, and
+  it is why the multi-turn audit gap stays open: the first real item that
+  suite would grade is one it would fail. Pinned in `tests/test_session.py`
+  so it cannot change unnoticed in either direction, written up in DESIGN.md,
+  named in `plumbline/target.toml`'s gap declaration in place of the
+  missing-plumbing story that was there, and filed as issue #64. Not fixed
+  here: the fix is a change to which retries `Session` accepts, which is a
+  measured ranking decision with its own issue and its own evidence.
+  Composition being extractive means the planted figure never reaches the
+  answer whatever the retrieval did, which is the one thing that holds.
+
+- French corpus content, and the French audit item that scores it.
+  `corpus/demo/grocery-allowance.fr.md` is a translation of an existing
+  program rather than a new one, so the same $212 is now asked in four
+  languages and the four answers check against each other; `ck-031` is the
+  item, same-language and deliberately not a second cross-language item,
+  which DESIGN.md works out would cost the `multilingual` floor. Closes the
+  one flip condition `docs/I18N.md` recorded French as not having met.
+
+#### Fixed
+
+- The served interface could not answer in French. `cairn/ui/page.py`'s
+  `SELECTABLE` was a hand-written `("en", "es", "ar")`, written before French
+  existed, and `cairn/server.py`'s `_resolve_lang` reads it to decide whether
+  a requested language is real, falling back to the configured default when
+  it is not. So `cairn ask --lang fr` answered in French while the served page
+  and the JSON API answered the same question in English, silently, under a
+  cross-language notice explaining that the French source was "in another
+  language". Every other layer knew better: `LANGUAGES` had the entry,
+  `messages.py` had the catalogue, `available_languages()` offered it.
+  `SELECTABLE` is derived from `LANGUAGES` now and `tests/test_ui.py` holds
+  them equal. Found by `tests/test_live.py` the moment there was French
+  content for the served engine to get wrong.
+
+#### Fixed
+
+- `cairn/followup.py`'s module docstring said the store held "a contact and a
+  timestamp". No record has ever carried a timestamp: `record()` writes
+  `lang`, `contact` and `question`, which is what `docs/followup.md` has
+  always published and what `docs/compliance.md` reasons about for a
+  records-retention review. `docs/followup.md` also showed the stored line
+  with its keys in a different order from the one `record()` writes, so the
+  example was not the bytes. Both corrected, and `tests/test_followup.py` now
+  holds `record()` to the published line rather than to a description of it -
+  the fields, the bytes, and the two fields such a store most naturally grows
+  (a timestamp, a client address) asserted absent by name. This is the one
+  file Cairn writes that holds personal data a person typed about themselves,
+  and a field joining it should cost more than a dict key.
+
+- **The entry above claimed three guards and shipped one.** Measured by
+  mutation rather than re-read: restoring the pre-fix `cairn/followup.py`
+  under the three new tests left every test in `tests/test_followup.py`
+  green, because the whole fix was a docstring and two examples. "The bytes" was not the bytes — the
+  test parsed the written line and re-serialised it with its own
+  `sort_keys=True`, normalising away the key order that was the very drift
+  being fixed, so `record()` could have stopped sorting, made
+  `docs/followup.md` false, and passed. "Asserted absent by name" used
+  `assertNotIn` against a dict, which is exact key membership, so
+  `received_at`, `client_ip` and `session_id` all went through it.
+  `cairn/followup.py` now exports `STORED_FIELDS` and `record()` projects its
+  arguments through it, so the written order is a declaration instead of a
+  `json.dumps` keyword argument nothing named, and a key the tuple does not
+  list is a key this module cannot write. The test compares the raw written
+  line to the published example verbatim, in both its forms, and the
+  absent-field guard matches substrings. Both directions re-proved against the
+  full suite: writing insertion order again takes it from 866 passing to four
+  failures, where that same mutation used to cost nothing, and adding a
+  `received_at` fails four with the naming test among them.
+
 #### Changed
+
+- `C90` is in ruff's `select`, so `make verify` fails on a function over the
+  complexity limit of 10. It was configured and unenforced for most of this
+  repository's history because functions were over it; twelve refactors closed
+  that. The last five were the ones that were not a "reduce a few branches"
+  task: `cairn/server.py`'s `build_handler` (56) and `_handle_ask` (19),
+  `cairn/session.py`'s `_retry_with_context` (18), and `import_corpus.py`'s
+  `handle_starttag` (18) and `handle_endtag` (20). Closes #42 and #43.
+  `build_handler` was 56 because ruff folds a nested class's methods into the
+  enclosing function; `CairnHandler` is a module-level class now and
+  `build_handler` returns a fresh subclass carrying the configuration.
+  `_retry_with_context` got exactly the two helpers #43 named, with the
+  ranking's every constant, factor, tie-break and guard condition
+  byte-identical and every measurement comment moved with the code it
+  explains. No behaviour change: `audit_guard.py`'s terminal report, the HTML
+  extractor over all 132 pages in `source_pages/`, and 480 multi-turn session
+  sequences across three languages were each run through both the old and new
+  code and compared byte-for-byte.
+
+- Seven of the twelve functions over the configured complexity limit are
+  under it: `assemble_corpus.py`'s `plan`, `audit_guard.py`'s
+  `harness_defaults`, `regression_findings` and `render_terminal`,
+  `cairn/lint.py`'s `lint_corpus`, `cairn/tabular.py`'s `parse_count_query`,
+  and `import_corpus.py`'s `scaffold_one`. Each by extracting a cohesive
+  block into a named helper, with no behaviour change anywhere: same output,
+  same order, same return values. `audit_guard.py`'s terminal report was
+  checked byte-for-byte against a real gate report either side of the change
+  rather than trusted to the tests alone. Five are left, and they are a
+  different kind of task; `C90` cannot go into ruff's `select` until they go
+  too. Closes #38 and #39.
+
+- `plumbline/target.toml` and `plumbline/live.toml` declare
+  `[judge.languages.fr]`. The pinned harness tells Latin-script languages
+  apart by function words and ships profiles for English and Spanish only, so
+  it refused to score French rather than guess — a configuration error, not a
+  silent pass. The declared words appear in neither shipped profile and,
+  checked rather than assumed, nowhere in the existing corpus or question set,
+  so declaring them cannot retune how an English or Spanish response is
+  classified.
 
 - `make verify` runs `mypy --strict`. It ran the default check because strict
   reported 44 findings, and the findings are now zero (issues #34, #35, #36,
@@ -83,6 +199,20 @@ becomes a version section like any other.
   holds with a test for exactly this reason.
 
 #### Added
+
+- A field-coverage guard on `split_intents`' hand-written merge
+  (`tests/test_query.py`). Every field of `RetrievalTrace` and `Candidate`
+  carries a default, so a field the merge forgets falls back to the default
+  and the trace reads plausible; #46 (`query_terms` taken from one part) and
+  #49 (`matched` picked rather than unioned, `scoped`/`excluded` summed) were
+  both exactly that, and both were found by a person reading explain-mode
+  output. The guard names every field and what the merge should do with it,
+  then recomputes each one independently from the part traces and compares -
+  the second half matters, because a table of names catches a field nobody
+  handled and would not catch a field handled wrongly. It also asserts the
+  premise the merge's own comment states and nothing checked: that every part
+  scans the same index, so `scoped` and `excluded` are one part's and not the
+  sum. No behaviour change.
 
 - `tests/test_disclosure.py`, and the rule it enforces: a disclosure is not
   made until a person can read it. Three defects in this repository have been

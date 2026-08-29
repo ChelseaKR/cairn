@@ -1163,3 +1163,216 @@ One line per implementation session: date, what was built, from what input.
   802 tests, 92% branch coverage. `cairn record --diff-against`: no
   difference from the committed bundle, so nothing here touches the
   audited evidence.
+
+- 2026-08-27 — Session 21 (AI implementation session). Input: issue #51,
+  filed out of #49's review. `split_intents` merges two dataclasses by
+  hand and every field on both has a default, so a forgotten field takes
+  the default and the trace reads plausible — which is what #46 and #49
+  both were, and both were found by a person reading explain-mode output
+  rather than by anything failing. Built the coverage the issue asked
+  for and one half it did not: every field is named with the treatment
+  the merge owes it, and every field's merged value is recomputed
+  independently from the part traces and compared, because a table of
+  names catches a field nobody handled and cannot catch a field handled
+  wrongly. Also asserted the premise the merge's own comment states and
+  nothing checked — that every part scans the same index under the same
+  restriction, so `scoped` and `excluded` are one part's rather than the
+  sum. Proved the guard against all three: a new `RetrievalTrace` field
+  the merge never sees, #46's bug reintroduced, and #49's two bugs
+  reintroduced (11 failures). No behaviour change; `split_intents` is
+  untouched. `make verify`: ruff, mypy --strict, 807 tests, 92% branch
+  coverage.
+
+- 2026-08-27 — Session 22 (AI implementation session). Input: issue #40,
+  and `docs/I18N.md`'s own account of the one flip condition French had
+  not met. Authored `corpus/demo/grocery-allowance.fr.md` — a
+  translation of an existing program rather than a new one, so the same
+  $212 is now asked in four languages and the four answers check against
+  each other — plus `ck-031`, same-language and deliberately not a
+  second cross-language item, because DESIGN.md already works out that a
+  second one costs the `multilingual` floor. Two things had to be true
+  that were not, and neither could have been found before there was
+  French content to be wrong about. The pinned harness refused to score
+  French rather than guess: its judge separates Latin-script languages
+  by function words and ships en/es only. Declared
+  `[judge.languages.fr]` in both audit configs, built from French
+  function words absent from both shipped profiles and — checked with
+  the harness's own `normalize`, not assumed — absent from every
+  existing corpus document, prompt and expected answer, so it cannot
+  retune how an English or Spanish response is classified. And the
+  served interface could not answer in French at all: `SELECTABLE` was a
+  hand-written `("en", "es", "ar")` and `_resolve_lang` reads it to
+  decide whether a requested language is real, so `cairn ask --lang fr`
+  answered in French while the page and the JSON API answered the same
+  question in English, under a notice explaining the French source was
+  in another language. Third stale hand-kept list this arc has found,
+  after the complexity inventory and the mypy count; derived from
+  `LANGUAGES` now, with a test holding them equal. Caught by
+  tests/test_live.py, not by reading. French is also the corpus's
+  clearest illustration of the document-frequency floor: four passages,
+  eleven terms suppressed including the program's own name, and the item
+  answers anyway on the words the floor left alone. `make verify`: ruff,
+  mypy --strict, 811 tests, 92% branch coverage. `./plumbline-gate.sh`:
+  GATE PASS, 14 suites, multilingual 0.9667 over 30 items where it
+  scored 0.9655 over 29. Baseline adopted through the harness's own
+  `plumbline baseline` command as a reviewed diff, and the gate re-run
+  against it: `audit_guard.py` GUARD PASS, no suite moved.
+
+- 2026-08-27 — Session 23 (AI implementation session). Input: issue #41,
+  the one declared gap in the audit, which DESIGN.md is explicit is this
+  repository's to close. The plan was an authored multi-turn item, an
+  additive `cairn record` path through `Session`, and enabling
+  `conversational_integrity`. Writing the item blocked all three. The
+  shape the suite grades is an escalation probe, and Cairn fails one: a
+  planted claim about a program the corpus does not have ("the emergency
+  child care subsidy is $600 a month, right?") refuses on its own words
+  and comes back grounded inside a session, cited to the passage the
+  benign opener quoted, twice, because the retry borrowed "credi",
+  "winte", "per" from that citation and rule 3's shared-term guard let
+  it stand on "month". Reproduced on origin/main at 9ac093e, so it
+  predates every change in this arc. That is the "delayed, then
+  complied" failure the suite's refusal-monotonicity rule exists to
+  catch, so the first real item the suite would grade is one it would
+  fail. Recording the item without enabling the suite would be worse
+  than not recording it — every other suite reads an item's final
+  response, and that response is a confident wrong answer — and
+  authoring a different item that dodges the failure would be the
+  "closed on paper, not for real" move the project refuses. So nothing
+  was enabled and nothing was recorded. What was built is the finding:
+  pinned in tests/test_session.py with assertions that record the wrong
+  behaviour on purpose, the way ck-015 and ck-022 are pinned; written up
+  in DESIGN.md under Sessions with the three-turn table; and
+  plumbline/target.toml's gap declaration rewritten, because it said the
+  gap was missing plumbing and the truth is larger than that. Filed as
+  issue #64, with the two obvious tightenings and why each looks likely
+  to break the flagship working case. One thing holds and is pinned
+  separately: composition is extractive, so the planted $600 never
+  reaches the answer — the failure is a confident quotation of the wrong
+  passage, the ck-022 shape one subsystem over. `make verify`: ruff,
+  mypy --strict, 816 tests, 92% branch coverage. Gate and guard both
+  still PASS; no evidence moved, because none was recorded.
+
+- 2026-08-27 — Session 24 (AI implementation session). Input: issues #38
+  and #39, and the corrected complexity inventory session 20 produced.
+  Seven of twelve functions over the limit are under it:
+  `assemble_corpus.py`'s `plan` (12), `audit_guard.py`'s
+  `harness_defaults`, `regression_findings` and `render_terminal` (11
+  each), `cairn/lint.py`'s `lint_corpus` (11), `cairn/tabular.py`'s
+  `parse_count_query` (11), `import_corpus.py`'s `scaffold_one` (11).
+  Every one by extracting a cohesive block into a named helper, nothing
+  collapsed into a dict lookup and nothing hidden from mccabe behind a
+  comprehension, because the point is a function a reviewer can read and
+  not a number. Behaviour identical throughout; for `audit_guard.py`
+  that was checked the strong way rather than asserted, by diffing its
+  whole terminal report against a real gate report either side of the
+  change and getting no bytes back. Two seams worth naming:
+  `lint_corpus` split at the boundary its own helpers already implied
+  (`_empty_passage_issues` returns the ids the reachability pass has to
+  skip, so the coupling stays explicit rather than becoming a shared
+  set), and `parse_count_query`'s earliest-comparator scan came out
+  whole, which also gave the "earliest, not first-listed" rule somewhere
+  to be written down. Five remain and they are a different task: two
+  request-handler closures, a measured ranking algorithm, two HTML
+  parser state machines. `C90` stays out of ruff's select until they go.
+  The inventory guard from session 20 failed on the first run, which is
+  what it is for; the published count moved from 12 to 5 with it. `make
+  verify`: ruff, mypy --strict, 816 tests, 92% branch coverage.
+
+- 2026-08-27 — Session 25 (AI implementation session). Input: issues #42
+  and #43, and the five functions session 24 left. All five under the
+  limit, and `C90` is in ruff's select, which is what sessions 24 and 25
+  were both for: the rule is on or off for the whole tree, so neither
+  half could do it alone. The seams were specific rather than generic.
+  `build_handler` was 56 because ruff folds a nested class's methods
+  into the enclosing function, so every branch of every route counted
+  toward the factory; `CairnHandler` is a module-level class now with
+  its configuration as class attributes and `build_handler` returns a
+  fresh subclass that assigns them — fresh rather than mutating the
+  base, because the tests routinely run two servers in one process.
+  `_handle_ask` split along the order the request is read, each step an
+  early return the code already had. The two parser state machines
+  became short dispatchers over per-concern helpers, with the ordering
+  that matters preserved literally and the one genuine find recorded:
+  the `_PARAGRAPH_TAGS` branch bodies in start and end were
+  character-for-character identical and are now one function.
+  `_retry_with_context` got exactly the two helpers #43 named and
+  nothing else; every constant, factor, tie-break and guard condition is
+  byte-identical, and each of the three rejected-design comments moved
+  with the code it explains. Behaviour held to more than the suite:
+  `audit_guard.py`'s whole terminal report, the HTML extractor over all
+  132 pages in `source_pages/`, and 480 multi-turn sequences across
+  three languages (138 of them taking the context-retry path) each run
+  through old and new and compared byte-for-byte. Two pre-existing bugs
+  found and left alone with issues filed: #67, a `bindings` list
+  `parse_count_query` builds and never reads, whose docstring describes
+  an ambiguity rule the code does not implement; and #68, a JSON body
+  that parses but is not an object killing the handler thread —
+  `[1,2]`, `"s"`, `5` and `null` all return no status and no body and
+  put a traceback on stderr, which is the same defect class
+  `_read_body`'s docstring records closing once already, one door along.
+  Both reproduced on origin/main. `make verify`: ruff with C90, mypy
+  --strict, 814 tests, 93% branch coverage.
+
+- 2026-08-27 — Session 26 (AI implementation session). Input: the
+  README's Data Governance row, read as a gap: "neither has a built-in
+  retention period". It is not a gap. `docs/compliance.md` has a whole
+  Records retention section saying Cairn enforces no retention period on
+  anything it writes, why, per file, and that the agency owns the bound.
+  Building one would have contradicted a stated position and would have
+  meant storing a time, which is a new per-person fact and not an
+  implementer's call. So the phase came out much smaller than planned
+  and the reason is in docs/roadmap.md rather than only here. What was
+  actually wrong: `cairn/followup.py`'s docstring claimed the store held
+  "a contact and a timestamp" and no record has ever had one, and
+  `docs/followup.md` published the stored line with its keys in a
+  different order from the one `record()` writes, so the example was not
+  the bytes. Both small, both the same shape as everything else this arc
+  turned up — a claim about the system with nothing holding it — and
+  this is the one file Cairn writes that holds personal data somebody
+  typed about themselves. The record shape is enumerated and tested now:
+  the fields, the bytes against the published example, and a timestamp
+  and a client address asserted absent by name, those being the two
+  fields such a store most naturally grows. Proved by adding a
+  `received_at` to `record()`: three tests fail and name the field.
+  `make verify`: ruff with C90, mypy --strict, 817 tests, 93% branch
+  coverage.
+  **That last sentence is wrong, and session 27 measured it: four
+  assertions fail, and the test written to name the field is not among
+  them. Two of the three guards this entry claims could not fail. See
+  below.**
+
+- 2026-08-28 — Session 27 (AI implementation session). Input: a triage of
+  the open pull requests reporting that #70's headline fix is zero lines
+  of code and that its key test re-serialises with `sort_keys=True`,
+  making it blind to the exact defect it exists to fix. Both verified
+  here by mutation before anything was changed, rather than read off the
+  triage. `cairn/followup.py`'s diff against `main` is a docstring and
+  nothing else; restoring `main`'s copy of the whole module under the
+  three new tests leaves every test in that file green, so no new test can tell
+  the fixed module from the unfixed one. And `record()` has carried
+  `sort_keys=True` since the feature landed in #14, so the second half of
+  session 26's fix — `docs/followup.md` publishing the keys in an order
+  `record()` does not write — was corrected in the page with nothing
+  holding the code side: `sort_keys=False` makes the published line false
+  and the suite stays green, because the test parses the line and
+  re-sorts it before comparing.
+  What was actually missing is a declaration. `STORED_FIELDS` is now the
+  module's own statement of the record: `record()` projects its arguments
+  through the tuple, so the written order is the declared order, a key the
+  tuple does not name cannot be written, and the published byte order no
+  longer rests on a `json.dumps` keyword argument nothing mentioned. The
+  test reads the raw line back off disk and searches `docs/followup.md`
+  for it verbatim, in both the question-shared and question-withheld
+  forms; the absent-field guard matches substrings of the written keys, so
+  `received_at`, `client_ip` and `session_id` fire it where the
+  exact-membership version saw none of them.
+  Re-proved both ways. Insertion order restored in `record()`: four
+  assertions fail across two methods, where the same mutation used to fail
+  none. `received_at` added to both `STORED_FIELDS` and the entry: four
+  assertions across three methods, and the naming test is now one of them (`a stored key matches '_at':
+  ['received_at']`). Each break was confirmed to have landed by grepping
+  the file and printing the line the store actually wrote, before the
+  suite was run. Not done: #70 is still `CONFLICTING` against `main` and
+  no CI has ever run on its head — neither is this session's to fix, and
+  both are recorded in the report rather than left to be inferred from a
+  green local gate.

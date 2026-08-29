@@ -60,23 +60,26 @@ target-version = "py311"
 extend-exclude = [".plumbline-cache"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
+select = ["E", "F", "W", "I", "B", "UP", "C90"]
 
-# The complexity limit is configured, and `C90` is deliberately not in
-# `select` yet, because 12 functions are over it today and would fail the
-# lint step. Turning the rule on is a refactor, not a configuration change,
-# so it is separate work rather than twelve silent per-file ignores.
+# `C90` is enforced, as of 2026-08-27. It was configured and left out of
+# `select` for most of this repository's history, because functions were over
+# the limit and the honest handling of that was to say so rather than to
+# switch the rule off quietly.
 #
-# Which twelve is *not* written here any more. It was, one function and one
-# number at a time, and it was wrong: it named eight, ruff reported twelve,
-# and the four it missed arrived with the pilot tooling (WORKLOG.md sessions
-# 17-18) after the list was last recompiled by hand. A list nothing checks
-# goes stale, which this repository already knew — it holds the README's
-# published test count with a test for exactly that reason. The inventory now
-# lives in `tests/test_code_quality.py`, where ruff is what confirms it, and
-# the count above is held to `len(OVER_THE_LIMIT)` there. See docs/roadmap.md
-# phases 3 and 4, and the "good first issue" label for individually-scoped
-# pieces.
+# The count went eight (published) / twelve (actual) / five / zero in one day.
+# The gap between the first two is the part worth remembering: the list was
+# kept by hand in this comment, one function and one number at a time, and the
+# pilot tooling added four that nobody recompiled it for. `tests/test_code_quality.py`
+# held the corrected count to ruff after that, and now holds the emptiness:
+# the rule being in `select` means a thirteenth function fails the lint step
+# rather than joining a list.
+#
+# What it took: twelve refactors, every one an extraction rather than a
+# collapse, and none of them a behaviour change. `audit_guard.py`'s terminal
+# report, the `_ParagraphExtractor` over all 132 pages in `source_pages/`, and
+# 480 multi-turn session sequences were each compared byte-for-byte against
+# the pre-refactor code. See docs/roadmap.md phases 3 and 4.
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 

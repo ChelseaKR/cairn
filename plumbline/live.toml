@@ -74,6 +74,42 @@ lang = "{lang}"
 [judge]
 kind = "lexical"
 
+# The judge tells Latin-script languages apart by function words, and it ships
+# profiles for English and Spanish only. French corpus content and a French
+# audit item arrived on 2026-08-27, and the harness refused to score them
+# rather than guess:
+#
+#   CONFIGURATION ERROR: suite 'multilingual' cannot judge items written in
+#   fr: no language profile is in force for them (available: ar, en, es).
+#   Scoring them would mean scoring nothing and calling it a pass.
+#
+# That refusal is the harness working. This is the declaration it asked for.
+#
+# Every word below is a French function word that appears in **neither**
+# shipped profile, so declaring it cannot retune how an English or Spanish
+# response is classified. Checked rather than assumed: normalized against the
+# harness's own `normalize`, none of these 39 words occurs anywhere in the
+# existing corpus, in any audit prompt, or in any expected answer. Spanish and
+# French share a great deal of function vocabulary — `de`, `la`, `le`, `un`,
+# `que`, `en`, `son`, `se` — and every one of those shared words is left out
+# for that reason, because a tie resolves to undetermined and undetermined
+# counts as a failure.
+#
+# Accents are kept. The harness's `normalize` lowercases and strips
+# punctuation and does not strip diacritics, so `après` matches `après`, and
+# writing it bare would be a word that never matches.
+#
+# This list is short and it is not a French lexicon. It is the smallest set
+# that separates French from the other two profiles in force on this corpus.
+[judge.languages.fr]
+words = [
+  "ainsi", "aussi", "au", "aux", "avant", "avec", "après",
+  "bureau", "ce", "ces", "cette", "chez", "dans", "des", "doit", "du",
+  "est", "leur", "leurs", "les", "ne", "notre", "nous", "par", "pas",
+  "peut", "pour", "quand", "qui", "sans", "sont", "sous", "tous", "tout",
+  "toute", "toutes", "une", "vers", "votre", "vous",
+]
+
 # ---------------------------------------------------------------------------
 # The suites below are the ones in plumbline/target.toml, with the same
 # floors. tests/test_live.py fails if the two files stop agreeing: grading the

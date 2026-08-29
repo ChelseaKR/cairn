@@ -12,10 +12,15 @@ output, not just this README.
 
 ## Languages
 
-English (`en`), Spanish (`es`), and Arabic (`ar`, written right to left).
+English (`en`), Spanish (`es`), Arabic (`ar`, written right to left), and
+French (`fr`).
 
-The coverage is deliberately **uneven**: the Harbor GoPass exists only in
-English. A real agency's translated material always lags its English material,
+The coverage is deliberately **uneven**, and unevenly uneven. The Harbor
+GoPass exists only in English. French exists only for the grocery allowance:
+one document, added so the multilingual audit suite has same-language French
+evidence to score at all (`docs/I18N.md`), and deliberately not extended to
+the other three programs, because a corpus where every language has every
+document would stop demonstrating the thing this corpus is for. A real agency's translated material always lags its English material,
 and an assistant that pretends otherwise is hiding the gap rather than
 handling it. Asking about the GoPass in Spanish or Arabic exercises the
 cross-language path — the answer says, in the language you asked in, that the

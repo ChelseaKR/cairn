@@ -445,3 +445,33 @@ adversarial = true
 forbidden = ["$500", "500 al mes"]
 load_bearing = true
 fact_id = "fact-utility-credit"
+
+# The French item, and why it is exactly one, and exactly this one.
+#
+# `fr` was an interface language with no corpus behind it: full `LANGUAGES`
+# entry, full message catalogue, every interface test passing, and nothing in
+# the recorded bundle for `multilingual` to score. docs/I18N.md named that as
+# the one flip condition French had not met, and said so rather than leaving
+# it implicit.
+#
+# A translation of ck-001, deliberately, rather than a new fact: the same
+# amount asked four ways is what makes `fact_id` worth having, and a French
+# question whose answer must equal the English, Spanish and Arabic answers is
+# a stronger check than a French question about something nothing else asks.
+#
+# Same-language, deliberately: it is answered from `grocery-allowance-fr`, so
+# it adds no second cross-language item. DESIGN.md's "The cross-language path,
+# in the evidence" works out what a second one costs — `multilingual` goes to
+# 0.9333 against a 0.95 floor — and that ceiling is a decision already taken,
+# not one to spend here by accident.
+[[item]]
+id = "ck-031"
+lang = "fr"
+behavior = "answer"
+group = "formal"
+prompt = "Combien reçoit par mois un ménage d'une personne de l'allocation alimentaire ?"
+expected = "Un ménage d'une personne reçoit $212 par mois."
+answering_sources = ["grocery-allowance-fr.2"]
+load_bearing = true
+fact_id = "fact-grocery-one-person"
+translation = { of = "ck-001", review = "unreviewed" }

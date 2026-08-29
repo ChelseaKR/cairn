@@ -33,7 +33,7 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
-from cairn.corpus import CorpusError, load_document
+from cairn.corpus import CorpusError, Document, load_document
 
 _SLUG_RE = re.compile(r"[^a-z0-9._:-]+")
 
@@ -166,10 +166,15 @@ class _ParagraphExtractor(HTMLParser):
         self._rows = []
         self._emit("\n".join(rows))
 
-    # --- parser events --------------------------------------------------
+    # --- what one tag does to the block in progress ---------------------
 
-    def handle_starttag(self, tag: str, attrs: list) -> None:
-        attributes = dict(attrs)
+    def _track_main_start(self, tag: str, attributes: dict[str, str | None]) -> None:
+        """Open, or descend one level into, the main-content region.
+
+        Called before `handle_starttag`'s skip check and not after, because
+        the landmark tags it drops off the skip stack are exactly the ones
+        that would otherwise make that check refuse the main content itself.
+        """
         if self._main_tag is not None and tag == self._main_tag:
             self._main_depth += 1
         elif tag == "main" or attributes.get("role") == "main":
@@ -185,25 +190,41 @@ class _ParagraphExtractor(HTMLParser):
             # page on the skip stack; the landmark tags are closed here and
             # the script/style kind are left alone.
             self._skip_stack = [t for t in self._skip_stack if t not in self._LANDMARK_TAGS]
-        if tag in self._SKIP_TAGS or attributes.get("aria-hidden") == "true":
-            if tag not in self._VOID_TAGS:
-                self._skip_stack.append(tag)
-            return
-        if tag == "title":
-            self._in_title = True
-            return
-        if self._skip_stack:
-            return
+
+    def _track_main_end(self, tag: str) -> None:
+        """Leave one level of the main-content region.
+
+        Counted rather than matched against the first close of that tag name,
+        for the reason `__init__` gives where `_main_tag` is set up.
+        """
+        if self._main_tag is not None and tag == self._main_tag:
+            self._main_depth -= 1
+            if self._main_depth == 0:
+                self._main_tag = None
+
+    def _leave_skip_region(self, tag: str) -> None:
+        """Pop the skipped region this closing tag opened, if it opened one."""
+        if tag in self._skip_stack:
+            # Close the innermost region this tag opened, and with it any
+            # inner region left unclosed by sloppy markup.
+            index = len(self._skip_stack) - 1 - self._skip_stack[::-1].index(tag)
+            del self._skip_stack[index:]
+
+    def _open_block(self, tag: str) -> None:
+        """What a start tag begins, once it is known to be content.
+
+        Only reached once `handle_starttag` has established that the tag is
+        neither skipped nor inside something skipped, so every branch here is
+        about the block being assembled and nothing else. The guards on the
+        row and cell branches are what stop a `<tr>` that arrives outside any
+        table from opening a row nothing will close.
+        """
         if tag in self._HEADING_TAGS:
             self._flush()
             self._heading = tag
             self._heading_text = []
         elif tag in self._LIST_TAGS:
-            if self._list_depth == 0:
-                self._flush()
-            else:
-                self._flush_item()
-            self._list_depth += 1
+            self._open_list()
         elif tag in self._ITEM_TAGS and self._list_depth:
             self._flush_item()
         elif tag == "table":
@@ -214,63 +235,107 @@ class _ParagraphExtractor(HTMLParser):
         elif tag in ("td", "th") and self._table_depth:
             self._cell = []
         elif tag in self._PARAGRAPH_TAGS:
-            if self._list_depth:
-                # A <p> or <br> inside a list item stays in the item.
-                self._current.append(" ")
-            elif not self._table_depth:
-                self._flush()
+            self._break_paragraph()
+
+    def _open_list(self) -> None:
+        """Start a list, ending whatever was in progress first.
+
+        A nested list ends the *item* it sits in rather than the block, which
+        is how it comes to flatten into its parent.
+        """
+        if self._list_depth == 0:
+            self._flush()
+        else:
+            self._flush_item()
+        self._list_depth += 1
+
+    def _close_heading(self, tag: str) -> None:
+        """The heading that just closed, as a `#` line or as the h1."""
+        text = self._squash(self._heading_text)
+        self._heading = None
+        if tag == "h1":
+            if self.h1 is None:
+                self.h1 = text
+            # Emitted as body too; `drop_duplicated_title` removes it
+            # when it is the title, and keeps it when a reviewer chose a
+            # different title — a reviewer's choice is not overridden.
+            self._emit(text)
+        elif text:
+            level = int(tag[1])
+            self._emit(f"{'#' * level} {text}")
+
+    def _close_list(self) -> None:
+        """Leave one level of list, emitting the whole list at the outermost."""
+        self._list_depth -= 1
+        if self._list_depth == 0:
+            self._flush_list()
+        else:
+            self._flush_item()
+
+    def _close_table(self) -> None:
+        """Leave one level of table, emitting the whole table at the outermost."""
+        self._table_depth -= 1
+        if self._table_depth == 0:
+            self._flush_table()
+
+    def _close_cell(self) -> None:
+        """Add the finished cell to the row in progress, if a row opened."""
+        if self._rows:
+            self._rows[-1].append(self._squash(self._cell))
+        self._cell = None
+
+    def _break_paragraph(self) -> None:
+        """What a paragraph-level tag does — the same thing whether it is
+        opening or closing, which is why both events arrive here.
+
+        Inside a list item it is a space, because the item is one block and a
+        `<p>` or `<br>` partway through must not cut it in two. Inside a table
+        it is nothing at all: the cell is being assembled somewhere else.
+        """
+        if self._list_depth:
+            # A <p> or <br> inside a list item stays in the item.
+            self._current.append(" ")
+        elif not self._table_depth:
+            self._flush()
+
+    # --- parser events --------------------------------------------------
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        attributes = dict(attrs)
+        self._track_main_start(tag, attributes)
+        if tag in self._SKIP_TAGS or attributes.get("aria-hidden") == "true":
+            if tag not in self._VOID_TAGS:
+                self._skip_stack.append(tag)
+            return
+        if tag == "title":
+            self._in_title = True
+            return
+        if self._skip_stack:
+            return
+        self._open_block(tag)
 
     def handle_endtag(self, tag: str) -> None:
-        if self._main_tag is not None and tag == self._main_tag:
-            self._main_depth -= 1
-            if self._main_depth == 0:
-                self._main_tag = None
+        self._track_main_end(tag)
         if tag == "title":
             # Before the skip check, for the same reason as in handle_data:
             # <title> sits inside <head>, which is a skipped region.
             self._in_title = False
             return
         if self._skip_stack:
-            if tag in self._skip_stack:
-                # Close the innermost region this tag opened, and with it any
-                # inner region left unclosed by sloppy markup.
-                index = len(self._skip_stack) - 1 - self._skip_stack[::-1].index(tag)
-                del self._skip_stack[index:]
+            self._leave_skip_region(tag)
             return
         if tag in self._HEADING_TAGS and self._heading == tag:
-            text = self._squash(self._heading_text)
-            self._heading = None
-            if tag == "h1":
-                if self.h1 is None:
-                    self.h1 = text
-                # Emitted as body too; `drop_duplicated_title` removes it
-                # when it is the title, and keeps it when a reviewer chose a
-                # different title — a reviewer's choice is not overridden.
-                self._emit(text)
-            elif text:
-                level = int(tag[1])
-                self._emit(f"{'#' * level} {text}")
+            self._close_heading(tag)
         elif tag in self._LIST_TAGS and self._list_depth:
-            self._list_depth -= 1
-            if self._list_depth == 0:
-                self._flush_list()
-            else:
-                self._flush_item()
+            self._close_list()
         elif tag in self._ITEM_TAGS and self._list_depth:
             self._flush_item()
         elif tag == "table" and self._table_depth:
-            self._table_depth -= 1
-            if self._table_depth == 0:
-                self._flush_table()
+            self._close_table()
         elif tag in ("td", "th") and self._table_depth and self._cell is not None:
-            if self._rows:
-                self._rows[-1].append(self._squash(self._cell))
-            self._cell = None
+            self._close_cell()
         elif tag in self._PARAGRAPH_TAGS:
-            if self._list_depth:
-                self._current.append(" ")
-            elif not self._table_depth:
-                self._flush()
+            self._break_paragraph()
 
     def handle_data(self, data: str) -> None:
         if self._in_title:
@@ -452,6 +517,24 @@ def build_scaffold(
     )
 
 
+def _print_chunk_preview(doc: Document) -> None:
+    """Show the reviewer the passages `cairn.corpus` actually made, one line
+    each.
+
+    Printed from the loaded document rather than from the paragraph list this
+    script assembled, because a paragraph boundary is this script's guess and a
+    passage boundary is the corpus loader's decision — and the boundaries are
+    the main thing the review is for. Whitespace is collapsed and long text is
+    cut at 70 characters: this is an orientation aid, not the document.
+    """
+    print(f"Chunk preview ({len(doc.passages)} passage(s), via cairn.corpus.load_document):")
+    for p in doc.passages:
+        preview = " ".join(p.text.split())
+        if len(preview) > 70:
+            preview = preview[:69] + "…"
+        print(f"  {p.passage_id}: {preview}")
+
+
 def scaffold_one(
     src: Path,
     out_path: Path,
@@ -540,12 +623,7 @@ def scaffold_one(
         )
         return 1, len(paragraphs)
 
-    print(f"Chunk preview ({len(doc.passages)} passage(s), via cairn.corpus.load_document):")
-    for p in doc.passages:
-        preview = " ".join(p.text.split())
-        if len(preview) > 70:
-            preview = preview[:69] + "…"
-        print(f"  {p.passage_id}: {preview}")
+    _print_chunk_preview(doc)
     return 0, len(paragraphs)
 
 
