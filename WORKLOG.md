@@ -1182,3 +1182,24 @@ One line per implementation session: date, what was built, from what input.
   reintroduced (11 failures). No behaviour change; `split_intents` is
   untouched. `make verify`: ruff, mypy --strict, 807 tests, 92% branch
   coverage.
+
+- 2026-08-28 — Session 21b (AI implementation session). Input: review of
+  session 21's own guard. `CANDIDATE_MERGE` named six fields; the
+  assertions read four. `lexical` and `dense` were recorded as "from the
+  part that won" and nothing checked them, which is the defect the guard
+  was written to catch, sitting in the guard. Proved it by mutation
+  rather than by reading: with the merge handing back `lexical=-1.0,
+  dense=-1.0` for every merged candidate, all 807 tests passed. Both
+  fields are asserted now against the winning part's own candidate,
+  recomputed from the part traces.
+  The missing half was the weight. Every case ran at `dense_weight=0.0`,
+  where the blend is the plain lexical score, `lexical` equals `score`
+  and `dense` is 0.0 everywhere: "the winning part's" and "the best any
+  part reached" are then the same number, so the new assertion would
+  have passed on either rule. So there is a hybrid case at 0.25, and it
+  asserts its own fixture first — that some merged passage is won by one
+  part while another part gives it the higher lexical — before relying on
+  it. `transit-pass-en#4` is that passage. A merge taking the best
+  lexical rather than the winner's passes all 807 of session 21's tests
+  and fails this one by name. `cairn/query.py` is still untouched.
+  `make verify`: ruff, mypy --strict, 808 tests, 92% branch coverage.
