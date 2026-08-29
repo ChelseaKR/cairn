@@ -21,8 +21,12 @@ What a question may do with them is deliberately narrow. One tool exists —
 $100 a month") — and it fires only when every part binds without guessing:
 
 - an explicit counting phrase (per language);
-- exactly one column whose name shares vocabulary with the question (two
-  candidates bind equally → fall through, never a coin flip);
+- exactly one *measure* column — a column every cell of which is a number —
+  whose name shares vocabulary with the question (two measure columns bind
+  equally → fall through, never a coin flip). Row-label columns are not
+  counted at all: they are named in counting questions constantly ("how many
+  *programs*…") and a rule that let them create ambiguity would decline the
+  ordinary case;
 - a comparison phrase and the number it acts on;
 - every value under the bound column parseable as a number (a cell this rule
   cannot read disables the column rather than silently dropping rows).
@@ -222,24 +226,36 @@ def parse_count_query(question: str, tables: tuple[Table, ...]) -> TableQuery | 
     """Bind every part of a count query, or decline entirely.
 
     Declining is the common case and the safe one: a question whose words
-    happen to include a counting phrase but that binds to no column, or to
-    two equally, belongs to passage retrieval. Row-label columns are exempt
-    from the ambiguity rule when a measure column also binds — naming the
-    rows ("how many programs") is not naming a number to filter.
+    happen to include a counting phrase but that binds no measure column, or
+    binds two equally, belongs to passage retrieval.
+
+    The ambiguity rule is over **measure columns only**, and row-label columns
+    are not counted at all — not exempted conditionally, never counted. That
+    is deliberate: "how many programs pay more than $100" names the rows and
+    the number, and a rule that treated `program` as a competing binding would
+    decline the ordinary case. `_is_measure_column`'s docstring states the same
+    thing from the other side.
+
+    This docstring used to describe an ambiguity rule over *every* binding,
+    with a conditional exemption for label columns, and the function kept a
+    `bindings` list that nothing read — so the prose described a check that was
+    not there and the dead list made it look implemented (#67). Widening the
+    rule to all bindings would make the parser decline *more* questions, which
+    cannot breach `test_no_existing_question_takes_the_table_path` but is still
+    a behaviour change; this repository measures those rather than folding them
+    into a documentation fix. The rule below is the one that has always run.
     """
     lowered = question.lower()
     if not any(re.search(pattern, lowered) for pattern in _COUNT_TRIGGERS):
         return None
 
     question_terms = {token for token in tokenize(question)}
-    bindings: list[tuple[Table, int]] = []  # (table, column index)
     measures: list[tuple[Table, int]] = []
     for table in tables:
         for index, column in enumerate(table.columns):
             overlap = _column_stems(column) & question_terms
             if not overlap:
                 continue
-            bindings.append((table, index))
             if _is_measure_column(table, index):
                 measures.append((table, index))
     # Only a measure column can carry a comparison; a label-only bind means

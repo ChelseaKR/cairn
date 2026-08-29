@@ -85,9 +85,40 @@ repository nobody can merge into. It should become `1` on the day there is a
 second contributor; that is the only number in this file that is a placeholder
 rather than a decision.
 
-`bypass_actors` is **empty, on purpose**. An admin bypass hands the ability to
-skip the gate to the one person most likely to be in a hurry at 2am, and a gate
-with a bypass list is a gate that reports to people who are not using it.
+### Why the owner can bypass
+
+`bypass_actors` holds **exactly one actor: the repository owner**
+(`RepositoryRole` 5, `bypass_mode: "always"`), and that is deliberate and
+permanent.
+
+This file used to say the opposite. It argued that the list was "empty, on
+purpose", on the grounds that an admin bypass hands the ability to skip the
+gate to the person most likely to be in a hurry at 2am. That argument is not
+wrong about the risk; it is wrong about which risk is larger, and the larger
+one has already happened. **An agent applied a ruleset with no bypass and
+locked the owner out of their own repository**, and restoring access took a
+sweep across eight rulesets in this portfolio. The standing instruction since
+is that the owner must always be able to bypass, in any repository.
+
+So an empty `bypass_actors` list here is not a stricter gate. It is the
+lockout, and anything checking this ruleset has to treat it as a failure
+rather than as a pass. Three things enforce that, and they are deliberately
+not one thing:
+
+- `tests/test_rulesets.py::test_only_the_repository_owner_can_bypass_it`
+  asserts this file holds *exactly* that one actor -- so a second bypass,
+  granted to a team, a GitHub App or another role, fails, and so does the
+  owner's own going missing.
+- `ruleset_conformance.py` checks the enforced ruleset and this file
+  **independently** against that actor, rather than only comparing the two to
+  each other. Comparing them would report conformance on the day both were
+  emptied together, which is the incident recurring with a green tick on it.
+- `.github/workflows/ruleset-check.yml` runs that comparison weekly and fails
+  while any difference stands.
+
+If you are reading this because the empty list looks more secure and you are
+about to restore it: reapplying a ruleset file that omits the owner's bypass
+is how the lockout happens. Do not.
 
 ## The ten contexts, and why they are spelled like that
 

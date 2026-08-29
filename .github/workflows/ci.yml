@@ -106,11 +106,46 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
 
+      # ---------------------------------------------------------------------
+      # The four steps below are `make verify`'s own list, target for target,
+      # and tests/test_gate_parity.py fails when they stop being.
+      #
+      # They were two. The Makefile's header has always said this job "calls
+      # these targets rather than repeating their commands", and it repeated
+      # a subset instead: lint and a bare `unittest discover`. So `mypy`, the
+      # lockfile check and the `fail_under = 85` coverage floor were the
+      # local gate only -- three checks a contributor runs and CI could not
+      # fail on. A type error and a coverage collapse both passed here.
+      #
+      # The commands are still spelled out rather than `make verify`, because
+      # `make verify` runs everything through `uv run --locked`, which pins
+      # one interpreter; this job's whole point is the matrix, running the
+      # real Python at each supported version. The parity test compares the
+      # two lists with `$(UVRUN)` stripped, which is exactly that difference
+      # and nothing else.
+      # ---------------------------------------------------------------------
+
+      # `make lock-check`. uv is not otherwise wanted here -- the toolchain is
+      # pip-installed above on purpose -- but a lockfile that no longer agrees
+      # with pyproject.toml breaks `make install` for every contributor while
+      # a pip-based CI job notices nothing, because it never reads uv.lock.
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Lockfile
+        run: uv lock --check
+
       - name: Lint
         run: ruff check .
 
-      - name: Test
-        run: python3 -m unittest discover -s tests
+      - name: Types
+        run: mypy
+
+      # `make test`: under coverage, and `coverage report` is the step that
+      # enforces `fail_under`. A bare `unittest discover` reports the same
+      # green with the floor breached, which is what this job did.
+      - name: Test, under the coverage floor
+        run: |
+          coverage run -m unittest discover -s tests
+          coverage report
 
       - name: The demo path runs with no install at all
         run: |
@@ -540,6 +575,22 @@ jobs:
         env:
           GAUNTLET_CHECKOUT: ${{ runner.temp }}/gauntlet
         run: ./gauntlet-gate.sh
+
+      # tests/test_gauntlet_interlock.py's `TestTheFullGate` needs a checkout
+      # at the pinned commit, and this is the only job that has one. It ran
+      # nowhere until this step existed: it looked for a sibling `../gauntlet`
+      # directory, which no job creates, while its docstring said "CI runs it
+      # always". Same shape as the `audit` job's own note about
+      # tests/test_audit_guard.py, one harness over.
+      #
+      # GAUNTLET_CHECKOUT is repeated here rather than lifted to the job,
+      # because the step above is the one that must be graded by the pin and
+      # a job-level default is a value a later step can inherit by accident.
+      # TestCiRunsTheFullGateSuite fails if this step or that variable goes.
+      - name: The interlock suite, in the one job with a resolved checkout
+        env:
+          GAUNTLET_CHECKOUT: ${{ runner.temp }}/gauntlet
+        run: python3 -m unittest tests.test_gauntlet_interlock -v
 
       - name: Keep the results pack
         if: always()
