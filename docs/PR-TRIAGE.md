@@ -4,6 +4,18 @@ Seven pull requests were open against `main` at `5221556` when this was
 written: #71, #70, #69, #66, #65, #63, #62. This file records what each one
 actually is, what state it is actually in, and what to do with it.
 
+> **#71 was squash-merged as `8e0e5e0` while this triage was being written**,
+> which is the recommendation below arriving before the file did. Everything
+> was recomputed against the new `main` and **nothing changed**: the conflict
+> counts are identical (#70 and #69 thirteen, #66 ten, #65 eight, #63 seven,
+> #62 two), and so are the conflicting files. That is worth stating rather than
+> quietly re-running, because a squash merge gives `8e0e5e0` a single parent
+> and no shared history with `cf03c41`, so the prediction had to be re-derived
+> rather than assumed. The practical difference is that the hazards in "Non-diff
+> hazards" are now **live** rather than prospective: `cairn/server.py` conflicts
+> against `main` today, and `cairn/tabular.py`, `tests/test_followup.py` and
+> `tests/test_ui.py` auto-merge silently against `main` today.
+
 Every merge state below was **computed**, not read off the pull request page.
 GitHub's `mergeStateStatus` is a cached answer that is `UNKNOWN` until it is
 asked for and stale afterwards, so each head was merged against `origin/main`
@@ -16,7 +28,7 @@ conflicting set as clean once in this portfolio.
 
 | Group | Count | Which |
 |---|---|---|
-| Merges clean, CI green on the proposed commit | 1 | #71 |
+| Merges clean, CI green on the proposed commit | 1 | #71 (since merged as `8e0e5e0`) |
 | Cumulative snapshot stack, all conflicting, none tested at head | 5 | #70, #69, #66, #65, #63 |
 | Conflicting, CI green, content wholly contained in the stack | 1 | #62 |
 
@@ -28,13 +40,13 @@ present as ordinary feature branches.
 
 | PR | Base | Real merge state (computed) | CI classification | Recommendation |
 |---|---|---|---|---|
-| [#71](https://github.com/ChelseaKR/cairn/pull/71) audit: three gates that could not fail | `main` | **CLEAN** — `merge-tree` exit 0, no conflicts | **Genuine, green.** All 13 checks SUCCESS on head `cf03c41`. The prior head `fdb9e23` failed `gauntlet` for real; the head commit fixes it | **Merge first** |
-| [#70](https://github.com/ChelseaKR/cairn/pull/70) fix(followup): the store never held a timestamp | `main` | **CONFLICTING** — 13 files | **Absent.** Zero check runs on head `5f528ba` | **Rebase, re-run CI, then merge.** This is the stack tip and delivers all of #69, #66, #65, #63, #62 |
+| [#71](https://github.com/ChelseaKR/cairn/pull/71) audit: three gates that could not fail | `main` | **CLEAN** — `merge-tree` exit 0, no conflicts | **Genuine, green.** All 13 checks SUCCESS on head `cf03c41`. The prior head `fdb9e23` failed `gauntlet` for real; the head commit fixes it | **Merge first** — done, squashed as `8e0e5e0` |
+| [#70](https://github.com/ChelseaKR/cairn/pull/70) fix(followup): the store never held a timestamp | `main` | **CONFLICTING** — 13 files | **Absent.** Zero check runs on head `5f528ba` | **Rebase, then rework, then merge.** The stack tip: delivers all of #69, #66, #65, #63, #62. Its own top commit ships two decorative tests and three false claims — see below |
 | [#69](https://github.com/ChelseaKR/cairn/pull/69) refactor: the last five under the limit | `main` | **CONFLICTING** — 13 files | **Absent.** Zero check runs on head `345cb4c` | **Close as superseded by #70** |
 | [#66](https://github.com/ChelseaKR/cairn/pull/66) refactor: seven functions under the limit | `main` | **CONFLICTING** — 10 files | **Absent.** Zero check runs on head `8714f39` | **Close as superseded by #70** |
 | [#65](https://github.com/ChelseaKR/cairn/pull/65) docs(audit): the multi-turn gap is a defect | `main` | **CONFLICTING** — 8 files | **Absent.** Zero check runs on head `390a714` | **Close as superseded by #70** |
 | [#63](https://github.com/ChelseaKR/cairn/pull/63) feat(corpus): French has a document | `main` | **CONFLICTING** — 7 files | **Absent.** Zero check runs on head `1f0874f` | **Close as superseded by #70** |
-| [#62](https://github.com/ChelseaKR/cairn/pull/62) test(query): split_intents cannot drop a field | `main` | **CONFLICTING** — 2 files (`README.md`, `WORKLOG.md`) | **Genuine, green.** All 13 checks SUCCESS on head `9378aaf` | **Close as superseded by #70**, or merge first as the cheapest resolution — its net content is byte-identical in #70 |
+| [#62](https://github.com/ChelseaKR/cairn/pull/62) test(query): split_intents cannot drop a field | `main` | **CONFLICTING** — 2 files (`README.md`, `WORKLOG.md`) | **Genuine, green.** All 13 checks SUCCESS on head `9378aaf` | **Close as superseded by #70.** Its guard does not deliver its title, and the same guard is byte-identical in #70, so fix it there rather than here |
 
 Every one of the seven targets `main` directly. None is based on another, which
 matters for the next section.
@@ -185,6 +197,71 @@ all five stack pull requests.
   `124f7e4a…`), so nothing is currently wrong — the check just could not tell
   us if it were.
 
+- **#62's guard names two fields it never checks, and #70 carries the same
+  guard.** `tests/test_query.py`'s new class compares `dataclasses.fields()`
+  against two dicts, `TRACE_MERGE` and `CANDIDATE_MERGE`, so a field added and
+  not recorded does fail. But `CANDIDATE_MERGE` names `lexical` and `dense` with
+  a treatment and asserts neither. Dropping `lexical=candidate.lexical` or
+  `dense=candidate.dense` from the merge in `cairn/query.py:119-120` leaves the
+  **entire 807-test suite green**, proved by mutation. `dense` is the textbook
+  case of a bound with data too far apart to exercise it: the fixture calls
+  `split_intents(..., dense_weight=0.0)`, where the correct value of `dense`
+  equals the dataclass default, and no test anywhere calls `split_intents` with
+  a non-zero `dense_weight`, so the hybrid split path is entirely untested.
+  Removing the candidate cap, or dropping a candidate outright, is also
+  invisible. This test is byte-identical in #70, so the gap ships with the tip.
+
+- **Two of that guard's three union fields have an unreachable failure
+  branch.** The loop holds `query_terms`, `unmatched` and `ignored` to "union
+  across parts". In the fixture, `unmatched` is `['worki']` for part 0 and `[]`
+  for part 1, and `ignored` is `['the']` for both — so for those two, the union
+  and "just pick part 0" are the same answer. Reintroducing the exact #46 bug
+  (`unmatched=traces[0].unmatched`, `ignored=traces[0].ignored`) leaves the
+  suite green. Only `query_terms` has parts disjoint enough to distinguish
+  them. The commit recognised this hazard and built a fixture guard for
+  `matched` only.
+
+- **A new field can still be added silently; only an unrecorded one cannot.**
+  Adding a field to `RetrievalTrace` and leaving `TRACE_MERGE` alone fails the
+  test by name. Adding the field **and** one dict key, with the merge still
+  never touching it, passes all 807 tests. The guarantee delivered is "a new
+  field cannot be added without a decision being recorded", not the title's
+  "cannot silently drop a merged field". `lexical` and `dense` are the living
+  proof: both recorded, neither asserted.
+
+- **#70's headline fix is zero lines of code, and its new tests do not fail
+  against the code it says it fixes.** The claim is true —
+  `cairn/followup.py`'s docstring said the store held "a contact and a
+  timestamp" and `record()` has never written one. But the fix changes only
+  that docstring and the key order of two examples in `docs/followup.md`.
+  Restoring the pre-fix `cairn/followup.py` under the new tests leaves all 33
+  green: **zero of the three new tests fail against the unfixed module.** They
+  hold the documentation half and nothing else.
+
+- **`test_nothing_about_when_or_from_where_is_kept` cannot be the signal it
+  claims to be.** It uses `assertNotIn` against exact key names, which on a
+  dict is exact membership, not substring. Mutation results: adding
+  `received_at` does not fire it; `client_ip` does not; `session_id` does not.
+  Only the literal key `timestamp` fires it, and by then the field-set equality
+  above it has already failed on the same record. Its failure branch is
+  unreachable as an independent signal.
+
+- **#70's own proof-of-work claim is wrong, and this was measured.** The commit
+  message, `WORKLOG.md` and `docs/roadmap.md` all say adding a `received_at` to
+  `record()` "fails three tests and names the field". It fails **four**, one of
+  them the pre-existing `test_recording_writes_one_json_line`, and the test
+  written to name the field is not among them. The friction the roadmap
+  describes as newly added already existed: full dict equality in
+  `test_recording_writes_one_json_line` has always failed on any added key.
+
+- **`test_the_published_line_is_the_line_that_is_written` does not test
+  bytes.** Its docstring says `Not "the fields match" but "the bytes match"`.
+  It `json.loads` the written line and re-serialises it with the test's own
+  `sort_keys=True` before comparing. Changing `record()` to
+  `sort_keys=False` leaves all 33 tests green. Key order is the very defect
+  this pull request exists to fix, and the guard is blind to it on the code
+  side.
+
 - **A red check fixed inside its own branch, still showing red.** #63, #65 and
   #66's most recent runs are failures, all of them `core, windows` and all of
   them the ruff path-separator defect that `9a94a1d` fixes. That commit is in
@@ -269,9 +346,12 @@ request at a time and watching it go green.
 
 ## Safe order of operations
 
-1. **Merge #71.** It is clean against `main` and green on the exact commit. Do
-   it first: it is the only pull request whose proposed commit has been tested,
-   and it carries the ruleset recording that stops the weekly job from failing.
+1. **Merge #71.** ~~It is clean against `main` and green on the exact commit.~~
+   **Done** — squashed as `8e0e5e0` while this was being written. It was the
+   only pull request whose proposed commit had been tested, and it carries the
+   ruleset recording that stops the weekly job from failing. Steps 2 to 7 are
+   unaffected; every conflict count below was re-derived against the new `main`
+   and is unchanged.
 
 2. **Close #63, #65, #66 and #69 as superseded by #70**, before touching #70,
    so nobody resolves five conflicting copies of one change. Close #62 the same
@@ -309,6 +389,27 @@ request at a time and watching it go green.
 7. **Re-run CI on the rebased #70 and require it green before merge.** Nothing
    in this pull request has ever been through CI in the form being proposed.
 
+8. **Rework what #70 claims, before or immediately after it lands.** Green CI
+   will not catch any of this, because every item is a guard that passes in both
+   the fixed and the unfixed state:
+   - assert `lexical` and `dense` in the candidate-level test, and add a
+     `dense_weight > 0` case so the hybrid split path is exercised at all;
+   - assert the candidate pool's contents and its cap;
+   - add a fixture where `unmatched` and `ignored` actually differ between
+     parts, so the union assertion can distinguish a union from a pick;
+   - make `test_nothing_about_when_or_from_where_is_kept` substring-based, or
+     delete it — as written it misses `received_at`, `client_ip` and
+     `session_id`;
+   - compare the **raw written line** against the published example in
+     `test_the_published_line_is_the_line_that_is_written`, since key order is
+     the defect being fixed and the current re-serialisation normalises it away;
+   - correct "fails three tests and names the field" in the commit message,
+     `WORKLOG.md` and `docs/roadmap.md` — it fails four, and not that one;
+   - correct the premise "every field on `RetrievalTrace` and `Candidate`
+     carries a default", which is false for six of them;
+   - reconsider flipping `docs/roadmap.md` Phase 5 and Phase 8 to
+     **Status: built** until the above is true.
+
 ## What was verified here, and what was taken on trust
 
 **Verified directly, by running it:**
@@ -340,6 +441,13 @@ request at a time and watching it go green.
   OK.
 - The ruleset finding: the diff of `.github/rulesets/main.json` in #71, and the
   absence of any `.github/` change in the other six.
+- Every mutation result in "Dominant defect class": each was produced by editing
+  `cairn/query.py`, `cairn/followup.py` or the dataclasses in
+  `cairn/retrieve.py` in a scratch worktree at the relevant head, running the
+  full suite, then reverting and re-confirming green. Baselines: 807 tests OK at
+  #62's head, 817 tests OK at #70's head, 33 tests OK for the follow-up class.
+  `load()` accepting an unknown key was proved with a hand-written store file,
+  not by reading the code.
 - That `origin/main` is green, so no inherited-failure category applies. Every
   comparison in this file is against `origin/main` at `5221556` after
   `git fetch origin`, never against the local checkout: the working tree is on
@@ -357,11 +465,16 @@ request at a time and watching it go green.
   regresses — which is the only thing that would establish the pull request's
   own title. Read #71's three-gates claim as plausible and green, not as
   audited. Anyone relying on it should do the mutation pass.
-- **#70's "the store never held a timestamp" and #62's "split_intents cannot
-  silently drop a merged field" were not proved by mutation here.** #70's own
-  worklog states the author proved it by adding a `received_at` to `record()`
-  and watching three tests fail and name the field; that is the author's report,
-  not this triage's observation.
+- **#70's and #62's claims WERE proved by mutation, and both came back
+  partly false.** This was the one thing in an earlier draft of this file
+  recorded as taken on trust, on the strength of #70's worklog saying the
+  author had proved it by adding a `received_at` to `record()` and watching
+  "three tests fail and name the field". Measured, it fails four tests and the
+  test written to name the field is not one of them. The full mutation results
+  are in "Dominant defect class" above; every one of them was produced by
+  editing the subject in a scratch worktree, running the suite, reverting, and
+  re-confirming green. Taking the author's own proof on trust would have put a
+  false statement in this file, which is the whole argument for not doing it.
 - **The five "absent" CI results have an observed effect and an unconfirmed
   cause.** No run exists for those commits. Why the `pull_request` event
   produced no run when the branches were updated at about 03:43 — while #62,
