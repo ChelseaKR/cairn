@@ -16,7 +16,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 877 tests plus
+evidence and, separately, against the running server. 894 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -321,14 +321,14 @@ a separate project, pinned to an exact commit in
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
-Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
+Bundle sha256: 124f7e4a41baf7eb25c2ff1f37ec56956887984b6d9528dacc7ccccb7763f8cc
 
 $ ./plumbline-gate.sh           # the same command CI runs
 GATE: PASS — target cairn-demo, dataset 124f7e4a41ba, run ...
 all 14 suites passed:
   ...
-  multilingual           score 0.9655  floor 0.95  PASS  n=29  ci 0.828-0.994  mde 0.134
-  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci 0.742-0.990  mde 0.214  3 unverifiable
+  multilingual           score 0.9667  floor 0.95  PASS  n=30  ci ...  mde ...
+  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci ...  mde ...  4 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline 62d02d167796e3a5
@@ -429,7 +429,7 @@ what a suite would need, and Plumbline built `passage_attribution`. The
 evidence side of it is authored: `plumbline/questions.toml` now declares which
 passage answers each question, because only a person who has read the question
 and the corpus can say that, and `cairn record` refuses a question set where
-an answer item does not. The suite scores 0.9412 over 17 items and fails
+an answer item does not. The suite scores 0.9444 over 18 items and fails
 `ck-022` by name — and is more precise than the write-up was, reporting it as
 a *retrieval* failure, because the right passage never cleared the threshold
 for composition to choose it. The behaviour has not changed; it is scored now

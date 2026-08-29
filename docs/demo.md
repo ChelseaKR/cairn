@@ -288,25 +288,27 @@ in [`plumbline.pin`](../plumbline.pin).
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
 Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
-Bundle sha256: b7a28017910ba7e662ebfa55f0e050e2059df4c0bc80875ef694809fb72cc900
+Bundle sha256: 124f7e4a41baf7eb25c2ff1f37ec56956887984b6d9528dacc7ccccb7763f8cc
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
 GATE: PASS — target cairn-demo, dataset 124f7e4a41ba, run ...
 all 14 suites passed:
   ...
-  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci 0.742-0.990  mde 0.214  3 unverifiable
+  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci ...  mde ...  4 unverifiable
   ...
 
 $ python3 audit_guard.py             # the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline ...
-declared gaps: none — every implemented suite is enabled.
+declared gaps (1 suite not scored at all):
+  conversational_integrity: no item in the recorded bundle carries multi-turn
+  conversation data (turns / turn_responses) ...
 suites that could not check everything they were handed:
-  passage_attribution: scored 17 of 20 eligible (no_distractor 3); ...
+  passage_attribution: scored 18 of 22 eligible (no_distractor 4); ...
 no suite moved against the committed baseline.
 ```
 
 `passage_attribution` is the suite that can say **right document, wrong
-paragraph**, and 0.9412 is one item failing it: `ck-022` is answered from the
+paragraph**, and 0.9444 is one item failing it: `ck-022` is answered from the
 housing document's deadline paragraph instead of the one with the amount in
 it. Every other suite passes that item, correctly — the answer is grounded,
 cited, and supported by the passage it points at. See

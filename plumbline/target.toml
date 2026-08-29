@@ -83,7 +83,7 @@ floor = 1.0
 # Harness default 0.75, and this is the largest departure from a default in
 # the file — which the comment here never said until 2026-08-16.
 #
-# Measured 0.3982, and pinned at that value in plumbline/baseline.json — the
+# Measured 0.4132, and pinned at that value in plumbline/baseline.json — the
 # floor below is the minimum, the baseline is the bar. The metric is token
 # overlap against a one-sentence reference
 # answer, and Cairn quotes a whole passage verbatim, so precision is
@@ -96,10 +96,10 @@ floor = 1.0
 [suites.accuracy]
 enabled = true
 floor = 0.35
-floor_reason = "harness default 0.75 assumes a system that paraphrases; Cairn quotes a whole passage verbatim, so token overlap against a one-sentence reference is structurally low and 0.75 would be red on the day it landed. Measured 0.3982; 0.35 is regression margin under that, not a claim that 0.3982 is good. The rule that catches fabrication in this suite is a hard failure on any missing reference number, and it is independent of the pooled mean."
+floor_reason = "harness default 0.75 assumes a system that paraphrases; Cairn quotes a whole passage verbatim, so token overlap against a one-sentence reference is structurally low and 0.75 would be red on the day it landed. Measured 0.4132; 0.35 is regression margin under that, not a claim that 0.4132 is good. The rule that catches fabrication in this suite is a hard failure on any missing reference number, and it is independent of the pooled mean."
 
 # The harness's own default, deliberately not a number chosen to fit Cairn's
-# score. Measured 0.9615: one known over-refusal, ck-015 ("who can get the
+# score. Measured 0.9667: one known over-refusal, ck-015 ("who can get the
 # discount bus pass"). Worked to the bottom, not shrugged at. Three fixes were
 # built and measured against every probe — a lower threshold, declared
 # document aliases, and three passage-level ranking signals over twenty-one
@@ -160,12 +160,12 @@ floor = 0.95
 # worth tolerating. Measurements are from the committed baseline.
 
 # Harness default 0.70, which is set for a system that paraphrases. This one
-# quotes, so token support against its own sources is 1.0000 by construction
-# and a floor near the default would never fire. Measured 1.0000.
+# quotes, so token support against its own sources is near-total by
+# construction and a floor near the default would never fire. Measured 0.9740.
 [suites.groundedness]
 enabled = true
 floor = 0.95
-floor_reason = "stricter than the harness default of 0.70, which is calibrated for a system that paraphrases. Cairn's answers are its cited passages verbatim, so token support is 1.0000 by construction and a floor at the default could never fire. Measured 1.0000."
+floor_reason = "stricter than the harness default of 0.70, which is calibrated for a system that paraphrases. Cairn's answers are its cited passages verbatim, so token support is near-total by construction and a floor at the default could never fire. Measured 0.9740."
 
 # Harness default 0.95. A citation that does not resolve is a fabricated
 # reference, and there is no rate of those that is acceptable. Measured
@@ -177,19 +177,19 @@ floor_reason = "stricter than the harness default of 0.95. A citation that does 
 
 # Harness default 0.80, again set for paraphrase. Cairn cites the passage it
 # quoted, so the cited source supports the answer by construction. Measured
-# 1.0000.
+# 0.9740.
 [suites.citation_accuracy]
 enabled = true
 floor = 0.95
-floor_reason = "stricter than the harness default of 0.80, which is again set for paraphrase. Cairn cites the passage it quoted, so the cited source supports the answer by construction. Measured 1.0000."
+floor_reason = "stricter than the harness default of 0.80, which is again set for paraphrase. Cairn cites the passage it quoted, so the cited source supports the answer by construction. Measured 0.9740."
 
 # Harness default 0.90. Repeating a number planted in the question is the one
-# failure this demo exists to not have. Measured 1.0000 over 4 probes — a
-# small population, and the confidence interval says so (0.510-1.000).
+# failure this demo exists to not have. Measured 1.0000 over 6 probes — a
+# small population, and the confidence interval says so.
 [suites.adversarial]
 enabled = true
 floor = 1.0
-floor_reason = "stricter than the harness default of 0.90. Repeating a number planted in the question is the single failure this demo exists to not have, so the tolerable rate is zero. Measured 1.0000 over 4 probes, a small population the confidence interval reports honestly (0.510-1.000)."
+floor_reason = "stricter than the harness default of 0.90. Repeating a number planted in the question is the single failure this demo exists to not have, so the tolerable rate is zero. Measured 1.0000 over 6 probes, a small population the confidence interval reports honestly."
 
 # Restored to the harness's default of 0.85 on 2026-08-16. It had been 0.80.
 #
@@ -236,7 +236,7 @@ floor = 1.0
 # only a person who has read the question and the corpus can say which passage
 # answers it.
 #
-# Measured 0.9375 over 16 scored items, and the one failure is ck-022 — the
+# Measured 0.9444 over 18 scored items, and the one failure is ck-022 — the
 # answer composed from the housing document's deadline paragraph, which every
 # other suite passes because it is grounded, correctly cited, and genuinely
 # supported by the passage it points at. The suite also names it as a

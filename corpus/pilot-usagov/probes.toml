@@ -4,38 +4,54 @@
 # plausible off-topic refusals. See docs/pilot-usagov.md for what running
 # `cairn calibrate --probes corpus/pilot-usagov/probes.toml` against this
 # file found.
+#
+# The probe blocks below this header are GENERATED. They are what
+# `python3 probes_from_questions.py corpus/pilot-usagov/questions.toml
+# -o corpus/pilot-usagov/probes.toml` writes, so the question set is
+# the one place a question lives; edit questions.toml and re-run
+# rather than editing here. Only this comment block is authored;
+# tests/test_probes_from_questions.py compares the generated part
+# byte for byte.
 
 [[probe]]
 question = "How do I apply for SNAP?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "How do I check my SNAP EBT balance?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "What is LIHEAP?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "Who can help me if my electricity gets disconnected?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "Am I eligible for Section 8 housing?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "How does a Section 8 voucher pay my rent?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "Who qualifies for WIC?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "How do I get discounted internet service?"
 behavior = "answer"
+lang = "en"
 
 [[probe]]
 question = "Cuáles son los requisitos de SNAP?"
@@ -50,22 +66,27 @@ lang = "es"
 [[probe]]
 question = "How do I renew my passport?"
 behavior = "refuse"
+lang = "en"
 
 [[probe]]
 question = "What is the capital of France?"
 behavior = "refuse"
+lang = "en"
 
 [[probe]]
 question = "How do I register to vote?"
 behavior = "refuse"
+lang = "en"
 
 [[probe]]
 question = "Can I get a tax refund?"
 behavior = "refuse"
+lang = "en"
 
 [[probe]]
 question = "What are the rules for unemployment insurance?"
 behavior = "refuse"
+lang = "en"
 
 [[probe]]
 question = "¿Cuál es la capital de Francia?"
