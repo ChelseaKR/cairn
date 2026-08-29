@@ -16,7 +16,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 851 tests plus
+evidence and, separately, against the running server. 866 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
