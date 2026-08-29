@@ -13,7 +13,7 @@ Two things distinguish this from `cairn/refusal_stats.py`, deliberately:
 
 - It stores individual, actionable records rather than an aggregate count,
   because a handoff has to name someone to hand off to. Three fields, and
-  this list is the whole of it: `lang`, `contact`, and `question`. It cannot
+  `STORED_FIELDS` below is the whole of it. It cannot
   make the same "structurally cannot hold a question" promise
   `cairn/refusal_stats.py` makes; instead it makes a narrower one, held by
   `cairn/server.py`: the question is stored *only* when the asker checked
@@ -26,8 +26,11 @@ Two things distinguish this from `cairn/refusal_stats.py`, deliberately:
   reasons about exactly what this file holds for a records-retention review.
   A module docstring inventing a field for a store of real contact
   information is the kind of wrong that a compliance reader would have
-  carried away, so `tests/test_followup.py` now holds the written keys to
-  this list rather than leaving prose to be checked by reading.
+  carried away — and the first correction, on 2026-08-27, only rewrote this
+  prose to agree with the code, which left the next drift free to happen the
+  same way. `STORED_FIELDS` is the fix with something behind it: `record()`
+  builds the written line out of that tuple, so a key it does not name is
+  not a key this module can write.
 - Nothing here is automatic. No follow-up is ever sent unless the asker
   fills in the form themselves and submits it — there is no code path that
   reaches this module from anywhere but that one explicit action.
@@ -39,6 +42,23 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
+from typing import Final
+
+#: The stored record: every key `record()` writes, in the order it writes
+#: them, and the whole of it. `docs/followup.md` publishes the resulting line
+#: verbatim and `tests/test_followup.py` compares the bytes this produces to
+#: that page, so this tuple, the written file and the published example are
+#: one fact in three places rather than three claims that agree today.
+#:
+#: `record()` projects its arguments through this tuple, which is why it is a
+#: declaration and not a comment: a field added to the entry and not to this
+#: list is silently not written, and a field added here and not supplied is a
+#: `KeyError` on the next submission. Either way somebody has to decide, and
+#: then move `docs/followup.md`, `docs/compliance.md` and DESIGN.md, which all
+#: reason about what an agency ends up holding on the people who contacted it.
+#: That is deliberately more friction than adding a dict key, because this
+#: dict is somebody's phone number.
+STORED_FIELDS: Final[tuple[str, ...]] = ("contact", "lang", "question")
 
 
 class FollowupStoreError(ValueError):
@@ -61,12 +81,21 @@ class FollowupStore:
     _lock: Lock = field(default_factory=Lock, init=False)
 
     def record(self, *, lang: str, contact: str, question: str | None) -> None:
-        entry = {
+        """Append one line, containing exactly `STORED_FIELDS` in that order.
+
+        The order is the tuple's, not `sort_keys=True`'s. Sorting happened to
+        produce the published order and nothing said so, so the published
+        example rested on a keyword argument that could be dropped without a
+        single test noticing — which is the defect this docstring's own
+        module-level correction was supposed to have closed.
+        """
+        supplied: dict[str, str | None] = {
             "lang": lang,
             "contact": contact,
             "question": question,
         }
-        line = json.dumps(entry, ensure_ascii=False, sort_keys=True)
+        entry = {name: supplied[name] for name in STORED_FIELDS}
+        line = json.dumps(entry, ensure_ascii=False)
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a", encoding="utf-8", newline="\n") as handle:

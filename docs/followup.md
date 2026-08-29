@@ -34,7 +34,8 @@ questions, or anyone else's questions is touched.
 ## What gets stored, and what doesn't
 
 Every submission writes one line to the file named after `--followup-store`,
-and this is that line exactly, keys sorted the way `record()` writes them:
+and this is that line exactly, in the order `cairn/followup.py`'s
+`STORED_FIELDS` declares and `record()` writes:
 
 ```json
 {"contact": "someone@example.gov", "lang": "en", "question": null}
@@ -55,11 +56,21 @@ not, and the store only ever reflects that one moment.
 
 Three fields, and that is the whole record. Not a timestamp, not the client's
 address, not a session id, not anything about the conversation the refusal
-came from. `tests/test_followup.py` holds `record()` to exactly the line above
-rather than to a description of it, because this page, `docs/compliance.md`
-and DESIGN.md all reason about what an agency ends up holding on the people
-who contacted it, and until 2026-08-27 `cairn/followup.py`'s own docstring
+came from. `tests/test_followup.py` searches this page for the line `record()`
+actually wrote, byte for byte, because this page, `docs/compliance.md` and
+DESIGN.md all reason about what an agency ends up holding on the people who
+contacted it, and until 2026-08-27 `cairn/followup.py`'s own docstring
 described a field that was never there.
+
+That sentence claimed the byte comparison from 2026-08-27 and did not have
+one. The test parsed the written line and re-serialised it with its own
+`sort_keys=True` before comparing, which normalises away key order — and key
+order was the second half of the same day's fix, since this page had been
+publishing the keys in an order `record()` does not write. `record()` could
+have been changed to stop sorting, making the example above false, with every
+test in `tests/test_followup.py` still green. It is the raw written line now, and the order
+comes from a declared tuple rather than from a `json.dumps` keyword argument
+that nothing named.
 
 ## Reading the queue
 

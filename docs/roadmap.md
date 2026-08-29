@@ -292,6 +292,53 @@ the published example, and the two fields such a store most naturally grows
 move the three documents that describe it. That is deliberately more friction
 than adding a dict key, because this dict is somebody's phone number.
 
+**Corrected 2026-08-28, and the correction is the part worth reading.** The
+paragraph above was written on 2026-08-27 and two thirds of it was not true.
+This was found by mutating the subject and running the suite, not by reading
+the tests again — reading is what produced the paragraph.
+
+- *"the bytes against the published example"* — there was no byte comparison.
+  The test parsed the written line and re-serialised it with its own
+  `sort_keys=True` before searching `docs/followup.md` for it, so key order
+  was normalised away on the way in. Key order was half of what this phase
+  fixed. Setting `record()`'s `sort_keys=False` made `docs/followup.md` false
+  about the bytes an agency's store holds, and left every test in
+  `tests/test_followup.py` green.
+- *"asserted absent by name"* — `assertNotIn` against a dict is exact key
+  membership, not substring, and the list it checked was bare nouns:
+  `timestamp`, `at`, `ip`, `session`. The three spellings such a field
+  actually arrives in — `received_at`, `client_ip`, `session_id` — all passed
+  it. Only a key spelled exactly `timestamp` fired it, and the field-set
+  assertion above it had already failed on that same record, so the test had
+  no failure branch of its own.
+- The session's own proof line, *"adding a `received_at` to `record()` fails
+  three tests and names the field"*, was wrong in both halves. It failed four
+  assertions, one of them the pre-existing `test_recording_writes_one_json_line`,
+  and the test written to name the field was not among them. The friction that
+  phase described as newly added was already there, in a dict equality nobody
+  had noticed doing the work.
+
+What holds it now is a declaration rather than a description.
+`cairn/followup.py` exports `STORED_FIELDS`, and `record()` projects its
+arguments through that tuple, so the written order *is* the declared order and
+a key the tuple does not name is not a key this module can write. The
+published order no longer rests on a `json.dumps` keyword argument that
+nothing mentioned. The test reads the raw line back off disk and searches
+`docs/followup.md` for it verbatim, in both the shared-question and
+withheld-question forms, and the absent-field guard matches substrings of the
+written key names.
+
+Re-proved in both directions on 2026-08-28, and the numbers here are the
+measured ones. Making `record()` write its arguments in insertion order again
+— the mutation that used to leave every test in that file green — fails four
+assertions across two test methods, the order test and the published-line test
+in both its forms. Adding a `received_at` to both `STORED_FIELDS` and the entry
+fails four assertions across three methods, and the absent-field test is now
+one of them, failing with `a stored key matches '_at': ['received_at']`. The
+order test does not fire on that second one, correctly: it holds the written
+line to `STORED_FIELDS`, and that mutation moves both together. What catches
+it is the two guards that compare the code to a published document.
+
 ## Phase 9: a person drives the page with a screen reader
 
 **Status: blocked, and not on anything an agent can supply.**

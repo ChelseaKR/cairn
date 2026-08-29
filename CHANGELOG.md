@@ -113,6 +113,26 @@ becomes a version section like any other.
   file Cairn writes that holds personal data a person typed about themselves,
   and a field joining it should cost more than a dict key.
 
+- **The entry above claimed three guards and shipped one.** Measured by
+  mutation rather than re-read: restoring the pre-fix `cairn/followup.py`
+  under the three new tests left every test in `tests/test_followup.py`
+  green, because the whole fix was a docstring and two examples. "The bytes" was not the bytes — the
+  test parsed the written line and re-serialised it with its own
+  `sort_keys=True`, normalising away the key order that was the very drift
+  being fixed, so `record()` could have stopped sorting, made
+  `docs/followup.md` false, and passed. "Asserted absent by name" used
+  `assertNotIn` against a dict, which is exact key membership, so
+  `received_at`, `client_ip` and `session_id` all went through it.
+  `cairn/followup.py` now exports `STORED_FIELDS` and `record()` projects its
+  arguments through it, so the written order is a declaration instead of a
+  `json.dumps` keyword argument nothing named, and a key the tuple does not
+  list is a key this module cannot write. The test compares the raw written
+  line to the published example verbatim, in both its forms, and the
+  absent-field guard matches substrings. Both directions re-proved against the
+  full suite: writing insertion order again takes it from 866 passing to four
+  failures, where that same mutation used to cost nothing, and adding a
+  `received_at` fails four with the naming test among them.
+
 #### Changed
 
 - `C90` is in ruff's `select`, so `make verify` fails on a function over the
