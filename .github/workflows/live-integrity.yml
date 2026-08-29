@@ -1,0 +1,67 @@
+# Does the page a reader receives say what this repository says?
+#
+# ci.yml and pages.yml both grade the checkout: `site_build.py --check` proves the
+# committed page is what the committed evidence renders to, and tests/test_site.py
+# proves the page quotes that evidence. Neither one has ever looked at the deployed
+# bytes. A pages run that failed, never fired, or published an older commit would
+# leave both green while https://chelseakr.github.io/cairn/ served something else,
+# and nothing in this repository could tell.
+#
+# This is the check for the deployment. It regenerates the page from the checkout,
+# fetches the live page over HTTPS, and fails naming every byte-level difference.
+# Green here and green in ci.yml together mean the published page is the page the
+# evidence produces.
+#
+# It reads the network, deliberately, which is the one thing the merge gate must
+# never do. That is why it lives in its own workflow, holds only `contents: read`,
+# and is not a required check: it grades the deployment, and a deployment that has
+# not happened yet is not a reason to block a merge.
+#
+# Runs daily and on demand (Actions > live integrity sentinel > Run workflow).
+name: live integrity sentinel
+
+on:
+  schedule:
+    - cron: "17 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Deduplicate reads without ever cancelling or queueing behind a pages deploy.
+  group: live-integrity
+  cancel-in-progress: false
+
+jobs:
+  verify-live:
+    name: the live page is the page this repository publishes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Compare the live page with what this checkout publishes
+        run: |
+          set -uo pipefail
+          expected_sha="$(git rev-parse HEAD)"
+          python3 verify_live_site.py
+          verify_rc="$?"
+          # A pages deploy for a newer commit may have landed while this ran, in which
+          # case the page being different from THIS commit is the deploy working. Only
+          # that exact case is excused, and only by re-reading the remote afterwards.
+          remote_sha="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ "$remote_sha" != "$expected_sha" ]; then
+            echo "::warning::main moved to ${remote_sha} while this ran; re-run once its deploy finishes"
+            exit 0
+          fi
+          exit "$verify_rc"
