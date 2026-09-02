@@ -280,7 +280,7 @@ class TestThePageNamesItsOwnAddress(PageHarness):
             ("og:site_name", "Cairn"),
         ):
             self.assertIn(f'<meta property="{tag}" content="{value}">', head)
-        self.assertIn('<meta name="twitter:card" content="summary">', head)
+        self.assertIn('<meta name="twitter:card" content="summary_large_image">', head)
 
         description = re.search(r'<meta name="description" content="([^"]*)"', head)
         og_description = re.search(
@@ -295,6 +295,50 @@ class TestThePageNamesItsOwnAddress(PageHarness):
         self.assertIsNotNone(title)
         self.assertIsNotNone(og_title)
         self.assertEqual(title.group(1), og_title.group(1))
+
+    def test_the_share_card_names_an_image(self):
+        # Without `og:image` a shared link renders as a grey box with no
+        # picture, which is not a broken page and so never shows up in any
+        # check that loads the page. The tag is the only place the absence is
+        # visible from inside a checkout.
+        head = self.head()
+        for tag in ("og:title", "og:description", "og:image"):
+            found = re.search(rf'<meta property="{tag}" content="([^"]*)"', head)
+            self.assertIsNotNone(found, f"the head no longer carries {tag}")
+            self.assertNotEqual(found.group(1).strip(), "", f"{tag} is empty")
+
+        image = re.search(r'<meta property="og:image" content="([^"]*)"', head)
+        twitter = re.search(r'<meta name="twitter:image" content="([^"]*)"', head)
+        self.assertIsNotNone(twitter, "the head no longer carries twitter:image")
+        self.assertEqual(
+            image.group(1),
+            twitter.group(1),
+            "og:image and twitter:image name two different pictures",
+        )
+        # Same reasoning as the canonical: a preview fetcher has no page
+        # context, so the image reference has to be absolute and has to keep
+        # the project path or it points at a sibling project's site.
+        self.assertEqual(image.group(1), "https://chelseakr.github.io/cairn/og-card.png")
+
+    def test_the_image_the_card_names_is_committed_next_to_the_page(self):
+        # The pages workflow uploads the `site` directory as it stands. A tag
+        # naming a file that is not in it publishes a card that 404s, and the
+        # 404 is on somebody else's screen, not in any log here.
+        card = PAGE.parent / "og-card.png"
+        self.assertTrue(card.is_file(), "site/og-card.png is missing")
+
+        header = card.read_bytes()[:24]
+        self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n", "og-card.png is not a PNG")
+        # Width and height are big-endian 32-bit fields of the IHDR chunk, at a
+        # fixed offset. The tags in the head state 1200x630; a card of some
+        # other size would make those two numbers a claim nothing checked.
+        width = int.from_bytes(header[16:20], "big")
+        height = int.from_bytes(header[20:24], "big")
+        self.assertEqual((width, height), (1200, 630))
+
+        head = self.head()
+        self.assertIn(f'<meta property="og:image:width" content="{width}">', head)
+        self.assertIn(f'<meta property="og:image:height" content="{height}">', head)
 
 
 class TestThePageIsNotStale(PageHarness):

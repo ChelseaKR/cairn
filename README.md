@@ -6,6 +6,12 @@ its sources on every answer, and when no source clears the relevance threshold
 it refuses plainly and points to a human — no guessing, ever. A cairn marks a
 verified trail; where there are no stones, there is no trail.
 
+**See what it actually did: https://chelseakr.github.io/cairn/** — a committed
+page holding two refusals, the cross-language answer its own audit scores as a
+failure, and the baseline table, every string copied verbatim out of the
+evidence bundle in this repository. Details in
+[The evidence page](#the-evidence-page).
+
 **Status: released.** `v0.3.0` is the current version, tagged and published to
 PyPI (`pip install cairn-assistant`) and GHCR
 (`docker pull ghcr.io/chelseakr/cairn`), and the branch-protection ruleset
@@ -16,7 +22,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 910 tests plus
+evidence and, separately, against the running server. 912 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 

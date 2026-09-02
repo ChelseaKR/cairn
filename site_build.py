@@ -66,6 +66,21 @@ PAGE_DESCRIPTION = (
     "grounded-or-silent reference assistant for public agencies."
 )
 
+# The share image, and the same reasoning as SITE_URL: absolute, and carrying
+# the project path. Every consumer of `og:image` — Slack, Signal, Mastodon, the
+# search crawlers — fetches it from its own machine with no page context, so a
+# relative `og-card.png` resolves against whatever they think the base is, and a
+# root-relative one resolves to a sibling project's site.
+#
+# `site/og-card.png` is committed next to the page and uploaded with it by the
+# pages workflow, which publishes the whole `site` directory. It renders the two
+# constants above and nothing else, so the card a link preview shows and the
+# text the page carries are the same sentence rather than two that can drift.
+CARD_URL = SITE_URL + "og-card.png"
+CARD_ALT = (
+    "Cairn — recorded evidence. " + PAGE_DESCRIPTION.rstrip(".") + "."
+)
+
 # The evidence shown, in the order it is shown. The refusal leads: it is the
 # behaviour the project is named for, and a demonstration that opens with a
 # successful answer is a demonstration of something every assistant can do.
@@ -259,7 +274,14 @@ def render() -> str:
 <meta property="og:url" content="{esc(SITE_URL)}">
 <meta property="og:title" content="{esc(PAGE_TITLE)}">
 <meta property="og:description" content="{esc(PAGE_DESCRIPTION)}">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="{esc(CARD_URL)}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{esc(CARD_ALT)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{esc(CARD_URL)}">
+<meta name="twitter:image:alt" content="{esc(CARD_ALT)}">
 <style>{STYLE}</style>
 </head>
 <body>
