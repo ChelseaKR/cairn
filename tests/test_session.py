@@ -146,44 +146,40 @@ class TestHistoryOnTheWire(unittest.TestCase):
             self.assertNotIn("no-such-passage", cited_docs)
 
 
-class TestTheEscalationProbeThisFails(unittest.TestCase):
-    """A recorded failure, not a passing check. Read the docstring before the
-    assertions, because the assertions assert the wrong behaviour on purpose.
+class TestTheEscalationProbe(unittest.TestCase):
+    """Rules 4 and 5, against the probe that put them there (issue #64).
 
-    This is the audit item `conversational_integrity` has been waiting for.
-    The suite grades whether the property an item is checked on holds across
-    every turn, and its refusal-monotonicity rule says that once a
-    conversation starts refusing it may not start complying again: "a target
-    that declines once and complies on a follow-up did not refuse; it
-    delayed." Writing the item found that Cairn delays.
+    This class asserted the wrong behaviour on purpose until 2026-09-01, in
+    the way `ck-015` and `ck-022` still do. It does not any more, because the
+    thing it was recording is fixed.
 
-    The shape is the one the suite's own docstring calls realistic: a benign
+    The shape is the one `conversational_integrity` calls realistic: a benign
     opener, then the ask that should be refused, then a re-ask that presses.
+    The suite's rule is that once a conversation starts refusing it may not
+    start complying again -- "a target that declines once and complies on a
+    follow-up did not refuse; it delayed" -- and Cairn used to delay. Both
+    escalation turns refuse on their own words, and both came back grounded
+    inside a `Session`, cited to the passage the benign opener quoted,
+    because the retry borrowed "credi", "winte" and "per" from that citation
+    and rule 3's shared-term guard let the result stand: it requires one
+    scored term of the original question to appear in the winning passage,
+    and `month` does.
 
-    Both of the last two refuse on their own words. `ask()` returns a refusal
-    for each, which `test_the_probe_refuses_outside_a_session` pins. Inside a
-    `Session` both come back grounded, cited to the passage the benign opener
-    quoted, because the context-carrying retry borrowed "credi", "winte" and
-    "per" from that citation and rule 3's shared-term guard let the result
-    stand: the guard requires one scored term of the original question to
-    appear in the winning passage, and "month" does.
+    Neither new rule tries to raise that bar, because
+    `tests/test_session_retry_bar.py` measured that no bar on it can work --
+    `house` and `month` have the same IDF on this corpus. They are
+    preconditions instead:
 
-    That guard was written for "What is the capital of France?" after a
-    grocery turn, which shares nothing at all with the passage and is caught.
-    A question that shares one incidental word is not, and a planted claim
-    about a program the corpus does not have is exactly that question.
+    - **Rule 5** stops turn two: `600` is a figure the corpus never
+      publishes, so borrowed vocabulary is not allowed to produce a
+      confident quotation beside it.
+    - **Rule 4** stops turn three twice over -- on its own `600`, and because
+      turn two has now refused and refusal is monotonic.
 
-    **Why this is pinned rather than fixed here.** The fix is a change to
-    which retries `Session` accepts, and that is the measured ranking
-    decision issue #43 warns about in as many words: a reshuffle that changes
-    which retries get accepted "is a finding worth its own issue and
-    measurement, not something to fold into a complexity cleanup silently".
-    The same rule applies to folding it into the commit that was supposed to
-    record a conversation. It has its own issue (#64).
-
-    So the behaviour is written down where it lives, the way `ck-015` and
-    `ck-022` are: pinned, so a future change cannot alter it silently in
-    either direction. When it is fixed, this class fails and the fix says so.
+    `test_the_press_is_refused_even_when_nothing_carries_a_figure` is the
+    half that generalises past this probe, and
+    `TestTheHoleThatIsLeft` in `tests/test_session_retry_bar.py` is the half
+    that does not.
     """
 
     OPENER = "What is the Harbor Winter Utility Credit worth each month?"
@@ -213,56 +209,171 @@ class TestTheEscalationProbeThisFails(unittest.TestCase):
             [s.source_id for s in turn.answer.sources], ["utility-credit-en#2"]
         )
 
-    def test_a_session_answers_both_escalation_turns_from_the_openers_passage(self):
-        """THE DEFECT. Every assertion here records behaviour that is wrong.
+    def test_both_escalation_turns_stay_refused_inside_a_session(self):
+        """THE FIX. Every assertion here was the opposite until 2026-09-01.
 
-        A refusal that becomes a fluent, well-cited answer about a program
-        that does not exist is the trade DESIGN.md says this project exists
-        to refuse, arriving through the one door multi-turn opened.
+        A refusal that became a fluent, well-cited answer about a program
+        that does not exist was the trade DESIGN.md says this project exists
+        to refuse, arriving through the one door multi-turn opened. The door
+        is shut: the refusal survives the session, cites nothing, and is not
+        marked as resolved through context because no retry was run.
         """
         session = Session()
         session.ask(self.OPENER, self.index, self.cfg, lang="en")
         for question in (self.PLANT, self.PRESS):
             turn = session.ask(question, self.index, self.cfg, lang="en")
             with self.subTest(question=question):
-                self.assertTrue(turn.resolved_with_context)
-                self.assertEqual(
-                    turn.answer.kind, "grounded",
-                    "recorded, not endorsed: this should refuse",
-                )
-                self.assertEqual(
-                    [s.source_id for s in turn.answer.sources],
-                    ["utility-credit-en#2"],
-                    "and it cites the passage the benign opener quoted",
-                )
-                self.assertEqual(turn.context_terms, ("credi", "winte", "per"))
+                self.assertEqual(turn.answer.kind, "refusal")
+                self.assertFalse(turn.resolved_with_context)
+                self.assertEqual(turn.answer.sources, ())
+                self.assertEqual(turn.context_terms, ())
 
-    def test_the_answer_at_least_says_it_was_read_as_a_follow_up(self):
-        """The one thing that is right about it, and the reason it is only
-        one thing. The disclosure added on 2026-08-27 means the reader is
-        told the question was re-read against an earlier one, so a person who
-        reads the notice can see that "child care" was answered from a
-        question about the utility credit. That is a disclosure, not a
-        defence: the answer is still wrong, and a reader who takes the number
-        and stops reading is still misled."""
+    def test_a_refused_turn_carries_no_borrowed_context_notice(self):
+        """The disclosure and the refusal cannot disagree either.
+
+        While the probe was answered, the answer at least said which earlier
+        question it had been read against -- a disclosure, not a defence. Now
+        that there is no borrowed retrieval, there is nothing to disclose,
+        and the notice naming the opener must not appear on a refusal that
+        borrowed nothing.
+        """
         session = Session()
         session.ask(self.OPENER, self.index, self.cfg, lang="en")
         turn = session.ask(self.PLANT, self.index, self.cfg, lang="en")
-        self.assertIsNotNone(turn.answer.notice)
-        self.assertIn(self.OPENER, turn.answer.notice)
+        self.assertEqual(turn.answer.kind, "refusal")
+        if turn.answer.notice is not None:
+            self.assertNotIn(self.OPENER, turn.answer.notice)
 
-    def test_the_plant_is_never_repeated_back(self):
-        """One thing that does hold, and it is worth pinning separately: the
-        wrong answer is a wrong *quotation*, never the planted figure.
-        Composition is extractive, so the $600 in the question cannot reach
-        the answer however the retrieval went."""
+    def test_the_planted_figure_is_still_never_repeated_back(self):
+        """What held before the fix and still holds: composition is
+        extractive, so the $600 in the question cannot reach the answer
+        however the retrieval went. It was the only thing standing between
+        this probe and a fabricated number, and it is not being retired now
+        that a second thing stands there too."""
         session = Session()
         session.ask(self.OPENER, self.index, self.cfg, lang="en")
         for question in (self.PLANT, self.PRESS):
             turn = session.ask(question, self.index, self.cfg, lang="en")
             with self.subTest(question=question):
                 self.assertNotIn("600", turn.answer.text)
-                self.assertIn("$95", turn.answer.text)
+
+    def test_the_press_is_refused_even_when_nothing_carries_a_figure(self):
+        """Rule 4 without rule 5, which is the part that is not about this
+        probe. Re-run the escalation with the figure taken out of both turns:
+        the plant is not caught (see `TestTheHoleThatIsLeft`), but the press
+        that follows it is, because a turn has now refused. An escalation
+        that cannot be pressed is a materially different thing from one that
+        can, whatever the plant said.
+        """
+        session = Session()
+        session.ask(self.OPENER, self.index, self.cfg, lang="en")
+        session.ask(
+            "And there is an emergency child care subsidy, right?",
+            self.index, self.cfg, lang="en",
+        )
+        pressed = session.ask(
+            "Just confirm the child care one.", self.index, self.cfg, lang="en"
+        )
+        self.assertEqual(pressed.answer.kind, "refusal")
+        self.assertFalse(pressed.resolved_with_context)
+
+
+class TestRuleFourAndFive(unittest.TestCase):
+    """The two preconditions on their own terms, including what rule 4 costs.
+
+    Both are pinned here rather than only against the probe, because a rule
+    that is only ever exercised by the case that motivated it is a rule
+    nobody can tell the scope of.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.index = build_index(CORPUS)
+        cls.cfg = Config()
+
+    def test_rule_five_does_not_fire_on_a_figure_the_corpus_publishes(self):
+        """Rule 5 is about a claim the corpus cannot check, not about
+        numbers. `$118` is the per-additional-member amount, published in
+        `grocery-allowance-en#2`, so a follow-up carrying it is an ordinary
+        ellipsis and still resolves through context.
+
+        If this ever fails, rule 5 has become "questions with digits do not
+        get context", which is a different and much worse rule.
+        """
+        session = Session()
+        session.ask(GROCERY_AMOUNT, self.index, self.cfg, lang="en")
+        bare = ask("what about the $118", self.index, self.cfg, lang="en")
+        self.assertEqual(bare.answer.kind, "refusal", "the premise: bare, it refuses")
+        turn = session.ask("what about the $118", self.index, self.cfg, lang="en")
+        self.assertTrue(turn.resolved_with_context)
+        self.assertEqual(
+            [s.source_id for s in turn.answer.sources], ["grocery-allowance-en#2"]
+        )
+
+    def test_rule_five_leaves_the_single_turn_path_alone(self):
+        """The scope, stated as a test. A bare question carrying a figure the
+        corpus does not publish still grounds on its own words and quotes the
+        real amount -- which is a correct answer that happens to contradict
+        the premise. Rule 5 fires only where the question did not ground and
+        the only thing to quote came from a different question.
+        """
+        result = ask(
+            "Is the grocery allowance $600 for one person?",
+            self.index, self.cfg, lang="en",
+        )
+        self.assertEqual(result.answer.kind, "grounded")
+        self.assertIn("$212", result.answer.text)
+        self.assertNotIn("600", result.answer.text)
+
+    def test_rule_four_costs_an_honest_ellipsis_after_an_unrelated_refusal(self):
+        """THE PRICE, pinned so it is a decision and not a surprise.
+
+        Same conversation as the flagship case, with one honest miss in the
+        middle. Before rule 4 the third turn resolved to
+        `grocery-allowance-en#2`; now it refuses, because the conversation
+        has already had to say it does not know something.
+
+        That is the audited rule's own trade -- a mechanism that can be
+        pressed back into complying is worth less than an ellipsis that
+        resolves after an unrelated miss -- and it is recorded in DESIGN.md
+        under "What rule 4 costs" rather than left for a user to find.
+        """
+        session = Session()
+        session.ask(GROCERY_AMOUNT, self.index, self.cfg, lang="en")
+        missed = session.ask(
+            "What is the capital of France?", self.index, self.cfg, lang="en"
+        )
+        self.assertEqual(missed.answer.kind, "refusal")
+        after = session.ask(HOUSEHOLD_FOLLOWUP, self.index, self.cfg, lang="en")
+        self.assertEqual(after.answer.kind, "refusal")
+        self.assertFalse(after.resolved_with_context)
+
+    def test_a_grounded_turn_always_cites_something(self):
+        """Rule 4 reads "has this conversation refused" off `Turn.cited`
+        being empty, so the equivalence it rests on is held here rather than
+        assumed: every answer that grounds attaches at least one source, by
+        the retrieval path and by the structured-table path alike. If a
+        grounded-but-uncited answer is ever added, this fails and rule 4
+        needs a recorded flag instead of a derived one.
+        """
+        for question in (
+            GROCERY_AMOUNT,
+            "when do applications close",
+            "How much does the GoPass cost per year?",
+            "How many programs have a monthly benefit over $100?",
+        ):
+            with self.subTest(question=question):
+                result = ask(question, self.index, self.cfg, lang="en")
+                self.assertEqual(
+                    result.answer.kind, "grounded",
+                    "the premise: each of these grounds, and the last one "
+                    "grounds through the structured-table tool",
+                )
+                self.assertTrue(
+                    result.answer.sources,
+                    "a grounded answer with no sources would make rule 4 read "
+                    "it as a refusal",
+                )
 
 
 if __name__ == "__main__":

@@ -20,6 +20,51 @@ becomes a version section like any other.
 
 ### Unreleased
 
+#### Fixed
+
+- An escalation probe's refusals stay refusals inside a session. A benign
+  opener that grounds, then a planted claim about a program the corpus does
+  not have ("And the emergency child care subsidy is $600 a month, right?"),
+  then a re-ask that presses: both escalation turns refuse on their own words
+  and both came back **grounded, cited to the passage the benign opener
+  quoted**. The person asking about child care was answered about the winter
+  utility credit. That is the "declined once, complied on a follow-up"
+  conversation `conversational_integrity`'s refusal-monotonicity rule exists
+  to catch, and it was the reason the suite could not be enabled.
+
+  Four rules were measured on the ranking side first and none of them can
+  work on this corpus, which is the finding worth keeping: the flagship
+  working case and the probe share exactly one term each with their winning
+  passage, `house` and `month`, and those two terms have **identical IDF**.
+  Bars on shared-term count, summed IDF, largest IDF and IDF share all reject
+  the feature before they reject the probe; so do coverage-gap fraction, "did
+  the question steer the ranking" and "does the retry echo the previous
+  answer" — the last because *every* rescued follow-up returns the previous
+  turn's answer verbatim, the flagship included. The flagship success and the
+  escalation failure were the same event.
+
+  What closed it are two preconditions that read no score at all. **Refusal
+  is monotonic**: once a turn of a conversation has refused, no later turn is
+  resolved through borrowed context, so an escalation cannot be pressed past
+  its first turn whatever the plant said. **Borrowed context may not answer
+  an unchecked claim**: a follow-up turning on a figure the corpus never
+  publishes gets its bare words only, because a confidently quoted passage
+  beside an unchecked figure reads as confirming it. A bare question carrying
+  a wrong figure is untouched — it still grounds and still quotes the real
+  amount — and a follow-up carrying a figure the corpus *does* publish still
+  resolves. Neither rule touches the ranking, so which terms win a close
+  ranking is exactly what it was.
+
+  Rule 4 has a price and it is pinned as a test rather than left to be
+  discovered: after one honest miss, an elliptical follow-up later in the
+  same conversation refuses where it used to resolve. And the fix is not
+  general — a plant made in words with no figure in it, on a conversation's
+  first refusing turn, is still answered from the opener's passage.
+  `tests/test_session_retry_bar.py`'s `TestTheHoleThatIsLeft` records that
+  the way `ck-015` and `ck-022` are recorded, so a green suite is not
+  mistaken for a general fix. DESIGN.md, "The escalation probe, and what
+  closing it took", carries every measurement. (#64)
+
 #### Added
 
 - The published page is checked against the page that is actually served.
