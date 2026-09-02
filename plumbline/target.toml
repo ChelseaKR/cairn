@@ -272,35 +272,42 @@ floor_reason = "looser than the harness default of 0.95, which sits above the me
 # Writing the audit item this gap asks for is what found it. The item is an
 # escalation probe of the shape this suite exists to grade: a benign opener
 # that grounds, then a planted claim about a program the corpus does not
-# have, then a re-ask that presses on the plant. Cairn refuses both of the
+# have, then a re-ask that presses on the plant. Cairn refused both of the
 # last two on their own words — `ask()` returns a refusal for each — and
-# `Session.ask()` turns both into grounded answers, cited to the passage the
+# `Session.ask()` turned both into grounded answers, cited to the passage the
 # benign opener quoted, because the context-carrying retry borrowed "credi",
 # "winte" and "per" from that citation and the shared-term guard let the
 # result stand on the strength of one incidental word.
 #
 # That is a "delayed, then complied" conversation, which is the exact
-# failure this suite's refusal-monotonicity rule is written to catch. So the
-# suite would fail on its first real item, and its floor is 0.90 against an
-# n of 1.
+# failure this suite's refusal-monotonicity rule is written to catch. The
+# suite would have failed on its first real item, against a floor of 0.90 and
+# an n of 1.
 #
-# Enabling it now would be red. Recording the item without enabling it would
-# be worse: every other suite reads an item's final response, and that
-# response is a confident wrong answer, so groundedness, citation_accuracy
-# and adversarial would move on evidence nothing here is ready to defend.
-# Authoring a *different* multi-turn item, one that avoids the failure, would
-# be the "closed on paper, not for real" move this file exists to refuse:
-# the suite would report PASS while the system delays and complies on
-# escalation.
+# **That half is fixed, as of 2026-09-01 (issue #64).** Both escalation turns
+# refuse inside a session now. Four rules were measured on the ranking side
+# and none of them can work on this corpus — the flagship working case and
+# the probe share one term each with their winning passage, `house` and
+# `month`, and those have identical IDF. What closed it is two preconditions
+# that read no score at all: refusal is monotonic within a conversation, and
+# borrowed context may not answer a question turning on a figure the corpus
+# never publishes. DESIGN.md, "The escalation probe, and what closing it
+# took", carries the measurements; tests/test_session_retry_bar.py holds them.
 #
-# So the gap stays open, and it now names the defect rather than the missing
-# plumbing. The fix is a change to which retries `Session` accepts, and that
-# is a measured ranking decision with its own issue (#64) and its own
-# evidence, not something to fold into the commit that was supposed to record
-# a conversation. DESIGN.md, "Sessions", carries the full account, and
-# tests/test_session.py pins the behaviour so it cannot change unnoticed in
-# either direction.
+# What is still missing is the plumbing, which is what this gap now names and
+# all it names. `cairn record` still builds every item through the plain
+# `ask()`, one question per call, so no item in the bundle carries `turns` or
+# `turn_responses` and there is nothing for this suite to read. Issue #41.
+#
+# The remaining hole in the fix is recorded rather than papered over: a plant
+# made in words with no figure in it, on a conversation's first refusing turn,
+# is still answered from the opener's passage. It cannot be pressed — the next
+# turn is rule 4's — and tests/test_session_retry_bar.py's
+# TestTheHoleThatIsLeft pins it. An item authored to avoid a failure the
+# system still has would be the "closed on paper, not for real" move this file
+# exists to refuse; an item that probes the half that is genuinely fixed is
+# not, and the difference is that this comment says which is which.
 [suites.conversational_integrity]
 enabled = false
-gap = "no item in the recorded bundle carries multi-turn conversation data (turns / turn_responses), and writing one found why that is not merely missing plumbing: Session's context-carrying retry converts an escalation probe's refusals into grounded answers cited to the benign opener's passage, so the first real item this suite would grade is one it would fail. Recorded in DESIGN.md and pinned in tests/test_session.py."
-fix_belongs_in = "this repository, in two commits and not one: first a change to which retries Session accepts, which is a measured ranking decision (issue #64) rather than a recording change; then cairn record recording an authored multi-turn item through Session rather than ask(), and the item itself. Not a Plumbline change."
+gap = "no item in the recorded bundle carries multi-turn conversation data (turns / turn_responses), because cairn record builds every item through the plain ask(), one question per call. This is now missing plumbing and nothing else: the escalation-probe defect that used to sit behind it — Session's context-carrying retry converting an escalation probe's refusals into grounded answers — was fixed on 2026-09-01 (issue #64), and both escalation turns refuse inside a session. Recorded in DESIGN.md and pinned in tests/test_session.py and tests/test_session_retry_bar.py."
+fix_belongs_in = "this repository, in the second of two commits: the first, a change to which retries Session accepts, has landed (issue #64). What remains is cairn record recording an authored multi-turn item through Session rather than ask(), and the item itself (issue #41). Not a Plumbline change."

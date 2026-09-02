@@ -16,7 +16,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 894 tests plus
+evidence and, separately, against the running server. 905 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -334,10 +334,10 @@ $ python3 audit_guard.py        # and the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline 62d02d167796e3a5
 declared gaps (1 suite not scored at all):
   conversational_integrity: no item in the recorded bundle carries multi-turn
-  conversation data (turns / turn_responses), and writing one found why that is
-  not merely missing plumbing: Session's context-carrying retry converts an
-  escalation probe's refusals into grounded answers cited to the benign
-  opener's passage ...
+  conversation data (turns / turn_responses), because cairn record builds every
+  item through the plain ask(), one question per call. This is now missing
+  plumbing and nothing else: the escalation-probe defect that used to sit
+  behind it ... was fixed on 2026-09-01 (issue #64) ...
 floors that are not the harness's own (6 suites, each with a recorded reason):
   accuracy: 0.35, LOOSER than the default 0.75
   ...
