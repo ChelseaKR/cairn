@@ -120,6 +120,27 @@ If you are reading this because the empty list looks more secure and you are
 about to restore it: reapplying a ruleset file that omits the owner's bypass
 is how the lockout happens. Do not.
 
+And if you are reading this because a weekly `ruleset-check` run told you the
+owner's bypass is not enforced, **read the ruleset yourself before you touch
+anything**:
+
+```sh
+gh api repos/ChelseaKR/cairn/rulesets/21223426 --jq '.bypass_actors'
+```
+
+That report was wrong once, on 2026-08-31, and it was wrong in the direction
+that gets somebody locked out. GitHub omits `bypass_actors` from a ruleset
+payload when the caller may not administer the repository, and the workflow's
+own token may not; `ruleset_conformance.py` read the missing field as an empty
+list and said the bypass had been removed from a ruleset that had carried it,
+untouched, for five days. Issue #80 was that, not a drift.
+
+The module now tells a field that is absent from one that is empty: absent is
+exit 4, "could not run", with its own message and no tracking issue behind it,
+while an empty list that is genuinely there is still the incident and still a
+failure. If the command above prints the owner's actor, nothing is wrong with
+the repository and nothing needs reapplying.
+
 ## The ten contexts, and why they are spelled like that
 
 A required status check is matched by the **name of the check run**, which for

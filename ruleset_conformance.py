@@ -53,6 +53,29 @@ both directions of the bypass rule, which `tests/test_rulesets.py` carries. It
 performs no network access of its own: the caller hands it the live JSON, so
 the thing that fetches and the thing that judges stay separable, the same split
 `plumbline-gate.sh` and `audit_guard.py` already use.
+
+**A field that is not there is not a field that is empty.** GitHub omits
+`bypass_actors` from a ruleset payload unless the caller may see it, and the
+first version of this module read the omission through `.get(...) or []` --
+so an unreadable field and an emptied one produced the same sentence, and the
+sentence said the lockout had happened.
+
+That fired for real. Issue #80, opened by the weekly job on 2026-08-31,
+reported the owner's bypass as NOT enforced against a ruleset that had carried
+it since 2026-08-26 and had not been touched since; read with credentials that
+can see the field, the same ruleset conforms. The report was the token's blind
+spot wearing the incident's words.
+
+It is the worst possible false positive, for two reasons. The remedy it points
+at is "reapply the committed ruleset", and reapplying is how an owner gets
+locked out. And it makes the one finding this check exists for unreadable:
+once the alarm fires without a fire, nobody can tell the next one apart.
+
+So the bypass rule now has three outcomes rather than two. Present and correct
+is conformance; present and wrong is drift; **absent is neither** -- it raises
+:class:`CannotJudge`, and the caller reports "could not run" with its own exit
+code (4, the same code `plumbline-gate.sh` and `live_check.py` use for it) and
+its own message, which does not tell anybody to reapply anything.
 """
 
 from __future__ import annotations
@@ -106,6 +129,20 @@ def _ref_names(ruleset: dict[str, Any]) -> tuple[list[str], list[str]]:
     return sorted(ref_name.get("include") or []), sorted(ref_name.get("exclude") or [])
 
 
+class CannotJudge(Exception):
+    """The live payload does not carry what the question is about.
+
+    Raised rather than returned as a finding, because a finding is an answer
+    and this is the absence of one. Everything in this module that turns
+    findings into a verdict has to route this to "could not run" instead --
+    which is the same stance `plumbline-gate.sh` takes when the harness
+    cannot be resolved, for the same reason: a check that could not run is
+    not a check that failed either, and inventing the failure it might have
+    found is how issue #80 came to say the owner had been locked out of a
+    repository he had not been locked out of.
+    """
+
+
 def bypass_findings(
     live: dict[str, Any], committed: dict[str, Any]
 ) -> list[str]:
@@ -117,8 +154,27 @@ def bypass_findings(
     a plain comparison would report conformance on exactly the incident this
     rule exists to prevent. So the owner's bypass is asserted against both
     sides absolutely, and only *other* actors are compared.
+
+    Raises :class:`CannotJudge` when the live payload has no `bypass_actors`
+    key at all. GitHub omits it from a ruleset the caller may not administer,
+    and reading that omission as an empty list is what made issue #80 report
+    a lockout that had not happened. An empty list that is genuinely *there*
+    is still the incident and is still a finding -- the distinction is
+    between a value and a missing field, not between empty and non-empty.
     """
     findings: list[str] = []
+    if "bypass_actors" not in live:
+        raise CannotJudge(
+            "the live ruleset payload carries no `bypass_actors` field, so "
+            "whether the repository owner can still bypass the gate is not a "
+            "question this payload can answer. GitHub omits the field from "
+            "callers that may not administer the repository, which is what a "
+            "workflow token normally is. Re-read the ruleset with credentials "
+            "that can see it (`gh api repos/OWNER/REPO/rulesets/ID` as an "
+            "admin) before concluding anything. Do NOT reapply the committed "
+            "ruleset on the strength of this: reapplying is how the lockout "
+            "this field guards against happens."
+        )
     live_actors = list(live.get("bypass_actors") or [])
     committed_actors = list(committed.get("bypass_actors") or [])
 
@@ -214,9 +270,18 @@ def differences(live: dict[str, Any], committed: dict[str, Any]) -> list[str]:
 def report(rulesets: list[dict[str, Any]], committed: dict[str, Any]) -> tuple[int, list[str]]:
     """`(exit code, lines)` for a whole `GET /repos/{owner}/{repo}/rulesets`.
 
-    Exit codes are distinct on purpose, so a log tells the two apart without
+    Exit codes are distinct on purpose, so a log tells them apart without
     being read closely: `2` no active ruleset at all, `1` an active ruleset
-    that is not the committed one, `0` conformance.
+    that is not the committed one, `4` the payload could not answer the
+    question, `0` conformance.
+
+    `4` outranks everything except `2`. A payload that cannot be judged on the
+    bypass rule must not report CONFORMS on the strength of the rules it
+    *could* check, and must not report DRIFTED either -- the caller's remedy
+    for drift is to reapply the committed ruleset, and doing that on an
+    unreadable payload is how an owner gets locked out. Any real differences
+    found alongside are still printed, because losing them would be a second
+    way to say less than was known.
     """
     active = [ruleset for ruleset in rulesets if ruleset.get("enforcement") == "active"]
     if not active:
@@ -239,14 +304,37 @@ def report(rulesets: list[dict[str, Any]], committed: dict[str, Any]) -> tuple[i
     lines: list[str] = []
     worst = 0
     for ruleset in named:
-        found = differences(ruleset, committed)
+        try:
+            found = differences(ruleset, committed)
+        except CannotJudge as unanswerable:
+            worst = max(worst, 4)
+            lines.append(
+                f"COULD NOT RUN: ruleset {ruleset.get('id')} is active, and "
+                f"this payload cannot be judged against "
+                f".github/rulesets/main.json."
+            )
+            lines.append(f"  - {unanswerable}")
+            readable = differences(
+                dict(ruleset, bypass_actors=committed.get("bypass_actors") or []),
+                committed,
+            )
+            if readable:
+                lines.append(
+                    "  the rules this payload could be judged on differ too:"
+                )
+                lines.extend(f"    - {line}" for line in readable)
+            lines.append(
+                "  a check that could not run is not a check that passed, and "
+                "not one that failed either."
+            )
+            continue
         if not found:
             lines.append(
                 f"CONFORMS: ruleset {ruleset.get('id')} matches "
                 f".github/rulesets/main.json"
             )
             continue
-        worst = 1
+        worst = max(worst, 1)
         lines.append(
             f"DRIFTED: ruleset {ruleset.get('id')} is active and is not the "
             f"committed ruleset ({len(found)} difference(s)):"
