@@ -12,5 +12,13 @@
 #
 # `eol=lf` overrides that per-checkout setting for every text file this
 # repository tracks, so the bytes on disk are the bytes in the commit,
-# everywhere. There is nothing binary in this repository to exempt.
+# everywhere.
+#
+# One file is not text: site/og-card.png, the share image the published page
+# names in `og:image`. `text=auto` would almost certainly leave it alone —
+# Git's own binary sniff catches a PNG — but "almost certainly" is the wrong
+# guarantee for a file whose bytes are the artifact. An EOL rewrite inside a
+# compressed stream does not fail loudly; it publishes a picture that no longer
+# decodes. The explicit `-text` makes that impossible instead of unlikely.
 * text=auto eol=lf
+*.png -text
