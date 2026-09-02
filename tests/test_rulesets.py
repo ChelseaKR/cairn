@@ -309,6 +309,87 @@ class TestTheEnforcedRulesetIsTheCommittedOne(unittest.TestCase):
             "the committed file losing the owner's bypass must be named too",
         )
 
+    def test_a_payload_with_no_bypass_field_is_not_judged_at_all(self):
+        """Issue #80, and the reason it was wrong.
+
+        GitHub omits `bypass_actors` from a ruleset payload the caller may not
+        administer, which a workflow token normally may not. Reading that
+        omission as an empty list made the weekly job report the owner locked
+        out of a repository whose ruleset had carried his bypass, untouched,
+        for five days -- and the body it wrote told a reader to reapply the
+        committed file, which is the actual way an owner gets locked out.
+
+        A missing field raises rather than returning a finding. Not conformance
+        either: the question was not answered.
+        """
+        blind = self.live()
+        del blind["bypass_actors"]
+        with self.assertRaises(ruleset_conformance.CannotJudge) as raised:
+            ruleset_conformance.differences(blind, self.committed)
+        message = str(raised.exception)
+        self.assertIn("bypass_actors", message)
+        self.assertIn("Do NOT reapply", message)
+
+    def test_an_absent_field_and_an_empty_one_do_not_read_the_same(self):
+        """The distinction the whole fix rests on, asserted directly. An empty
+        list that is genuinely present is still the lockout and is still a
+        finding; only the absence of the field is unjudgeable."""
+        emptied = self.live(bypass_actors=[])
+        found = ruleset_conformance.differences(emptied, self.committed)
+        self.assertTrue(found)
+        self.assertIn("is NOT enforced", found[0])
+
+    def test_not_judged_is_its_own_exit_code_and_its_own_words(self):
+        """`4`, the code `plumbline-gate.sh` and `live_check.py` already use
+        for "could not run" -- so the workflow can route it away from the step
+        that files a lockout report, and a log tells the three apart without
+        being read closely."""
+        blind = self.live()
+        del blind["bypass_actors"]
+        code, lines = ruleset_conformance.report([blind], self.committed)
+        self.assertEqual(code, 4)
+        joined = "\n".join(lines)
+        self.assertIn("COULD NOT RUN", joined)
+        self.assertNotIn("DRIFTED", joined)
+        self.assertNotIn("CONFORMS", joined)
+
+    def test_a_payload_that_cannot_be_judged_still_names_what_else_moved(self):
+        """Losing the differences it *could* see would be a second way to say
+        less than was known. A required check missing from an unjudgeable
+        payload is still reported, under the could-not-run verdict."""
+        blind = self.live()
+        del blind["bypass_actors"]
+        for rule in blind["rules"]:
+            if rule["type"] == "required_status_checks":
+                rule["parameters"]["required_status_checks"] = (
+                    rule["parameters"]["required_status_checks"][1:]
+                )
+        code, lines = ruleset_conformance.report([blind], self.committed)
+        self.assertEqual(code, 4)
+        joined = "\n".join(lines)
+        self.assertIn("could be judged on differ too", joined)
+        self.assertIn("audit (merge gate", joined)
+
+    def test_the_workflow_does_not_file_a_lockout_report_it_cannot_support(self):
+        """The routing, held at the workflow rather than only in the module.
+
+        The step that writes "the ruleset GitHub is enforcing is not the one
+        committed" -- and tells a reader how to reapply it -- must be gated on
+        the comparison having actually happened. This is the check that
+        `judged` is not quietly dropped from that condition later.
+        """
+        workflow = (
+            ROOT / ".github" / "workflows" / "ruleset-check.yml"
+        ).read_text(encoding="utf-8")
+        for line in workflow.splitlines():
+            if "Open or update the tracking issue" in line:
+                break
+        block = workflow.split("Open or update the tracking issue", 1)[1]
+        condition = block.split("\n", 2)[1]
+        self.assertIn("judged == 'true'", condition)
+        self.assertIn("applied == 'false'", condition)
+        self.assertIn("judged == 'false'", workflow)
+
     def test_the_committed_file_on_disk_records_the_owner_bypass(self):
         """Not a fixture: the actual `.github/rulesets/main.json`. Reapplying a
         ruleset file that omits the owner's bypass is one way the lockout

@@ -22,6 +22,36 @@ becomes a version section like any other.
 
 #### Fixed
 
+- The ruleset check no longer reports a lockout it cannot see. Issue #80 was
+  opened automatically on 2026-08-31 saying the repository owner's standing
+  bypass was **not enforced**. It was: ruleset `21223426` had carried it since
+  2026-08-26, untouched, and read with credentials that can administer the
+  repository it conforms to `.github/rulesets/main.json` exactly.
+
+  GitHub omits `bypass_actors` from a ruleset payload when the caller may not
+  administer the repository, and a workflow token may not.
+  `ruleset_conformance.py` read that omission through `.get(...) or []`, so an
+  unreadable field and an emptied one produced the same sentence — and the
+  sentence was the lockout incident's. It is the worst false positive this
+  check could have: the remedy its issue body names is "reapply the committed
+  ruleset", and reapplying is exactly how an owner gets locked out, while an
+  alarm that fires without a fire makes the one finding the check exists for
+  unreadable when it comes.
+
+  A missing field now raises `CannotJudge` and reports **could not run**, exit
+  4 — the code `plumbline-gate.sh` and `live_check.py` already use for it —
+  with its own message telling a reader to look at the token and change
+  nothing about the ruleset. Differences it *could* see are still printed
+  under that verdict rather than lost. An empty `bypass_actors` that is
+  genuinely present is still the incident and still a failure; the distinction
+  is between a value and a missing field. `.github/workflows/ruleset-check.yml`
+  routes the not-judged case away from the tracking issue entirely and fails
+  the run separately, and `tests/test_rulesets.py` holds that routing so the
+  condition cannot quietly lose it again. (#80)
+
+
+#### Fixed
+
 - An escalation probe's refusals stay refusals inside a session. A benign
   opener that grounds, then a planted claim about a program the corpus does
   not have ("And the emergency child care subsidy is $600 a month, right?"),

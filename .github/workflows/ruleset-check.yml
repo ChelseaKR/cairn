@@ -46,6 +46,31 @@
 # this repository takes everywhere else about reports: a green scheduled run
 # next to an open issue is the "warning in a log nobody opens" that ci.yml's
 # own header refuses.
+#
+# ---------------------------------------------------------------------------
+# The alarm that fired without a fire
+# ---------------------------------------------------------------------------
+# Issue #80, opened by this job on 2026-08-31, said the repository owner's
+# standing bypass was NOT enforced. It was. Ruleset 21223426 had carried it
+# since 2026-08-26 and had not been edited since; read with credentials that
+# can administer the repository, that same ruleset conforms exactly.
+#
+# GitHub omits `bypass_actors` from a ruleset payload when the caller may not
+# administer the repository, and `github.token` may not. `ruleset_conformance.py`
+# read the omission through `.get(...) or []`, so an unreadable field and an
+# emptied one produced the same sentence — and the sentence was the lockout
+# incident's.
+#
+# It is the worst false positive this job could have. The remedy its issue
+# body names is "reapply the committed ruleset", and reapplying is precisely
+# how an owner gets locked out; and once the alarm has fired without a fire,
+# the one finding this job exists for cannot be told apart from the noise.
+#
+# So there are three outcomes now, and the not-judged one is routed away from
+# the tracking issue entirely: it fails the run, with its own message, telling
+# whoever reads it to look at the token and change nothing about the ruleset.
+# The job still never applies anything, and now it never reports anything it
+# could not see.
 
 name: ruleset-check
 
@@ -114,15 +139,26 @@ jobs:
           set -e
           cat findings.txt
           echo "conformance exited ${code}"
-          if [ "$code" -eq 0 ]; then
-            echo "applied=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "applied=false" >> "$GITHUB_OUTPUT"
-          fi
+          # Three outcomes, not two. Exit 4 is "this payload cannot answer the
+          # question" -- GitHub omits `bypass_actors` from a ruleset the caller
+          # may not administer, and `github.token` normally cannot. Folding
+          # that into `applied=false` is what opened issue #80 against a
+          # ruleset that was correct and untouched, with a body telling a
+          # reader to reapply the committed file. Reapplying is how the owner
+          # gets locked out, so the not-judged case must never reach the step
+          # that writes that sentence.
+          case "$code" in
+            0) echo "applied=true"  >> "$GITHUB_OUTPUT"
+               echo "judged=true"   >> "$GITHUB_OUTPUT" ;;
+            4) echo "applied=false" >> "$GITHUB_OUTPUT"
+               echo "judged=false"  >> "$GITHUB_OUTPUT" ;;
+            *) echo "applied=false" >> "$GITHUB_OUTPUT"
+               echo "judged=true"   >> "$GITHUB_OUTPUT" ;;
+          esac
           echo "code=${code}" >> "$GITHUB_OUTPUT"
 
       - name: Open or update the tracking issue
-        if: steps.check.outputs.applied == 'false'
+        if: steps.check.outputs.applied == 'false' && steps.check.outputs.judged == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -180,8 +216,26 @@ jobs:
       # green while it files a report is the shape ci.yml's header rejects:
       # the check ran, it found something, and the run summary said nothing.
       - name: Fail the run while the enforced ruleset is not the committed one
-        if: steps.check.outputs.applied == 'false'
+        if: steps.check.outputs.applied == 'false' && steps.check.outputs.judged == 'true'
         run: |
           cat findings.txt 2>/dev/null || true
           echo "the enforced ruleset does not match .github/rulesets/main.json" >&2
+          exit 1
+
+      # Red, like the step above, and for the same reason: a check that could
+      # not run is not a check that passed. Deliberately a *different* step
+      # with a different message and no tracking issue behind it, because the
+      # action a reader should take is the opposite one. "Drifted" means look
+      # at the repository settings. "Could not run" means look at the token,
+      # and change nothing about the ruleset until someone who can read
+      # `bypass_actors` has looked.
+      - name: Fail the run when the ruleset could not be judged at all
+        if: steps.check.outputs.judged == 'false'
+        run: |
+          cat findings.txt 2>/dev/null || true
+          echo "the enforced ruleset could not be compared: the payload this" >&2
+          echo "job could read does not carry the fields the comparison needs." >&2
+          echo "Do not reapply .github/rulesets/main.json on the strength of" >&2
+          echo "this run. Read the ruleset with admin credentials first:" >&2
+          echo "  gh api repos/${{ github.repository }}/rulesets" >&2
           exit 1
