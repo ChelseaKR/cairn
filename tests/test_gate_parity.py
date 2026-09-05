@@ -38,10 +38,12 @@ through `uv run --locked --extra dev`, which pins a single interpreter;
 `core`'s entire purpose is the Python matrix, so it invokes the pip-installed
 tool directly. The comparison strips that prefix and allows nothing else.
 
-Scoped to `core`. `core-windows` and `core-macos` are OS canaries running the
+Scoped to `core`. The Windows and macOS legs are OS canaries running the
 install/lint/test path at one Python version, and they say so; holding them to
 this list too would make them a third and fourth full gate rather than the
-"does this also work here" they are documented as.
+"does this also work here" they are documented as. They live in
+`os-canary.yml` on a nightly schedule (CI-CD-STANDARD.md §11b), not in this
+workflow, so the scope check below reads that file.
 """
 
 from __future__ import annotations
@@ -53,6 +55,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MAKEFILE = ROOT / "Makefile"
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+OS_CANARY = ROOT / ".github" / "workflows" / "os-canary.yml"
 
 # `UVRUN := uv run --locked --extra dev` in the Makefile. The prefix is the
 # difference between the two gates that is allowed; see the module docstring.
@@ -183,6 +186,7 @@ class TestTheTwoGatesRunTheSameList(unittest.TestCase):
     def setUpClass(cls):
         cls.makefile = MAKEFILE.read_text(encoding="utf-8")
         cls.workflow = WORKFLOW.read_text(encoding="utf-8")
+        cls.os_canary = OS_CANARY.read_text(encoding="utf-8")
 
     def test_every_make_verify_command_runs_in_ci(self):
         wanted = verify_commands(self.makefile)
@@ -265,16 +269,30 @@ class TestTheTwoGatesRunTheSameList(unittest.TestCase):
         self.assertEqual(job_run_commands(workflow, "core"), ["echo hello"])
 
     def test_the_os_canaries_are_still_only_canaries(self):
-        """Scope, asserted rather than left to a comment. `core-windows` and
-        `core-macos` are not held to the full list, and the reason is that
-        they are documented as one-version canaries. If either ever grows the
-        full gate, this is the test that should be rewritten to say so.
+        """Scope, asserted rather than left to a comment. The Windows and macOS
+        legs are not held to the full list, and the reason is that they are
+        documented as one-version canaries. If either ever grows the full gate,
+        this is the test that should be rewritten to say so.
+
+        They are one matrixed `core-os` job in `os-canary.yml` now rather than
+        two jobs here, so this reads that file. The assertion is unchanged:
+        the canary still actually runs something, and that something includes
+        the lint step.
         """
-        for job in ("core-windows", "core-macos"):
-            with self.subTest(job=job):
-                ran = job_run_commands(self.workflow, job)
-                self.assertTrue(ran, f"{job} has no run steps at all")
-                self.assertIn("ruff check .", ran)
+        ran = job_run_commands(self.os_canary, "core-os")
+        self.assertTrue(ran, "core-os has no run steps at all")
+        self.assertIn("ruff check .", ran)
+
+    def test_the_os_canaries_are_not_on_per_push_ci(self):
+        """CI-CD-STANDARD.md §11b: macOS is 10x minutes and Windows is 2x, and
+        neither belongs on per-push CI. A canary that quietly moves back into
+        `ci.yml` costs that multiple on every commit, so pin it here.
+        """
+        self.assertNotIn("macos-latest", self.workflow)
+        self.assertNotIn("windows-latest", self.workflow)
+        self.assertIn("macos-latest", self.os_canary)
+        self.assertIn("windows-latest", self.os_canary)
+        self.assertIn("schedule:", self.os_canary)
 
 
 if __name__ == "__main__":
