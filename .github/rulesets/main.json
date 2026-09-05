@@ -49,12 +49,6 @@
             "context": "core (install, lint, test — auditor unreachable) (3.12)"
           },
           {
-            "context": "core, windows (install, lint, test — auditor unreachable)"
-          },
-          {
-            "context": "core, macos (install, lint, test — auditor unreachable)"
-          },
-          {
             "context": "image (the container actually builds)"
           },
           {
