@@ -85,10 +85,15 @@ on:
 permissions:
   contents: read
 
+# CI-CD-STANDARD.md 11c: cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   core:
     name: core (install, lint, test — auditor unreachable)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python: ["3.11", "3.12"]
@@ -101,6 +106,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
+          cache: 'pip'
           python-version: ${{ matrix.python }}
 
       - name: Install
@@ -130,6 +136,8 @@ jobs:
       # with pyproject.toml breaks `make install` for every contributor while
       # a pip-based CI job notices nothing, because it never reads uv.lock.
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
       - name: Lockfile
         run: uv lock --check
 
@@ -199,12 +207,14 @@ jobs:
   core-windows:
     name: core, windows (install, lint, test — auditor unreachable)
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
+          cache: 'pip'
           python-version: "3.12"
 
       - name: Install
@@ -240,12 +250,14 @@ jobs:
   core-macos:
     name: core, macos (install, lint, test — auditor unreachable)
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
+          cache: 'pip'
           python-version: "3.12"
 
       - name: Install
@@ -282,6 +294,7 @@ jobs:
   image:
     name: image (the container actually builds)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -317,6 +330,7 @@ jobs:
   package:
     name: package (the sdist and wheel actually install and run)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -349,6 +363,7 @@ jobs:
   interface:
     name: interface (accessibility behaviours in Chromium)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # Nothing in this workflow pushes, so no job has any use for a
       # credential left behind in .git/config where every later step and
@@ -387,6 +402,7 @@ jobs:
   audit:
     name: audit (merge gate — must be required in branch protection)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [core]
     steps:
       # Nothing in this workflow pushes, so no job has any use for a
@@ -496,6 +512,7 @@ jobs:
   live:
     name: live (the served interface, graded by the pinned harness)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [core]
     steps:
       # Nothing in this workflow pushes, so no job has any use for a
@@ -536,6 +553,7 @@ jobs:
   gauntlet:
     name: gauntlet (pinned adversarial suites)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [core]
     steps:
       # Same credential rule as every other job above.
@@ -554,6 +572,8 @@ jobs:
       # gauntlet.pin's commit, and verified by the gate itself before any
       # suite runs. A moving ref here would grade this repository with a
       # harness nobody reviewed.
+        with:
+          enable-cache: true
       - name: Check out the harness at the pinned commit
         run: |
           REPO=$(sed -n 's/^repository = "\(.*\)"/\1/p' gauntlet.pin)
