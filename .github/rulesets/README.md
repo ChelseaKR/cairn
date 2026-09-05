@@ -19,11 +19,24 @@ PR #19 added, once more when `gauntlet` (#31) joined the required contexts.
 Reapplying is the same command every time — delete the ruleset that no
 longer matches, `gh api --method POST` the current file — because a
 `required_status_checks` list is checked as a whole, not merged field by
-field. Since it took effect:
+field.
+
+**A fourth reapply is outstanding.** `main.json` no longer lists the two
+contexts `core, windows (...)` and `core, macos (...)`, because those jobs
+moved out of `ci.yml` and into `os-canary.yml`, where they run nightly
+rather than on every push — `CI-CD-STANDARD.md` §11b keeps macOS (10×
+minutes) and Windows (2×) off per-push CI. **Apply this file before merging
+that change, not after.** A required context whose job no longer runs on
+pull requests is not a stricter gate; it is a pull request that waits on
+"Expected — waiting" forever and can never merge. Applying first is safe on
+its own: until the workflow change lands, both jobs still run and report,
+they simply stop blocking.
+
+Since it took effect:
 
 - the `audit` job runs on every pull request and writes a verdict, same as
   before;
-- a pull request cannot be merged while any of the ten required checks —
+- a pull request cannot be merged while any of the required checks —
   `audit` among them — is red, or while `main` has moved out from under it
   (`strict_required_status_checks_policy`);
 - direct pushes to `main` no longer work; every change from PR #22 onward
