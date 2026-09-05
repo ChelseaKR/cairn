@@ -86,6 +86,7 @@ jobs:
   check:
     name: check ruleset is applied
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       issues: write

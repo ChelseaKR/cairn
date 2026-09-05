@@ -38,6 +38,7 @@ jobs:
   pypi:
     name: pypi (build and publish via trusted publishing)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
@@ -90,6 +91,7 @@ jobs:
   container:
     name: container (build and push to GHCR)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
