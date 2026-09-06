@@ -664,6 +664,8 @@ stdlib `tomllib`. All keys have defaults; the file may be sparse.
 | `language.cross_language_fallback` | `true` | widen the search past the answer language rather than refuse, and say so |
 | `refusal.contact` | demo office string | fictional demo contact; a real agency must set this |
 | `refusal.contact_by_language` | one demo line per language | a single-language deployment never touches this; a multilingual one must |
+| `lint.max_grade` | absent (no ceiling) | `cairn lint --readability` warns above this grade level and never fails; absent stays absent rather than becoming a number, because every float a sentinel could take is a reading level a corpus could really have |
+| `lint.readability` | empty | per-language readability formula overrides. Built in: `en` Flesch-Kincaid grade level, `es` Crawford grade level. A language with no formula reports `n/a` rather than a grade computed by coefficients fitted on a different language; declaring one here makes that the operator's stated judgement |
 
 > **Measured 2026-08-15** (15 in-corpus probes and 20 off-topic probes across
 > English, Spanish, and Arabic, shipped scorer at `TITLE_WEIGHT = 5`): top

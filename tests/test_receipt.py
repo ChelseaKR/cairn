@@ -212,6 +212,15 @@ class TestConfigDigest(unittest.TestCase):
             "cross_language_fallback": False,
             "contact": "someone@example.gov",
             "contact_by_language": {"en": "someone@example.gov"},
+            # Lint-only keys. They cannot change an answer, so they could
+            # defensibly sit in LOCATION_FIELDS instead. They are here
+            # because the exclusion list is pinned by the test above and
+            # deliberately hard to join: a digest that moves when a key an
+            # answer never reads changes is over-sensitive, and a digest
+            # that misses a key an answer does read is a receipt that
+            # cannot fail. Over-sensitive is the safe direction.
+            "lint_max_grade": 8.0,
+            "readability_by_language": {"fr": "flesch_kincaid_grade"},
         }
         covered = {f.name for f in fields(Config)} - LOCATION_FIELDS
         self.assertEqual(

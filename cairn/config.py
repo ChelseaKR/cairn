@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from cairn.language import LANGUAGES
+from cairn.readability import ReadabilityError, validate_formulas
 
 DEFAULT_CONFIG_PATH = "cairn.toml"
 
@@ -89,6 +90,18 @@ class Config:
     contact_by_language: dict[str, str] = field(
         default_factory=lambda: dict(_DEMO_CONTACTS)
     )
+    # `cairn lint --readability` warns above this grade level. `None` means
+    # no ceiling, which is the default: a project that has not decided what
+    # reading level it is aiming for should not be told it missed one. It
+    # never fails a lint and never touches `index` — see `LintReport.ok`.
+    lint_max_grade: float | None = None
+    # Which published readability formula is in force for a language, beyond
+    # the two `cairn.readability.BUILTIN_FORMULAS` ships. Empty by default:
+    # a language with no formula reports `n/a`, never a number computed by
+    # coefficients fitted on a different language. An operator who decides
+    # one is close enough for theirs says so here, and the grade is then
+    # labelled with the formula it came from.
+    readability_by_language: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate on construction, not only on load.
@@ -147,6 +160,15 @@ class Config:
         # German would write exactly that line. (French was this example
         # too, once — `LANGUAGES` has since grown a real `fr` catalogue, so
         # the bug it demonstrated stopped reproducing for that code.)
+        if self.lint_max_grade is not None and self.lint_max_grade < 0.0:
+            raise ConfigError(
+                "lint.max_grade must be >= 0: it is a school grade level, and a "
+                "negative one is not a level. Omit the key for no ceiling."
+            )
+        try:
+            validate_formulas(self.readability_by_language)
+        except ReadabilityError as exc:
+            raise ConfigError(str(exc)) from exc
         if self.default_lang not in LANGUAGES:
             raise ConfigError(
                 f"language.default must be a language Cairn has system strings "
@@ -206,6 +228,37 @@ def _contacts(refusal: dict[str, Any], defaults: dict[str, str]) -> dict[str, st
     return dict(table)
 
 
+def _optional_float(section: dict[str, Any], key: str, name: str) -> float | None:
+    """A key that may be absent, where absent means "no ceiling".
+
+    Not `_get` with a sentinel default: every sentinel a float can take is a
+    grade level a corpus could really have, so an absent key would become a
+    measurement. Absence stays absence.
+    """
+    if key not in section:
+        return None
+    value = section[key]
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ConfigError(f"config key {name!r} must be a number, got {value!r}")
+    return float(value)
+
+
+def _readability(lint: dict[str, Any]) -> dict[str, str]:
+    """`[lint.readability]`, a language code to a formula name.
+
+    Absent means the built-in table only, which is what `Config()` gives.
+    """
+    if "readability" not in lint:
+        return {}
+    table = lint["readability"]
+    if not isinstance(table, dict):
+        raise ConfigError("lint.readability must be a table of language codes")
+    for code, value in table.items():
+        if not isinstance(value, str):
+            raise ConfigError(f"lint.readability.{code} must be a string")
+    return dict(table)
+
+
 def load_config(path: str | Path | None = None) -> Config:
     """Load ``cairn.toml``. An explicitly named file must exist; the default
     location is optional and silently falls back to built-in defaults."""
@@ -227,6 +280,7 @@ def load_config(path: str | Path | None = None) -> Config:
     tables = data.get("tables", {})
     refusal = data.get("refusal", {})
     language = data.get("language", {})
+    lint = data.get("lint", {})
     defaults = Config()
     contact = _get(refusal, "contact", str, defaults.contact)
     # Bounds are checked by Config itself (see __post_init__), so a file and a
@@ -247,4 +301,6 @@ def load_config(path: str | Path | None = None) -> Config:
         ),
         contact=contact,
         contact_by_language=_contacts(refusal, defaults.contact_by_language),
+        lint_max_grade=_optional_float(lint, "max_grade", "lint.max_grade"),
+        readability_by_language=_readability(lint),
     )

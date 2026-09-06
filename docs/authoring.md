@@ -107,6 +107,51 @@ the added sentence as a real question a real person would ask, in their own
 words. If it reads like a list of search terms, it is doing the thing this
 convention exists to avoid.
 
+## Plain-language readability
+
+A passage is quoted verbatim, so the reading level of an answer is the reading
+level of the passage. `cairn lint --readability` measures it:
+
+```console
+$ python3 -m cairn lint --readability
+```
+
+Per passage it prints a grade level and the mean sentence length; per language
+it prints how many passages were graded, by which formula, and the mean and
+highest grade. Two formulas are built in, both named and both computed here
+rather than asserted:
+
+- **English**: Flesch-Kincaid grade level (Kincaid, Fishburne, Rogers and
+  Chissom, 1975).
+- **Spanish**: Crawford grade level (Crawford, 1985).
+
+Every other language reports `n/a (no formula in force for <lang>)`. That is
+deliberate and it is the same rule the rest of this project follows: a formula
+fitted on English text produces, over Arabic, a number with the right shape and
+no referent. An unsupported language is reported, never silently scored. An
+operator who judges a formula close enough for their language says so in
+`[lint.readability]`, and the grade is then labelled with the formula it came
+from; naming a formula this build cannot compute is refused when the
+configuration is built, not discovered later as a language that reports `n/a`
+forever.
+
+Set `[lint] max_grade` to be warned about passages above a target level. It is
+a warning and never an error: `lint` still exits 0, `index` is untouched, and a
+passage with no formula in force earns no warning whatever the ceiling is,
+because "not measured" is not "measured and over".
+
+What the number is worth, stated so it is not over-read:
+
+- Syllable counting is a deterministic, dictionary-free heuristic. Spanish is
+  counted by vowel groups, which suits a nearly phonemic orthography and is
+  wrong at hiatus (`río` counts as one syllable). English uses vowel groups
+  with a silent-final-`e` rule, which is wrong on a long tail of words.
+- A grade is a fact about the source text, not a judgement of the answer. The
+  fix for a passage that reads at grade 14 is a plain-language page from the
+  agency that publishes it, which is the same kind of fix DESIGN.md prescribes
+  for `ck-015`. It is not an edit to the corpus copy, which must keep matching
+  its source.
+
 ## Where this could become tooling later
 
 `cairn lint` already flags a passage with no scoring terms at all
