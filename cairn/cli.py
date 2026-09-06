@@ -13,10 +13,16 @@ Subcommands:
     cairn refusals PATH    report aggregate refusal counts from --refusal-stats
     cairn followups PATH   list follow-up requests from --followup-store
     cairn record           record an evidence bundle for the pinned auditor
+    cairn verify-receipt   recompute an answer receipt against this deployment
 
 Exit codes: 0 for success — including refusals, which are a first-class
 outcome, not an error (DESIGN.md); 1 for real errors (bad config, missing
 index, malformed corpus, unsupported language).
+
+``verify-receipt`` adds a third: 2 for a receipt this build cannot read. That
+is deliberately not 1. Exit 1 there would mean "this deployment does not
+reproduce that answer", and a mistyped or truncated document is not evidence
+of that — it is evidence of nothing.
 
 Right-to-left answers are printed with bidi isolates around the Latin runs
 (passage ids, contact numbers). A terminal is a bidi renderer like any other,
@@ -56,6 +62,8 @@ from cairn.language import isolate
 from cairn.lint import lint_corpus
 from cairn.lint import render as render_lint_report
 from cairn.messages import text as message
+from cairn.receipt import Receipt, ReceiptError, Verdict, receipt_for, verify_receipt
+from cairn.receipt import render as render_verification
 from cairn.record import DEFAULT_BUNDLE, DEFAULT_QUESTIONS, RecordError, record
 from cairn.record_diff import diff_against_bundle
 from cairn.record_diff import render as render_record_diff
@@ -164,10 +172,30 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
     answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
 
+    want_receipt = args.receipt or args.receipt_out is not None
+    receipt = (
+        receipt_for(
+            answer,
+            question=args.question,
+            corpus_fingerprint=index.corpus_fingerprint,
+            cfg=cfg,
+        )
+        if want_receipt
+        else None
+    )
+    if receipt is not None and args.receipt_out is not None:
+        Path(args.receipt_out).write_text(
+            json.dumps(receipt.to_payload(), ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
     if args.json:
         payload = answer.to_payload()
         if result.tool is not None:
             payload["tool"] = result.tool
+        if receipt is not None:
+            payload["receipt"] = receipt.to_payload()
         if diagnosis is not None:
             payload["explain"] = {
                 **trace_payload(answer.trace, margin_warn=cfg.margin_warn),
@@ -194,7 +222,73 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
         print(render(result, diagnosis, index_summary=summary, margin_warn=cfg.margin_warn))
         print()
     print(_render_answer(result))
+    if receipt is not None:
+        print()
+        print(f"receipt {receipt.receipt_id}")
+        print(f"  corpus  {receipt.corpus_fingerprint[:12]}")
+        print(f"  config  {receipt.config_digest[:12]}")
+        print("  verify with: cairn verify-receipt RECEIPT.json")
     return 0
+
+
+def _cmd_verify_receipt(args: argparse.Namespace, cfg: Config) -> int:
+    """Recompute a receipt against this deployment (#101).
+
+    An unreadable receipt exits 2, not 1. The distinction is the point of the
+    verb: exit 1 means "this deployment does not reproduce that answer", and a
+    document this build cannot parse is not evidence of that. Collapsing the
+    two would let a typo read as a deployment that had drifted.
+    """
+    # The index is read first, before the receipt is even opened. This verb
+    # re-asks the question, so it is one of the commands that can quote the
+    # corpus, and `tests/test_freshness.py` holds every such command to
+    # refusing a stale index before it does anything else. It is also the
+    # honest order: a deployment that cannot answer at all has nothing to say
+    # about whether it reproduces somebody's receipt.
+    index = read_index(cfg.index_path, cfg.corpus_path)
+
+    path = Path(args.receipt)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        print(f"cairn: error: cannot read {path}: {exc}", file=sys.stderr)
+        return 2
+    except json.JSONDecodeError as exc:
+        print(f"cairn: error: {path} is not valid JSON: {exc}", file=sys.stderr)
+        return 2
+    try:
+        receipt = Receipt.from_payload(payload)
+    except ReceiptError as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "verdict": Verdict.UNREADABLE.value,
+                        "detail": str(exc),
+                        "receipt_id": None,
+                        "match": False,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(f"UNREADABLE\n  {exc}")
+        return 2
+
+    verification = verify_receipt(
+        receipt,
+        corpus_fingerprint=index.corpus_fingerprint,
+        cfg=cfg,
+        recompute=lambda: ask(
+            receipt.question, index, cfg, lang=receipt.lang
+        ).answer,
+    )
+    if args.json:
+        print(json.dumps(verification.to_payload(), ensure_ascii=False, sort_keys=True))
+    else:
+        print(render_verification(verification))
+    return 0 if verification.ok else 1
 
 
 def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
@@ -425,7 +519,30 @@ def build_parser() -> argparse.ArgumentParser:
             "Implies --compare-config's comparison mode even alone."
         ),
     )
+    p_ask.add_argument(
+        "--receipt",
+        action="store_true",
+        help=(
+            "print a verifiable receipt for the answer: the corpus fingerprint, the "
+            "effective configuration, the cited passages and a hash of the answer. "
+            "`cairn verify-receipt` recomputes it. Nothing is stored."
+        ),
+    )
+    p_ask.add_argument(
+        "--receipt-out",
+        metavar="PATH",
+        default=None,
+        help="also write the receipt document to PATH as JSON (implies --receipt)",
+    )
     p_ask.set_defaults(func=_cmd_ask)
+
+    p_verify = sub.add_parser(
+        "verify-receipt",
+        help="recompute a receipt against this deployment and report what differs",
+    )
+    p_verify.add_argument("receipt", metavar="RECEIPT", help="the receipt JSON document")
+    p_verify.add_argument("--json", action="store_true", help="machine-readable output")
+    p_verify.set_defaults(func=_cmd_verify_receipt)
 
     p_serve = sub.add_parser("serve", help="serve the accessible chat interface")
     p_serve.add_argument(

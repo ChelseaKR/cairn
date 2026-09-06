@@ -22,6 +22,38 @@ becomes a version section like any other.
 
 #### Added
 
+- **Answer receipts, and `cairn verify-receipt` to recompute one.** DESIGN.md
+  promises that an identical corpus, an identical configuration and an
+  identical question always yield an identical answer. That promise was
+  something a reader had to take on trust. `cairn ask --receipt` now emits a
+  short document — corpus fingerprint, a digest of the effective
+  configuration, the question, the language, the cited passage ids with hashes
+  of their text, and a hash of the answer — and `cairn verify-receipt` re-asks
+  and reports what it found. `--receipt-out PATH` writes the document; the
+  JSON surface carries it under `receipt`. Nothing is stored anywhere:
+  verification is recomputation, so the receipt goes to the person who asked
+  and the deployment keeps no record of who asked what.
+
+  **The five outcomes are distinct, and their order is the design.** When the
+  corpus fingerprint has moved, the report is `corpus changed` and the answer
+  comparison does not run — against different source text it would not mean
+  anything, and reporting it as `answer differs` would blame the deployment
+  for a change made to the corpus. The same holds one step later for
+  `configuration changed`. Only when both match does `MATCH` or
+  `answer differs` mean what it says. A receipt this build cannot parse is
+  `unreadable` and exits 2 rather than 1, because a mistyped document is not
+  evidence that a deployment has drifted.
+
+  The configuration digest covers every `Config` field except the two that are
+  locations rather than behaviour, and it is a deny-list on purpose: a knob
+  added later is inside the digest until somebody deliberately excludes it. A
+  test perturbs every non-location field and fails if any of them leaves the
+  digest unmoved, so a field silently outside it cannot go unnoticed.
+
+  `verify-receipt` reads the index before it opens the receipt, so it refuses
+  a stale index like every other command that can quote the corpus;
+  `tests/test_freshness.py` holds it to that. (#101)
+
 - The release workflow refuses to publish from a tag the maintainer did not
   sign. Until now nothing checked: a published Release, or a
   `workflow_dispatch` from any ref, built a wheel and an image, labelled them
