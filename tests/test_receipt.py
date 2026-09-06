@@ -434,9 +434,9 @@ class TestCli(unittest.TestCase):
             config_path = deployment.root / "cairn.toml"
             config_path.write_text(
                 "[corpus]\n"
-                f'path = "{deployment.corpus}"\n'
+                f'path = "{deployment.corpus.as_posix()}"\n'
                 "[index]\n"
-                f'path = "{deployment.index_path}"\n',
+                f'path = "{deployment.index_path.as_posix()}"\n',
                 encoding="utf-8",
             )
             receipt_path = deployment.root / "receipt.json"
@@ -466,8 +466,8 @@ class TestCli(unittest.TestCase):
             deployment = _Deployment(stack)
             config_path = deployment.root / "cairn.toml"
             config_path.write_text(
-                f'[corpus]\npath = "{deployment.corpus}"\n'
-                f'[index]\npath = "{deployment.index_path}"\n',
+                f'[corpus]\npath = "{deployment.corpus.as_posix()}"\n'
+                f'[index]\npath = "{deployment.index_path.as_posix()}"\n',
                 encoding="utf-8",
             )
             bad = deployment.root / "bad.json"
@@ -499,8 +499,8 @@ class TestCli(unittest.TestCase):
             deployment = _Deployment(stack)
             config_path = deployment.root / "cairn.toml"
             config_path.write_text(
-                f'[corpus]\npath = "{deployment.corpus}"\n'
-                f'[index]\npath = "{deployment.index_path}"\n',
+                f'[corpus]\npath = "{deployment.corpus.as_posix()}"\n'
+                f'[index]\npath = "{deployment.index_path.as_posix()}"\n',
                 encoding="utf-8",
             )
             document = deployment.corpus / "grocery-allowance.en.md"
@@ -527,8 +527,8 @@ class TestCli(unittest.TestCase):
             deployment = _Deployment(stack)
             config_path = deployment.root / "cairn.toml"
             config_path.write_text(
-                f'[corpus]\npath = "{deployment.corpus}"\n'
-                f'[index]\npath = "{deployment.index_path}"\n',
+                f'[corpus]\npath = "{deployment.corpus.as_posix()}"\n'
+                f'[index]\npath = "{deployment.index_path.as_posix()}"\n',
                 encoding="utf-8",
             )
             code, out, _ = self._run(["--config", str(config_path), "ask", QUESTION])
@@ -546,8 +546,8 @@ class TestCli(unittest.TestCase):
             deployment = _Deployment(stack)
             config_path = deployment.root / "cairn.toml"
             config_path.write_text(
-                f'[corpus]\npath = "{deployment.corpus}"\n'
-                f'[index]\npath = "{deployment.index_path}"\n',
+                f'[corpus]\npath = "{deployment.corpus.as_posix()}"\n'
+                f'[index]\npath = "{deployment.index_path.as_posix()}"\n',
                 encoding="utf-8",
             )
             code, out, _ = self._run(
