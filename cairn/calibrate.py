@@ -70,19 +70,13 @@ class CalibrationReport:
         return tuple(r for r in self.results if r.behavior == "refuse")
 
     @property
-    def scored_probes(self) -> tuple[ProbeResult, ...]:
-        """Probes a threshold could actually have decided.
-
-        Excludes the tool-answered ones. A probe the count tool handled never
-        reached `retrieval.threshold`, so including it in the band arithmetic
-        below asks what threshold would have classified a probe no threshold
-        classified.
-        """
-        return tuple(r for r in self.results if r.top_score is not None)
-
-    @property
     def tool_probes(self) -> tuple[ProbeResult, ...]:
-        """Probes answered without retrieval — reported, never averaged."""
+        """Probes answered without retrieval — reported, never averaged.
+
+        A probe the count tool handled never reached `retrieval.threshold`,
+        so putting it in the band arithmetic below asks which threshold would
+        have classified a probe that no threshold classified.
+        """
         return tuple(r for r in self.results if r.top_score is None)
 
     @property
