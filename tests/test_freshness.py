@@ -351,6 +351,9 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
         "refusals": ["nonexistent-refusal-stats.json"],
         "followups": ["nonexistent-followup-store.jsonl"],
         "record": [],  # --out is added per-run, into the temp workspace
+        # Deliberately a path that does not exist: the index check must come
+        # first, so a stale index refuses before the receipt is ever opened.
+        "verify-receipt": ["nonexistent-receipt.json"],
     }
 
     @classmethod

@@ -110,9 +110,43 @@ it needs to be for a compliance review, so it is stated here:
   bundled demo corpus. It contains no data from a real deployment and is
   not something a live installation produces or updates on its own.
 
+- An **answer receipt** (`cairn ask --receipt`) is handed to the person who
+  asked and stored nowhere. The deployment keeps no copy, so there is
+  nothing here to retain, purge, or disclose. See below for what one proves.
+
 If your agency's compliance process requires a documented retention
 schedule before a system can go live, `--followup-store` is the one piece
 of this software that needs one written before it is turned on.
+
+## What an answer receipt does and does not prove
+
+`cairn ask --receipt` emits a short document naming the corpus fingerprint,
+a digest of the effective configuration, the question, the language, the
+cited passage ids with hashes of their text, and a hash of the answer.
+`cairn verify-receipt` re-asks and reports one of five outcomes.
+
+**It proves reproduction.** A `MATCH` means this deployment, holding this
+corpus under this configuration, produces exactly the recorded answer for
+that question. That is the determinism claim in DESIGN.md, made checkable
+by the person it matters to rather than asserted to them.
+
+**It does not prove who ran it, or when.** There is no signature and no
+timestamp, deliberately. A receipt is not an attestation and cannot be used
+as one; anyone holding the same corpus and configuration can produce the
+same receipt, which is the point of a determinism check and the limit of it.
+
+**It does not prove the answer was correct**, only that it is the answer
+this system gives. A verbatim quote from an out-of-date corpus reproduces
+perfectly.
+
+**The outcomes are distinct, and the distinction is the substance.** When
+the corpus fingerprint has moved, verification reports `corpus changed` and
+stops — it does not go on to compare the answers, because against different
+source text that comparison would not mean anything. The same holds one
+step later for `configuration changed`. Only when the corpus and the
+configuration both match does `MATCH` or `answer differs` get reported at
+all. A receipt this build cannot parse is `unreadable`, which is not a
+finding against the deployment and exits with its own code.
 
 ## Accessibility status
 
