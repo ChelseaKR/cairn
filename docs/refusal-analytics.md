@@ -38,9 +38,10 @@ Reason codes:
   no-passages-in-language  the corpus holds nothing at all in this language — a coverage gap, not a ranking problem.
   no-lexical-overlap       no passage shared even one scoring term with the question — likely a vocabulary gap between how the corpus and the question say the same thing, not a ranking one.
   below-threshold          candidates were scored but none cleared the configured threshold — a near-miss; see `cairn calibrate`.
+  no-matching-rows         a structured-table count bound a table and a column and matched no row — the table was read successfully, so this is usually a value outside the data rather than anything missing from the corpus.
 ```
 
-The three reason codes are the same ones `cairn ask --explain` already names
+The four reason codes are the same ones `cairn ask --explain` already names
 for the retrieval stage (see DESIGN.md, "Explain mode reports stages, not
 just scores") — this is that same diagnosis, aggregated across every
 refusal instead of run by hand against one question at a time:
@@ -56,6 +57,20 @@ refusal instead of run by hand against one question at a time:
   Worth checking with `cairn calibrate` against real probe questions before
   assuming the corpus itself is missing anything — sometimes the threshold
   is simply set a little too high for this corpus.
+- **`no-matching-rows`** is the odd one out: it is not a gap in the corpus
+  or in the ranking. A question bound a `tables/*.csv` count — a table, a
+  column and a comparison — the table was read, and no row matched. Read it
+  as "nobody's answer is in that range", not as missing content. Staff
+  asking repeatedly for a band the data does not contain is worth knowing
+  about, but the fix is upstream of the corpus: either the data really has
+  no such rows, or the table is stale. Widening the corpus will not move it,
+  and neither will `retrieval.threshold`, which this path never consults.
+
+  Before the fix for issue #92 these refusals were counted as
+  `no-passages-in-language`, so an English corpus with eleven indexed
+  English documents could report that it held nothing at all in English.
+  Snapshots taken before that fix undercount the first code by however many
+  table zero-matches they contain.
 
 The underlying JSON file (`refusal-stats.json` above) is a plain object —
 `{"en": {"below-threshold": 1, ...}, ...}` — an operator can also read

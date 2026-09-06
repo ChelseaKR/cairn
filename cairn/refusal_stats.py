@@ -5,9 +5,10 @@ exactly as it always has, and nothing here changes that default path. When
 an operator opts in, every refusal increments one counter keyed by
 *(language, reason code)* — the same machine-stable codes
 `cairn ask --explain` already names for the retrieval stage
-(`below-threshold`, `no-lexical-overlap`, `no-passages-in-language`; see
-`cairn.explain.refusal_reason`) — and the running totals are written to a
-JSON file the operator names.
+(`below-threshold`, `no-lexical-overlap`, `no-passages-in-language`, and
+`no-matching-rows` for a structured-table count that bound a table and
+matched no row; see `cairn.explain.refusal_reason`) — and the running totals
+are written to a JSON file the operator names.
 
 Nothing else about any individual refusal is ever touched: not the question
 text, not the client address, not a timestamp, not a count of *when* — only
@@ -32,9 +33,23 @@ from threading import Lock
 # near-miss, and "nothing in this language at all" is the starkest gap of
 # the three. Purely for a stable, readable ordering in `render()`; it has no
 # effect on counting.
-_REASON_ORDER = ("no-passages-in-language", "no-lexical-overlap", "below-threshold")
+_REASON_ORDER = (
+    "no-passages-in-language",
+    "no-lexical-overlap",
+    "below-threshold",
+    # Last because it is the only one of the four that is not a gap in the
+    # corpus or the ranking: the table was found and read, and the count
+    # simply matched nothing. It used to be aggregated as the first entry
+    # above, which told operators an indexed language held nothing at all.
+    "no-matching-rows",
+)
 
 _REASON_LEGEND = {
+    "no-matching-rows": (
+        "a structured-table count bound a table and a column and matched no "
+        "row — the table was read successfully, so this is usually a value "
+        "outside the data rather than anything missing from the corpus."
+    ),
     "no-passages-in-language": (
         "the corpus holds nothing at all in this language — a coverage gap, "
         "not a ranking problem."

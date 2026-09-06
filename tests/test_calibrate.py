@@ -221,3 +221,99 @@ class TestCalibrateCli(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+TABLE_PROBES = """
+[[probe]]
+question = "How many programs pay more than $100 a month?"
+behavior = "answer"
+
+[[probe]]
+question = "How much is the monthly grocery allowance for one person?"
+behavior = "answer"
+
+[[probe]]
+question = "Can you help me renew my drivers license?"
+behavior = "refuse"
+
+[[probe]]
+question = "What vaccinations does my dog need?"
+behavior = "refuse"
+"""
+
+
+class TestToolAnsweredProbes(unittest.TestCase):
+    """Issue #91: a probe no threshold decided must not set the threshold band.
+
+    The count tool answers before retrieval runs, so its probe has no score.
+    Recording that absence as `0.0` made a correctly-answered probe the worst
+    'answer' probe in the set, drove `gap` negative, and made `render` print
+    `NO SEPARATING THRESHOLD` and "classifies every probe correctly" in the
+    same run — while withholding the suggested threshold that is the tool's
+    entire output.
+
+    Scored against the demo corpus rather than hand-built, deliberately: the
+    existing renderer tests build a `CalibrationReport` directly, which is
+    why this was invisible to them.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.index = build_index(DEMO)
+
+    def report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_probes(Path(tmp), "table.toml", TABLE_PROBES)
+            return calibrate(self.index, Config(), path)
+
+    def test_the_counting_probe_is_answered_and_carries_no_score(self):
+        report = self.report()
+        probe = next(r for r in report.results if r.question.startswith("How many"))
+        self.assertEqual(probe.outcome, "answer")
+        self.assertTrue(probe.correct)
+        self.assertIsNone(probe.top_score)
+        self.assertEqual(report.tool_probes, (probe,))
+
+    def test_it_does_not_drag_the_band_negative(self):
+        report = self.report()
+        self.assertIsNotNone(report.gap)
+        self.assertGreater(report.gap, 0)
+        self.assertIsNotNone(report.suggested_threshold)
+        # The band is set by the other 'answer' probe — the one a threshold
+        # actually decided. Derived, not pinned to a rounded literal.
+        scored = next(
+            r for r in report.answer_probes if r.top_score is not None
+        )
+        self.assertEqual(report.worst_answer_score, scored.top_score)
+
+    def test_the_report_does_not_contradict_itself(self):
+        report = self.report()
+        text = render(report)
+        self.assertNotIn("NO SEPARATING THRESHOLD", text)
+        self.assertIn("classifies every probe correctly", text)
+        self.assertIn("Suggested threshold", text)
+
+    def test_the_row_says_n_a_rather_than_a_score_of_zero(self):
+        text = render(self.report())
+        line = next(ln for ln in text.splitlines() if "How many" in ln)
+        self.assertIn("score=  n/a", line)
+        self.assertNotIn("score=0.000", line)
+        self.assertIn("excluded from the band", text)
+
+    def test_a_probe_that_really_scored_zero_still_counts(self):
+        # The negative control. `top_score is None` must mean "never scored",
+        # never "scored badly": a genuine no-overlap probe still enters the
+        # arithmetic as 0.0 and still drags the band, which is correct.
+        body = (
+            '[[probe]]\nquestion = "zzzzqqqq wwwwxxxx"\nbehavior = "answer"\n\n'
+            '[[probe]]\nquestion = "What vaccinations does my dog need?"\n'
+            'behavior = "refuse"\n'
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_probes(Path(tmp), "zero.toml", body)
+            report = calibrate(self.index, Config(), path)
+        probe = next(r for r in report.results if r.question.startswith("zzzz"))
+        self.assertEqual(probe.top_score, 0.0)
+        self.assertEqual(report.tool_probes, ())
+        self.assertIsNotNone(report.gap)
+        self.assertLessEqual(report.gap, 0)

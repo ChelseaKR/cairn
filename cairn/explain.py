@@ -88,6 +88,25 @@ def excerpt(text: str, limit: int = EXCERPT_CHARS) -> str:
 
 
 def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
+    if not trace.attempted:
+        # Must come first. Every branch below reads a counting field
+        # (`candidates`, `scoped`, `excluded`, `lang`) off the trace, and on
+        # this path all of them are placeholders -- so the second branch
+        # matches unconditionally and reports a corpus-coverage gap for a
+        # question the corpus answered. `ok=True` because nothing here failed:
+        # a skipped stage must not become `diagnosis.blame`, which is what put
+        # "Diagnose at: retrieval" underneath "Verdict: GROUNDED".
+        return StageVerdict(
+            stage="retrieval",
+            ok=True,
+            code="not-attempted",
+            detail=(
+                "Retrieval did not run. The question bound a structured-table "
+                "query, so the count tool answered from the table directly and "
+                "no passage was scored. retrieval.threshold did not apply to "
+                "this answer, and nothing here indicates a corpus gap."
+            ),
+        )
     accepted = trace.accepted
     if accepted:
         return StageVerdict(
@@ -150,19 +169,57 @@ def refusal_reason(trace: RetrievalTrace) -> str:
     For `cairn/refusal_stats.py`, which aggregates refusal reasons and must
     never hold anything drawn from the question itself. `_retrieval_verdict`
     computes a `.detail` string that quotes matched/unmatched question terms;
-    this returns only `.code` — one of `"no-passages-in-language"`,
-    `"no-lexical-overlap"`, or `"below-threshold"` for a trace with no
-    accepted candidates, machine-stable and question-content-free by
-    construction, per this module's own docstring. Call this only when
-    `trace.accepted` is empty; on an accepted trace it returns
-    `"passages-accepted"`, which is not a refusal reason at all.
+    this returns only `.code` — one of `"no-matching-rows"`,
+    `"no-passages-in-language"`, `"no-lexical-overlap"`, or
+    `"below-threshold"` for a trace with no accepted candidates,
+    machine-stable and question-content-free by construction, per this
+    module's own docstring. Call this only when `trace.accepted` is empty; on
+    an accepted trace it returns `"passages-accepted"`, which is not a
+    refusal reason at all.
+
+    A trace with `attempted=False` reaches a refusal by exactly one route:
+    `cairn.engine._answer_from_tables` bound a count query and it matched
+    zero rows. That is a distinct operator signal — the table was found and
+    read, and the value asked about is outside the data — so it gets its own
+    code rather than borrowing `"no-passages-in-language"`, which claims a
+    coverage gap that is not there. `cairn/refusal_stats.py` carries the
+    legend and `docs/refusal-analytics.md` the operator's reading of it.
     """
+    if not trace.attempted:
+        return "no-matching-rows"
     return _retrieval_verdict(trace).code
 
 
 def _answer_verdict(
     trace: RetrievalTrace, answer: Answer, dropped: tuple[Candidate, ...]
 ) -> StageVerdict:
+    if not trace.attempted:
+        # `no-evidence` below says "the answer stage was handed no passages,
+        # so it refused ... look upstream at retrieval", and renders as NOT
+        # REACHED. On the tool path the answer stage was reached, needed no
+        # passages, and produced the answer -- there is no upstream to look at.
+        if answer.kind == "grounded":
+            return StageVerdict(
+                stage="answer",
+                ok=True,
+                code="composed-from-table",
+                detail=(
+                    f"Composed from {len(answer.sources)} table row(s), verbatim. "
+                    "Every figure in the answer was read out of the cited rows, "
+                    "not out of a retrieved passage."
+                ),
+            )
+        return StageVerdict(
+            stage="answer",
+            ok=True,
+            code="no-matching-rows",
+            detail=(
+                "The count bound a table and a column and matched no row, so "
+                "there was nothing to report and the answer refused. The table "
+                "was read successfully: this says the value asked about falls "
+                "outside the data, not that the corpus is missing anything."
+            ),
+        )
     accepted = trace.accepted
     if not accepted:
         return StageVerdict(
@@ -320,6 +377,12 @@ def render(
     for step, verdict in enumerate(diagnosis.stages, start=1):
         if verdict.code == "no-evidence":
             status = "NOT REACHED"
+        elif verdict.code == "not-attempted":
+            # Not "OK". This stage did not run, and this repository's own
+            # standard is that a check which could not run is not a check
+            # that passed -- `ok=True` here means "not to blame", which is a
+            # different claim from "passed" and must not print as one.
+            status = "NOT RUN"
         else:
             status = "OK" if verdict.ok else "FAILED"
         lines.append(f"Stage {step} - {verdict.stage}: {status} ({verdict.code})")
@@ -353,6 +416,9 @@ def trace_payload(trace: RetrievalTrace, *, margin_warn: float | None = None) ->
     """
     return {
         "threshold": trace.threshold,
+        # So a JSON consumer can tell a skipped retrieval stage from an empty
+        # one without re-deriving it from the emptiness of every other field.
+        "attempted": trace.attempted,
         "margin": trace.margin,
         "margin_below_warn": (
             margin_warn is not None and trace.margin is not None and trace.margin < margin_warn

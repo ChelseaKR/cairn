@@ -295,3 +295,82 @@ class TestCliRefusalsCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTableZeroMatchRefusal(unittest.TestCase):
+    """Issue #92: a count that matched no row is not a language coverage gap.
+
+    `_answer_from_tables` refuses outright when a bound count matches zero
+    rows, and hands that refusal the same placeholder trace the grounded path
+    gets. `refusal_reason` is one line — `_retrieval_verdict(trace).code` —
+    and that verdict's first branch fires on any trace with no candidates and
+    `scoped == 0`, which a placeholder always is. So every table zero-match,
+    in every language, was aggregated as `no-passages-in-language`, whose
+    printed legend and `docs/refusal-analytics.md` both tell the operator the
+    corpus holds nothing at all in that language.
+
+    It said that about English while eleven English documents were indexed.
+    """
+
+    def setUp(self):
+        self.index = build_index(DEMO)
+        self.cfg = Config()
+
+    def test_a_zero_match_count_has_its_own_reason_code(self):
+        result = ask(
+            "How many programs pay more than $5000 a month?",
+            self.index,
+            self.cfg,
+            lang="en",
+        )
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertEqual(result.tool["matched_rows"], [])
+        code = refusal_reason(result.answer.trace)
+        self.assertEqual(code, "no-matching-rows")
+        self.assertNotEqual(code, "no-passages-in-language")
+
+    def test_the_aggregate_does_not_claim_an_english_corpus_is_empty(self):
+        result = ask(
+            "How many programs pay more than $5000 a month?",
+            self.index,
+            self.cfg,
+            lang="en",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stats.json"
+            counter = RefusalCounter(path)
+            counter.record("en", refusal_reason(result.answer.trace))
+            self.assertEqual(counter.snapshot(), {"en": {"no-matching-rows": 1}})
+            text = render(report(path))
+        # The counted row, not the legend block, is what an operator reads as
+        # the finding. It must not be the language-gap code.
+        rows = text.split("Reason codes:")[0]
+        self.assertIn("no-matching-rows", rows)
+        self.assertNotIn("no-passages-in-language", rows)
+
+    def test_the_new_code_carries_a_legend(self):
+        # A code with no legend renders a KeyError in `render`, and a code
+        # missing from `_REASON_ORDER` sorts to the end silently.
+        from cairn.refusal_stats import _REASON_LEGEND, _REASON_ORDER
+
+        self.assertIn("no-matching-rows", _REASON_ORDER)
+        self.assertIn("no-matching-rows", _REASON_LEGEND)
+        self.assertEqual(set(_REASON_ORDER), set(_REASON_LEGEND))
+
+    def test_a_real_language_gap_still_reports_one(self):
+        # The negative control: `no-passages-in-language` must still be
+        # reachable, or this fix would have replaced one wrong code with
+        # another. Same construction tests/test_explain.py uses for it — an
+        # English-only corpus asked in Arabic, with the fallback off.
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "only-english.md").write_text(
+                "---\nid: only-en\ntitle: Only English\nlang: en\n---\n"
+                "The grocery allowance is $212 per month.\n",
+                encoding="utf-8",
+            )
+            index = build_index(tmp)
+            cfg = Config(cross_language_fallback=False)
+            result = ask("ما هي حدود الدخل؟", index, cfg, lang="ar")
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertTrue(result.answer.trace.attempted)
+        self.assertEqual(refusal_reason(result.answer.trace), "no-passages-in-language")
