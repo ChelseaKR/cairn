@@ -148,7 +148,14 @@ def _answer_from_tables(
     refusal_text = message(
         "refusal", response_lang, contact=isolate(contact) if rtl else contact
     )
-    trace = RetrievalTrace(query=question, threshold=cfg.threshold, candidates=())
+    # `attempted=False` is load-bearing, not decoration. Retrieval genuinely
+    # did not run here, and without this flag the placeholder below is
+    # byte-identical to the trace a real search produces when a language has
+    # no passages at all -- so `explain`, `refusal_reason` and `calibrate`
+    # each read "scoring found nothing" off a trace that was never scored.
+    trace = RetrievalTrace(
+        query=question, threshold=cfg.threshold, candidates=(), attempted=False
+    )
     tool = {
         "op": query.op,
         "table": table.table_id,

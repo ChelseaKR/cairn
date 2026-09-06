@@ -43,7 +43,15 @@ class ProbeResult:
     question: str
     behavior: Behavior  # what the operator expects
     lang: str | None
-    top_score: float  # the best-scoring candidate's score; 0.0 if nothing scored
+    # The best-scoring candidate's score; 0.0 if scoring ran and nothing
+    # scored. `None` when scoring was never consulted at all -- the
+    # structured-table count tool answered (or refused) this probe before
+    # retrieval ran, so there is no score to compare and no value of
+    # retrieval.threshold that could have changed the outcome. Recording that
+    # as 0.0 made a correctly-answered probe the worst 'answer' probe in the
+    # set, drove `gap` negative, and withheld the recommendation the tool
+    # exists to make (issue #91).
+    top_score: float | None
     outcome: Behavior  # what actually happened at the configured threshold
     correct: bool
 
@@ -62,13 +70,29 @@ class CalibrationReport:
         return tuple(r for r in self.results if r.behavior == "refuse")
 
     @property
+    def scored_probes(self) -> tuple[ProbeResult, ...]:
+        """Probes a threshold could actually have decided.
+
+        Excludes the tool-answered ones. A probe the count tool handled never
+        reached `retrieval.threshold`, so including it in the band arithmetic
+        below asks what threshold would have classified a probe no threshold
+        classified.
+        """
+        return tuple(r for r in self.results if r.top_score is not None)
+
+    @property
+    def tool_probes(self) -> tuple[ProbeResult, ...]:
+        """Probes answered without retrieval — reported, never averaged."""
+        return tuple(r for r in self.results if r.top_score is None)
+
+    @property
     def worst_answer_score(self) -> float | None:
-        scores = [r.top_score for r in self.answer_probes]
+        scores = [r.top_score for r in self.answer_probes if r.top_score is not None]
         return min(scores) if scores else None
 
     @property
     def best_refuse_score(self) -> float | None:
-        scores = [r.top_score for r in self.refuse_probes]
+        scores = [r.top_score for r in self.refuse_probes if r.top_score is not None]
         return max(scores) if scores else None
 
     @property
@@ -135,7 +159,12 @@ def calibrate(index: Index, cfg: Config, probes_path: str | Path) -> Calibration
         lang = probe.get("lang")
         result = ask(probe["question"], index, cfg, lang=lang)
         trace = result.answer.trace
-        top_score = trace.candidates[0].score if trace.candidates else 0.0
+        if not trace.attempted:
+            # Not 0.0. Retrieval never ran, so "the best candidate scored
+            # zero" would be a measurement of something that did not happen.
+            top_score: float | None = None
+        else:
+            top_score = trace.candidates[0].score if trace.candidates else 0.0
         outcome = "answer" if result.answer.kind == "grounded" else "refuse"
         results.append(
             ProbeResult(
@@ -154,11 +183,19 @@ def render(report: CalibrationReport) -> str:
     lines = [f"{len(report.results)} probe(s) against threshold {report.threshold:.3f}"]
     for r in report.results:
         mark = "ok" if r.correct else "MISCLASSIFIED"
+        score = "  n/a" if r.top_score is None else f"{r.top_score:.3f}"
         lines.append(
             f"  {mark:14} expect={r.behavior:<6} got={r.outcome:<6} "
-            f"score={r.top_score:.3f}  {r.question}"
+            f"score={score}  {r.question}"
         )
     lines.append("")
+    if report.tool_probes:
+        lines.append(
+            f"{len(report.tool_probes)} probe(s) scored 'n/a': answered by the "
+            "structured-table tool without retrieval, so no threshold applies to "
+            "them and they are excluded from the band below."
+        )
+        lines.append("")
 
     worst, best = report.worst_answer_score, report.best_refuse_score
     if worst is None:
@@ -173,7 +210,7 @@ def render(report: CalibrationReport) -> str:
     if report.gap is None:
         lines.append(
             "Cannot compute a threshold band: need at least one 'answer' probe and "
-            "one 'refuse' probe."
+            "one 'refuse' probe that retrieval actually scored."
         )
     elif report.gap <= 0:
         lines.append(
@@ -194,14 +231,27 @@ def render(report: CalibrationReport) -> str:
         lines.append(
             f"Configured threshold {report.threshold:.3f} classifies every probe correctly."
         )
+    elif not report.misclassified:
+        # `safe` is False here only because there is no band to vouch with.
+        # The old text said "misclassifies 0 of 4 probe(s):" and then listed
+        # nothing, which reads as a failure that did not happen.
+        lines.append(
+            f"Configured threshold {report.threshold:.3f} classifies every probe "
+            "correctly, but this probe set cannot vouch for it: there is no "
+            "band to compare it against (see above)."
+        )
     else:
         lines.append(
             f"Configured threshold {report.threshold:.3f} misclassifies "
             f"{len(report.misclassified)} of {len(report.results)} probe(s):"
         )
         for r in report.misclassified:
+            detail = (
+                "answered by the table tool, no score"
+                if r.top_score is None
+                else f"score {r.top_score:.3f}"
+            )
             lines.append(
-                f"  expected {r.behavior}, got {r.outcome} (score {r.top_score:.3f}): "
-                f"{r.question}"
+                f"  expected {r.behavior}, got {r.outcome} ({detail}): {r.question}"
             )
     return "\n".join(lines)

@@ -432,3 +432,95 @@ class TestSplitIntentsExplain(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# A question the structured-table count tool answers, and one it refuses
+# because the bound count matched no row. Both take `cairn.engine
+# ._answer_from_tables`, which returns before retrieval runs at all.
+TABLE_ANSWER_Q = "How many programs pay more than $100 a month?"
+TABLE_ZERO_Q = "How many programs pay more than $5000 a month?"
+
+
+class TestTableAnsweredExplain(ExplainHarness):
+    """Issue #90: a stage that never ran must not be reported as one that failed.
+
+    `_answer_from_tables` hands the composed answer a placeholder
+    `RetrievalTrace` — no candidates, `scoped=0`, `lang=None` — because no
+    retrieval happened. That placeholder used to be indistinguishable from
+    the trace a real search produces against a language the corpus has no
+    passages in, so `_retrieval_verdict` took its `no-passages-in-language`
+    branch and the report stated four things that were not true at once:
+    retrieval failed, the corpus was empty in the answer language, the answer
+    stage was never reached, and there was something at retrieval to
+    diagnose — under a `Verdict: GROUNDED` line, with `None` printed as the
+    language two lines below `Language: en`.
+
+    These run the real demo corpus end to end rather than hand-building a
+    trace, because a hand-built trace is exactly what nobody would have got
+    wrong: the defect lived in the gap between what the engine constructs and
+    what explain assumes it means.
+    """
+
+    def test_a_table_answer_does_not_report_a_failed_retrieval_stage(self):
+        result, diag = self.ask(TABLE_ANSWER_Q)
+        self.assertEqual(result.answer.kind, "grounded")
+        self.assertIsNotNone(result.tool)
+        retrieval = diag.stage("retrieval")
+        self.assertTrue(retrieval.ok)
+        self.assertEqual(retrieval.code, "not-attempted")
+        self.assertNotEqual(retrieval.code, "no-passages-in-language")
+
+    def test_the_answer_stage_is_not_reported_as_unreached(self):
+        result, diag = self.ask(TABLE_ANSWER_Q)
+        answer = diag.stage("answer")
+        self.assertTrue(answer.ok)
+        self.assertEqual(answer.code, "composed-from-table")
+        self.assertNotEqual(answer.code, "no-evidence")
+
+    def test_a_grounded_verdict_never_names_a_stage_to_diagnose(self):
+        # The contradiction at the heart of #90: `grounded=True` printed
+        # beside `blame="retrieval"`.
+        result, diag = self.ask(TABLE_ANSWER_Q)
+        self.assertTrue(diag.grounded)
+        self.assertIsNone(diag.blame)
+
+    def test_the_report_says_not_run_rather_than_ok_or_failed(self):
+        result, diag = self.ask(TABLE_ANSWER_Q)
+        report = render(result, diag, index_summary="test index")
+        self.assertIn("Stage 1 - retrieval: NOT RUN (not-attempted)", report)
+        self.assertNotIn("Stage 1 - retrieval: FAILED", report)
+        self.assertNotIn("Diagnose at:", report)
+        self.assertIn("Verdict: GROUNDED", report)
+
+    def test_the_report_never_prints_none_where_a_language_belongs(self):
+        result, diag = self.ask(TABLE_ANSWER_Q)
+        report = render(result, diag, index_summary="test index")
+        self.assertNotIn("None", report)
+        self.assertNotIn("corpus coverage gap", report)
+
+    def test_the_json_diagnosis_is_internally_consistent(self):
+        result, diag = self.ask(TABLE_ANSWER_Q)
+        payload = trace_payload(result.answer.trace)
+        self.assertFalse(payload["attempted"])
+        # An empty candidate list next to `attempted: false` is a skipped
+        # stage; next to `attempted: true` it is a real empty result. Before
+        # this field a consumer could not tell those apart.
+        self.assertEqual(payload["candidates"], [])
+        self.assertTrue(diag.grounded)
+        self.assertIsNone(diag.blame)
+
+    def test_a_zero_match_count_blames_nothing_and_claims_no_coverage_gap(self):
+        result, diag = self.ask(TABLE_ZERO_Q)
+        self.assertEqual(result.answer.kind, "refusal")
+        self.assertEqual(result.tool["matched_rows"], [])
+        self.assertIsNone(diag.blame)
+        self.assertEqual(diag.stage("retrieval").code, "not-attempted")
+        self.assertEqual(diag.stage("answer").code, "no-matching-rows")
+
+    def test_a_real_retrieval_miss_is_still_blamed_on_retrieval(self):
+        # The negative control. `attempted` defaults to True, so nothing
+        # above may soften a genuine retrieval failure into "not run".
+        result, diag = self.ask(MISS_Q)
+        self.assertTrue(result.answer.trace.attempted)
+        self.assertEqual(diag.blame, "retrieval")
+        self.assertFalse(diag.stage("retrieval").ok)

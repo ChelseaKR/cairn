@@ -132,4 +132,10 @@ def split_intents(
         unmatched=tuple(sorted(unmatched)),
         ignored=tuple(sorted(ignored)),
         intents=tuple(parts),
+        # Every part trace here came out of a real retrieval pass, so the
+        # merge is attempted -- but derived from the parts rather than left
+        # to the default, because a field the merge does not name is a field
+        # that silently takes its default, which is the bug class
+        # tests/test_query.py's MERGE table exists to prevent.
+        attempted=all(trace.attempted for trace in traces),
     )

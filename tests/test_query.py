@@ -267,6 +267,7 @@ class TestTheMergeHandlesEveryFieldItIsHandedOnPurpose(unittest.TestCase):
         "unmatched": "union across parts",
         "ignored": "union across parts",
         "intents": "the parts themselves",
+        "attempted": "all of the parts', so a merge never claims a pass none made",
     }
     CANDIDATE_MERGE = {
         "passage": "the passage itself",

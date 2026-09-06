@@ -22,7 +22,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 912 tests plus
+evidence and, separately, against the running server. 929 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -133,6 +133,10 @@ say *why* a score is what it is: which of the question's words each passage
 actually held, which the corpus has never seen (a coverage gap), and which
 were suppressed as too common (a scorer decision). Add `--json` for the same
 trace machine-readably. Explain mode never changes the answer.
+
+When a `tables/*.csv` count answers the question, retrieval is reported as
+`NOT RUN`, not as a failure, and no stage is blamed — a stage that was skipped
+is not a stage that failed, and the report says which of those it is.
 
 ## Three languages, one of them right to left
 

@@ -72,6 +72,17 @@ class RetrievalTrace:
     # explain mode surfaces it so an operator can see that the query scored
     # was not exactly the question asked.
     intents: tuple[str, ...] = ()
+    # False when retrieval never ran at all: the structured-table tool bound
+    # the question and answered (or refused) from a table before scoring was
+    # ever consulted. Every other field on such a trace is a placeholder, and
+    # a placeholder is indistinguishable from a real empty result unless one
+    # field says which it is -- `candidates=()` with `scoped=0` reads exactly
+    # like "the corpus holds nothing in this language", which is how one
+    # skipped stage was reported as three different failures it never had
+    # (issues #90, #91, #92). Consumers must branch on this before reading
+    # any counting field. Defaults to True so every real retrieval path is
+    # unchanged and only the tool path has to opt out.
+    attempted: bool = True
 
     @property
     def accepted(self) -> tuple[Candidate, ...]:
