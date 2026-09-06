@@ -51,6 +51,14 @@ its output byte for byte, and executes the README's blocks under a looser rule
 that still forbids showing a word the command never printed. If you change what
 a command prints, the pages change in the same commit.
 
+## Numbers about this repository are written, not typed
+
+The README's second paragraph publishes how large the suite is, and
+`tests/test_docs.py` fails when that figure is not the figure. Do not retype
+it: run `make counts`, which discovers the suite and writes the number for
+you, and commit what it changes. Adding a test file is meant to cost one
+command, not an edit to a sentence every other branch is also editing.
+
 ## Types and complexity, honestly
 
 `mypy` runs in `--strict` mode over `cairn/`, and `make verify` fails on a
