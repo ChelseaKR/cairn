@@ -6,9 +6,30 @@
 # working rule is that an agent does not push"). This workflow starts only
 # once that has already happened.
 #
-# Two jobs, independent of each other — a PyPI failure should not block the
-# container push or the reverse, since neither is a prerequisite for the
-# other actually being useful to someone.
+# Nothing is built or uploaded until `verify-tag` says the tag naming this
+# release is one the maintainer signed. Until 2026-09-06 that check did not
+# exist here at all: whatever a Release event or a `workflow_dispatch`
+# pointed at got built, labelled with the repository's name, and pushed to
+# two public registries. The signature is checked against
+# `.github/allowed_signers`, a file committed in this repository and read at
+# the ref being verified, so trusting it is the same trust decision as
+# running this workflow's own code.
+#
+# Grandfathered: `v0.2.0`. It is an annotated tag but an unsigned one, cut
+# before release-tag signing was a rule here, and rewriting a published tag
+# is worse than the gap it would close. `v0.1.0` and `v0.3.0` are signed and
+# verify today; they are NOT on the list, so they are checked like any
+# future tag. The list lives in one place, `GRANDFATHERED_TAGS` below, and
+# `tests/test_release_tag_gate.py` holds it equal to the list that test
+# exercises and refuses to let it widen into a pattern.
+#
+# The two publishing jobs stay independent of each other — a PyPI failure
+# should not block the container push or the reverse, since neither is a
+# prerequisite for the other actually being useful to someone. What they now
+# share is the authorization in front of both, and the commit it resolved:
+# each checks out `needs.verify-tag.outputs.commit` rather than whatever the
+# event ref happens to be, so the bits that ship are the bits the verified
+# tag names.
 #
 # `id-token: write` on the `pypi` job is the whole authentication story:
 # PyPI trusted publishing exchanges GitHub's OIDC token for a scoped,
@@ -20,6 +41,11 @@
 # The container job authenticates with the repository's own GITHUB_TOKEN,
 # scoped by the `packages: write` permission below and nothing else; no
 # secret to configure there at all.
+#
+# Both jobs also attest SLSA build provenance for what they publish, which
+# is what lets somebody who downloads the wheel or pulls the image ask
+# GitHub which workflow run produced it rather than taking the registry's
+# word for it: `gh attestation verify <file> --owner ChelseaKR`.
 #
 # Every action is pinned to a commit rather than a tag, matching every other
 # workflow in this repository.
@@ -35,19 +61,54 @@ permissions:
   contents: read
 
 jobs:
+  verify-tag:
+    name: verify-tag (the release tag is one the maintainer signed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.verify.outputs.tag }}
+      commit: ${{ steps.verify.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and tags: the tag object being verified has to be
+          # present locally for `git verify-tag` to read its signature.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: The release tag is signed by a key this repository trusts
+        id: verify
+        env:
+          # Routed through `env:` rather than interpolated into the script.
+          # A tag name is `github` context data and is not guaranteed to be
+          # free of shell metacharacters.
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          EXPECT_COMMIT: ${{ github.sha }}
+          ALLOWED_SIGNERS: .github/allowed_signers
+          # v0.2.0 is annotated but unsigned; see this file's header.
+          GRANDFATHERED_TAGS: "v0.2.0"
+        run: bash .github/verify-release-tag.sh
+
   pypi:
     name: pypi (build and publish via trusted publishing)
+    needs: [verify-tag]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
+      attestations: write # SLSA build provenance for the wheel and sdist
     environment:
       name: pypi
       url: https://pypi.org/project/cairn-assistant/
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.verify-tag.outputs.commit }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -59,14 +120,19 @@ jobs:
       # holds cairn.__version__, pyproject.toml, and CITATION.cff to each
       # other; this is the fourth place that number has to agree, checked
       # before anything is built rather than after.
+      #
+      # It reads the verified tag rather than the raw event, and it no
+      # longer skips on `workflow_dispatch`: `verify-tag` refuses to resolve
+      # a tag for a dispatch from a branch, so by the time this runs there
+      # is always a tag to check the version against.
       - name: The release tag names the version this package actually is
-        if: github.event_name == 'release'
+        env:
+          TAG: ${{ needs.verify-tag.outputs.tag }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
-          version="${tag#v}"
+          version="${TAG#v}"
           declared=$(python3 -c "from cairn import __version__; print(__version__)")
           if [ "$version" != "$declared" ]; then
-            echo "release tag '$tag' names version '$version', but cairn.__version__ is '$declared'" >&2
+            echo "release tag '$TAG' names version '$version', but cairn.__version__ is '$declared'" >&2
             exit 1
           fi
 
@@ -74,6 +140,15 @@ jobs:
         run: |
           pip install --no-cache-dir -e ".[release]"
           python3 -m build
+
+      # Provenance for the exact files about to be uploaded, before they are
+      # uploaded. `gh attestation verify dist/cairn_assistant-*.whl
+      # --owner ChelseaKR` then answers "which run built this" from GitHub's
+      # transparency log rather than from PyPI's metadata.
+      - name: Attest build provenance for the distribution
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: "dist/*"
 
       # Pinned to the commit v1.14.2 points to, not to the SHA GitHub's API
       # gives for the tag ref itself — v1.14.2 is an annotated tag, so its
@@ -90,14 +165,18 @@ jobs:
 
   container:
     name: container (build and push to GHCR)
+    needs: [verify-tag]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+      id-token: write # OIDC for the provenance attestation below
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.verify-tag.outputs.commit }}
           persist-credentials: false
 
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -113,11 +192,25 @@ jobs:
       # month's index-baked-at-build-time demo corpus without a way to tell
       # it changed, and someone who wants exactly what a security review
       # looked at should be able to pin the tag that review actually ran.
+      #
+      # The tag comes from `verify-tag`, so a dispatch can no longer push an
+      # image tagged `manual` built from an arbitrary ref.
       - name: Build and push
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
           tags: |
             ghcr.io/chelseakr/cairn:latest
-            ghcr.io/chelseakr/cairn:${{ github.event_name == 'release' && github.event.release.tag_name || 'manual' }}
+            ghcr.io/chelseakr/cairn:${{ needs.verify-tag.outputs.tag }}
+
+      # Attached to the image in the registry, so `gh attestation verify
+      # oci://ghcr.io/chelseakr/cairn:<tag> --owner ChelseaKR` works for
+      # anyone who can pull it, with no side channel to consult.
+      - name: Attest build provenance for the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/chelseakr/cairn
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
