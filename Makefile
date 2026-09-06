@@ -29,7 +29,7 @@
 # a resolution nobody committed. `--locked` makes that an error instead.
 UVRUN := uv run --locked --extra dev
 
-.PHONY: install lock lock-check lint typecheck test verify demo clean
+.PHONY: install lock lock-check lint typecheck test verify demo counts clean
 
 install:
 	uv sync --locked --extra dev
@@ -54,6 +54,13 @@ typecheck:
 test:
 	$(UVRUN) coverage run -m unittest discover -s tests
 	$(UVRUN) coverage report
+
+# Writes the README's published test count from the suite, so that nobody has
+# to type it. tests/test_docs.py fails when the two disagree; this is the half
+# that fixes it. Deliberately not a prerequisite of `verify`: a gate that
+# repairs the thing it is checking cannot fail.
+counts:
+	python3 readme_counts.py
 
 # The demo path, run the way the README claims it can be run: no install, no
 # virtual environment, no third-party package. If this stops working, the

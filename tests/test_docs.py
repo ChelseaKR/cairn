@@ -238,6 +238,23 @@ class TestTheAuditFiguresInTheDocuments(unittest.TestCase):
         self.assertIn(f"{pinned.group(1)}/{pinned.group(1)} behaviour checks passed",
                       (ROOT / "README.md").read_text(encoding="utf-8"))
 
+    def test_the_writer_that_publishes_the_count_agrees_with_the_check(self):
+        # The check above says the sentence is wrong; readme_counts.py is what
+        # makes it right, so that adding a test never means retyping a number
+        # in prose. If the two ever disagreed -- a regex here, a different one
+        # there -- `make counts` would produce a README this test rejects, and
+        # the repository would be worse off than with no writer at all.
+        #
+        # Both directions, the way every check in this file is written: the
+        # writer leaves a correct README alone, and it repairs a wrong one.
+        import readme_counts
+
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertEqual(readme_counts.rewrite(text, readme_counts.collected(ROOT)), text)
+        wrong = readme_counts.rewrite(text, 1)
+        self.assertNotEqual(wrong, text)
+        self.assertEqual(readme_counts.rewrite(wrong, self.published_count("tests")), text)
+
     def published_count(self, phrase: str) -> int:
         text = (ROOT / "README.md").read_text(encoding="utf-8")
         found = re.search(rf"(\d+) {re.escape(phrase)}", text)
