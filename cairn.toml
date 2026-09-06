@@ -59,3 +59,23 @@ contact = "the Harbor County Community Assistance office at 555-0142 (a fictiona
 en = "the Harbor County Community Assistance office at 555-0142 (a fictional demo contact; operators must configure their own)"
 es = "la oficina de Asistencia Comunitaria del Condado de Harbor, al 555-0142 (contacto ficticio de demostración; los operadores deben configurar el suyo)"
 ar = "مكتب المساعدة المجتمعية في مقاطعة هاربر على الرقم 555-0142 (جهة اتصال تجريبية مُختلَقة؛ على المشغّلين ضبط جهة اتصال خاصة بهم)"
+
+[lint]
+# `cairn lint --readability` warns above this grade level, and never fails:
+# a passage written above a target reading level is something to take to the
+# agency that publishes it, not a reason to refuse to index text that is
+# already public. Omit the key entirely for no ceiling, which is the default.
+# A project that has not decided what reading level it is aiming for should
+# not be told it missed one.
+# max_grade = 8
+
+# Which published readability formula is in force for a language, beyond the
+# two built in (en: Flesch-Kincaid grade level; es: Crawford grade level).
+# A language with no formula reports `n/a`, never a number: the coefficients
+# below were fitted on the language they are listed under and mean nothing
+# outside it, so running one over Arabic would produce a grade with the right
+# shape and no referent. Declaring one here is an operator's judgement that a
+# formula is close enough, and the grade is then labelled with the formula it
+# came from. An unimplemented name is refused when the config is built.
+# [lint.readability]
+# fr = "flesch_kincaid_grade"

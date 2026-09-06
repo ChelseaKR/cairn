@@ -29,6 +29,12 @@ from pathlib import Path
 from cairn.config import Config
 from cairn.corpus import CorpusError, Document, corpus_paths, load_document
 from cairn.index import TITLE_WEIGHT, build_index
+from cairn.readability import (
+    LanguageSummary,
+    Measurement,
+    measure,
+    summarize,
+)
 from cairn.retrieve import single_term_scores
 from cairn.text import tokenize
 
@@ -48,10 +54,27 @@ class LintIssue:
 
 
 @dataclass(frozen=True)
+class ReadabilityReport:
+    """What `--readability` measured, when it was asked for.
+
+    ``per_passage`` carries every passage in corpus order, including the ones
+    with no grade: a passage that could not be measured is listed saying so,
+    never dropped, because a table that silently holds only the measurable
+    passages reads as though the rest were fine.
+    """
+
+    per_passage: tuple[tuple[str, Measurement], ...]
+    by_language: tuple[LanguageSummary, ...]
+
+
+@dataclass(frozen=True)
 class LintReport:
     corpus_dir: str
     doc_count: int
     issues: tuple[LintIssue, ...]
+    readability: ReadabilityReport | None = None
+    """Present only when `--readability` asked for it. `None` is not an empty
+    measurement; it means nobody measured, and `render` says nothing at all."""
 
     @property
     def error_count(self) -> int:
@@ -238,12 +261,54 @@ def _reachability_issues(
     return issues
 
 
+def _readability_findings(
+    docs: list[Document],
+    *,
+    max_grade: float | None,
+    overrides: dict[str, str] | None,
+) -> tuple[ReadabilityReport, list[LintIssue]]:
+    """Grade every passage, and warn on the ones over `max_grade`.
+
+    Only ever a warning. A passage written above a target reading level is a
+    thing to take to the agency that wrote it, not a reason to refuse to build
+    an index over text that is already published.
+
+    A passage with no formula in force for its language earns no warning at
+    all, whatever `max_grade` is. Warning there would mean treating "not
+    measured" as "measured and over", which is the same mistake as printing a
+    grade for it.
+    """
+    measured: list[tuple[str, Measurement]] = []
+    issues: list[LintIssue] = []
+    for doc in docs:
+        for passage in doc.passages:
+            result = measure(passage.text, passage.lang, overrides)
+            measured.append((passage.passage_id, result))
+            if max_grade is None or result.grade is None or result.grade <= max_grade:
+                continue
+            issues.append(
+                LintIssue(
+                    "warning",
+                    doc.path,
+                    f"passage {passage.passage_id!r} reads at grade "
+                    f"{result.grade:.1f} by {result.formula}, over the "
+                    f"lint.max_grade of {max_grade:g}. Readability is a fact "
+                    f"about the source text: the fix is a plain-language page "
+                    f"from the agency that publishes it, not an edit here.",
+                )
+            )
+    return ReadabilityReport(tuple(measured), tuple(summarize(measured))), issues
+
+
 def lint_corpus(
     corpus_dir: str | Path,
     *,
     threshold: float = DEFAULT_THRESHOLD,
     max_age_days: int | None = None,
     as_of: date | None = None,
+    readability: bool = False,
+    max_grade: float | None = None,
+    readability_by_language: dict[str, str] | None = None,
 ) -> LintReport:
     """Check every document under `corpus_dir`.
 
@@ -260,6 +325,11 @@ def lint_corpus(
     `None` (the default) runs none of it, so a corpus with no `reviewed_at`
     anywhere stays exactly as quiet as it was before this existed. `as_of`
     exists for tests to pin a date; the CLI passes today's.
+
+    `readability` opts into the plain-language grades the same way, and for
+    the same reason: a corpus author who has not asked for a reading level
+    should not be handed one. Off, the report is byte-identical to what it
+    was before this existed.
     """
     docs, issues = _load_documents(corpus_dir)
     if max_age_days is not None:
@@ -275,16 +345,38 @@ def lint_corpus(
         issues += _reachability_issues(
             corpus_dir, docs, empty_passages, threshold=threshold
         )
+    grades: ReadabilityReport | None = None
+    if readability:
+        grades, readability_issues = _readability_findings(
+            docs, max_grade=max_grade, overrides=readability_by_language
+        )
+        issues += readability_issues
     ordered = tuple(sorted(issues, key=lambda i: (i.path, i.message)))
-    return LintReport(corpus_dir=str(corpus_dir), doc_count=len(docs), issues=ordered)
+    return LintReport(
+        corpus_dir=str(corpus_dir),
+        doc_count=len(docs),
+        issues=ordered,
+        readability=grades,
+    )
+
+
+def _readability_lines(grades: ReadabilityReport) -> list[str]:
+    lines = ["Readability:"]
+    for row in grades.by_language:
+        lines.append(f"  {row.describe()}")
+    for passage_id, result in grades.per_passage:
+        lines.append(f"  {passage_id}: {result.describe()}")
+    return lines
 
 
 def render(report: LintReport) -> str:
     lines = [f"Linted {report.doc_count} document(s) in {report.corpus_dir}"]
     if not report.issues:
         lines.append("No issues found.")
-        return "\n".join(lines)
-    for issue in report.issues:
-        lines.append(f"  {issue.severity.upper():7} {issue.path}: {issue.message}")
-    lines.append(f"{report.error_count} error(s), {report.warning_count} warning(s)")
+    else:
+        for issue in report.issues:
+            lines.append(f"  {issue.severity.upper():7} {issue.path}: {issue.message}")
+        lines.append(f"{report.error_count} error(s), {report.warning_count} warning(s)")
+    if report.readability is not None:
+        lines += _readability_lines(report.readability)
     return "\n".join(lines)

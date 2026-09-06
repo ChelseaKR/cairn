@@ -26,6 +26,16 @@ _MARKS = "".join(
 )
 _WORD_RE = re.compile(rf"[\w{_MARKS}]+", re.UNICODE)
 
+# Sentence-terminal punctuation across the interface languages: Latin . ! ?,
+# Arabic ؟, the ellipsis character, and the closing forms that can follow a
+# terminator. A break happens only where a terminator meets whitespace or end
+# of text, so URL-like runs ("555-0142.") stay inside their sentence.
+#
+# It lives here rather than in one consumer because there are now two:
+# ``cairn.stream`` slices an answer on it, and ``cairn.readability`` counts
+# sentences with it. Two regexes would be two ideas of what a sentence is.
+SENTENCE_END = re.compile(r"(?<=[.!?\u061f\u2026])\s+")
+
 # Truncation stemming: tokens are cut to their first STEM_LENGTH characters.
 # A deliberately crude, fully deterministic, dictionary-free normalizer that
 # unifies inflectional variants (month/monthly, deadline/deadlines,

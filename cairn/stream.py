@@ -35,17 +35,11 @@ impossible twice.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Iterator
 from typing import Any
 
 from cairn.answer import Answer
-
-# Sentence-terminal punctuation across the interface languages: Latin . ! ?,
-# Arabic ؟, the ellipsis character, and the closing forms that can follow a
-# terminator. A break happens only where a terminator meets whitespace or end
-# of text, so URLs-like runs ("555-0142.") stay inside their sentence.
-_SENTENCE_END = re.compile(r"(?<=[.!?\u061f\u2026])\s+")
+from cairn.text import SENTENCE_END
 
 
 def _chunks(text: str) -> list[str]:
@@ -60,7 +54,7 @@ def _chunks(text: str) -> list[str]:
         return []
     parts: list[str] = []
     start = 0
-    for match in _SENTENCE_END.finditer(text):
+    for match in SENTENCE_END.finditer(text):
         end = match.end()
         if end > start:
             parts.append(text[start:end])

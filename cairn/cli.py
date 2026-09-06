@@ -131,7 +131,12 @@ def _cmd_calibrate(args: argparse.Namespace, cfg: Config) -> int:
 
 def _cmd_lint(args: argparse.Namespace, cfg: Config) -> int:
     report = lint_corpus(
-        cfg.corpus_path, threshold=cfg.threshold, max_age_days=args.max_age_days
+        cfg.corpus_path,
+        threshold=cfg.threshold,
+        max_age_days=args.max_age_days,
+        readability=args.readability,
+        max_grade=cfg.lint_max_grade,
+        readability_by_language=cfg.readability_by_language,
     )
     print(render_lint_report(report))
     # Warnings do not fail the command — they are advisory, not a defect
@@ -443,6 +448,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "also flag documents whose 'reviewed_at' front-matter date is more than N "
             "days old, or missing entirely. Off by default."
+        ),
+    )
+    p_lint.add_argument(
+        "--readability",
+        action="store_true",
+        help=(
+            "measure a plain-language reading grade per passage, by a named "
+            "published formula per language. Languages with no formula in "
+            "force report n/a rather than a number. Warns above "
+            "[lint] max_grade; never fails the lint."
         ),
     )
     p_lint.set_defaults(func=_cmd_lint)
