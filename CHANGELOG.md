@@ -20,6 +20,33 @@ becomes a version section like any other.
 
 ### Unreleased
 
+#### Added
+
+- The release workflow refuses to publish from a tag the maintainer did not
+  sign. Until now nothing checked: a published Release, or a
+  `workflow_dispatch` from any ref, built a wheel and an image, labelled them
+  with this project's name, and pushed them to PyPI and GHCR. The signature is
+  now checked against `.github/allowed_signers`, a public key committed in
+  this repository, before either job starts, and both jobs check out the
+  commit the verified tag names rather than the ref the event carried.
+
+  `v0.2.0` is grandfathered and says so in the workflow. It is annotated but
+  unsigned, cut before this was a rule, and rewriting a published tag is worse
+  than the gap it would close. `v0.1.0` and `v0.3.0` are signed, verify today,
+  and are not on the list.
+
+  Both jobs also attest SLSA build provenance for what they publish, so
+  `gh attestation verify <file> --owner ChelseaKR` answers "which run built
+  this" for the wheel, and the same question for the image is answered by an
+  attestation pushed to GHCR beside it.
+
+  `tests/test_release_tag_gate.py` runs the gate against tags built to be
+  wrong in each way a release tag can be wrong -- unsigned, lightweight,
+  signed by an untrusted key, absent, and correct but naming a different
+  commit than the one being built -- because a gate whose failing cases nobody
+  has ever seen is the shape this repository already calls its own worst case.
+  Replacing the script with `exit 0` fails twelve of them.
+
 #### Fixed
 
 - The ruleset check no longer reports a lockout it cannot see. Issue #80 was

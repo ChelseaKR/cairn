@@ -88,13 +88,36 @@ header for why — so this part is the maintainer's, by hand:
    `TestTheVersionIsRecordedOnce` fails if they disagree), and move
    CHANGELOG.md's `### Unreleased` section to a new dated `## X.Y.Z`
    heading.
-2. `git tag -a vX.Y.Z -m "..."` and `git push --tags`.
+2. `git tag -s vX.Y.Z -m "release: vX.Y.Z"` and `git push --tags`. The
+   `-s` is required now, not a preference: `release.yml`'s `verify-tag` job
+   refuses an unsigned or lightweight tag, and nothing downstream of it
+   runs. The signing key is the one whose public half is committed at
+   `.github/allowed_signers`.
 3. Publish a GitHub Release from that tag. This is the event `release.yml`
    waits for; nothing publishes before this step.
-4. Watch the `release` workflow run. If the `pypi` job fails on
-   `The release tag names the version this package actually is`, the tag
-   and `cairn.__version__` disagree — fix step 1 and cut the release again
-   before troubleshooting anything about PyPI itself.
+4. Watch the `release` workflow run. Three ways it stops, in the order it
+   checks them:
+   - `verify-tag` fails — the tag is not an annotated tag signed by the key
+     in `.github/allowed_signers`, or it does not name the commit being
+     built. Re-cut the tag with `-s`; do not work around this job.
+   - the `pypi` job fails on `The release tag names the version this package
+     actually is` — the tag and `cairn.__version__` disagree, so fix step 1
+     and cut the release again before troubleshooting anything about PyPI.
+   - a publishing job fails after that, which is a registry problem rather
+     than a release-integrity one.
+
+## Signed tags, and the two that predate the rule
+
+`verify-tag` checks every tag against `.github/allowed_signers` except the
+ones named in its `GRANDFATHERED_TAGS` list, which today is `v0.2.0` alone.
+That tag is annotated but was cut unsigned, before signing was a rule here,
+and rewriting a published tag is worse than the gap it leaves. `v0.1.0` and
+`v0.3.0` were signed and verify today, so neither is exempted.
+
+The list may only name literal `vX.Y.Z` tags. Widening it to a pattern fails
+the gate rather than exempting the future, and
+`tests/test_release_tag_gate.py` holds the workflow's list equal to the list
+that test exercises, so the two cannot drift.
 
 ## After the first real push to GHCR
 
