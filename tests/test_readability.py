@@ -113,9 +113,7 @@ class TestAGradeIsComputed(unittest.TestCase):
         self.assertEqual(result.sentences, 1)
         words_per_sentence = 4 / 1
         expected = (
-            -0.205 * (100 / words_per_sentence)
-            + 0.049 * (100 * result.syllables / 4)
-            - 3.407
+            -0.205 * (100 / words_per_sentence) + 0.049 * (100 * result.syllables / 4) - 3.407
         )
         self.assertAlmostEqual(result.grade, expected, places=9)
 
@@ -188,9 +186,7 @@ class TestAnOperatorMayDeclareAFormula(unittest.TestCase):
         self.assertEqual(formula_for("fr"), "")
 
     def test_a_declared_formula_puts_a_language_in_force(self):
-        result = measure(
-            "Le programme aide les familles.", "fr", {"fr": FLESCH_KINCAID_GRADE}
-        )
+        result = measure("Le programme aide les familles.", "fr", {"fr": FLESCH_KINCAID_GRADE})
         self.assertIsNotNone(result.grade)
         self.assertEqual(result.formula, FLESCH_KINCAID_GRADE)
         self.assertIn(FLESCH_KINCAID_GRADE, result.describe())
@@ -228,8 +224,7 @@ class TestConfig(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cairn.toml"
             path.write_text(
-                "[lint]\nmax_grade = 8\n\n[lint.readability]\nfr = "
-                f'"{FLESCH_KINCAID_GRADE}"\n',
+                f'[lint]\nmax_grade = 8\n\n[lint.readability]\nfr = "{FLESCH_KINCAID_GRADE}"\n',
                 encoding="utf-8",
             )
             cfg = load_config(path)
@@ -413,8 +408,16 @@ class TestLintCli(unittest.TestCase):
                     "reconsideration.\n"
                 ),
             )
+            # `as_posix()`, not `str()`. A Windows path interpolated raw into a
+            # TOML basic string is a string full of escape sequences: the CI
+            # canary ran this with `path = "D:\\a\\cairn\\...\\corpus"`, where
+            # `\\a` is TOML's bell escape, and the config failed to load. The
+            # test then reported the wrong thing entirely -- `lint` exiting 1
+            # for an unreadable config, read as `lint` failing on readability.
+            # Forward slashes are valid paths on Windows and carry no escapes.
             (root / "cairn.toml").write_text(
-                f'[corpus]\npath = "{corpus}"\n\n[index]\npath = "{root / "index.json"}"\n\n'
+                f'[corpus]\npath = "{corpus.as_posix()}"\n\n'
+                f'[index]\npath = "{(root / "index.json").as_posix()}"\n\n'
                 "[lint]\nmax_grade = 6\n",
                 encoding="utf-8",
             )
