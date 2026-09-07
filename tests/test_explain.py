@@ -8,6 +8,7 @@ from cairn.config import Config, ConfigError
 from cairn.engine import ask
 from cairn.explain import diagnose, excerpt, render, trace_payload
 from cairn.index import build_index
+from cairn.readability import measure
 
 DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
 CFG = Config()
@@ -524,3 +525,108 @@ class TestTableAnsweredExplain(ExplainHarness):
         self.assertTrue(result.answer.trace.attempted)
         self.assertEqual(diag.blame, "retrieval")
         self.assertFalse(diag.stage("retrieval").ok)
+
+
+ARABIC_Q = "كم هو بدل البقالة الشهري لشخص واحد؟"
+
+
+class TestReadabilityBesideTheScore(ExplainHarness):
+    """The reading level of every candidate, printed where the operator is
+    already looking at why a passage won.
+
+    Cairn quotes verbatim, so the reading level of an answer is the reading
+    level of the passage retrieval chose. `cairn lint --readability` measures
+    a corpus; this puts the same measurement on the one passage that actually
+    got quoted, which is the thing an operator diagnosing a bad answer is
+    holding.
+
+    The load-bearing half is the absent case. A language with no formula in
+    force must print a reason and must serialise as null, never as a grade of
+    zero, which is a reading level a passage could plausibly have.
+    """
+
+    def test_every_candidate_row_carries_a_reading_level(self):
+        result, diag = self.ask(GROUNDED_Q)
+        report = render(result, diag, index_summary="x")
+        rows = [line for line in report.splitlines() if "readability " in line]
+        self.assertEqual(
+            len(rows),
+            len(result.answer.trace.candidates),
+            "one readability line per candidate, no more and no fewer",
+        )
+        for row in rows:
+            self.assertRegex(row, r"readability grade \d+\.\d+ \(flesch_kincaid_grade\)")
+
+    def test_an_unsupported_language_says_n_a_and_never_a_number(self):
+        result, diag = self.ask(ARABIC_Q)
+        self.assertTrue(result.answer.trace.candidates, "no Arabic candidates to measure")
+        report = render(result, diag, index_summary="x")
+        rows = [line for line in report.splitlines() if "readability " in line]
+        self.assertTrue(rows)
+        for row in rows:
+            self.assertIn("readability n/a (no formula in force for ar)", row)
+            self.assertNotRegex(row, r"readability grade")
+
+    def test_the_json_payload_spells_an_absent_grade_as_null(self):
+        result, _ = self.ask(ARABIC_Q)
+        payload = trace_payload(result.answer.trace)
+        self.assertTrue(payload["candidates"])
+        for candidate in payload["candidates"]:
+            reading = candidate["readability"]
+            self.assertIsNone(reading["grade"], "an unmeasured passage published a grade")
+            self.assertIsNone(reading["formula"])
+            self.assertEqual(reading["reason"], "no formula in force for ar")
+
+    def test_a_measured_grade_carries_no_reason_and_a_reason_carries_no_grade(self):
+        """`grade` and `reason` are exclusive, so a consumer never has to guess
+        whether a missing grade means unmeasurable or unmeasured."""
+        for question in (GROUNDED_Q, ARABIC_Q):
+            payload = trace_payload(self.ask(question)[0].answer.trace)
+            for candidate in payload["candidates"]:
+                reading = candidate["readability"]
+                self.assertEqual(
+                    reading["grade"] is None,
+                    reading["reason"] is not None,
+                    f"{candidate['passage_id']} says both or neither",
+                )
+
+    def test_an_operator_override_changes_the_formula_that_is_applied(self):
+        """`[lint.readability.<lang>]` is the operator's declaration that a
+        formula is close enough for a language. Explain mode honours it, and
+        labels the number with the formula it came from, so the number is
+        attributable rather than anonymous."""
+        result, diag = self.ask(ARABIC_Q)
+        overridden = render(
+            result,
+            diag,
+            index_summary="x",
+            readability_overrides={"ar": "flesch_kincaid_grade"},
+        )
+        rows = [line for line in overridden.splitlines() if "readability " in line]
+        self.assertTrue(rows)
+        for row in rows:
+            self.assertRegex(row, r"readability grade -?\d+\.\d+ \(flesch_kincaid_grade\)")
+        payload = trace_payload(
+            result.answer.trace, readability_overrides={"ar": "flesch_kincaid_grade"}
+        )
+        for candidate in payload["candidates"]:
+            self.assertIsNotNone(candidate["readability"]["grade"])
+            self.assertEqual(candidate["readability"]["formula"], "flesch_kincaid_grade")
+
+    def test_the_measurement_is_of_the_passage_text_not_the_excerpt(self):
+        """The excerpt is truncated for display at 88 characters. Measuring it
+        instead of the passage would report the reading level of a display
+        artefact, and would move whenever `EXCERPT_CHARS` moved."""
+        result, _ = self.ask(GROUNDED_Q)
+        for candidate, rendered in zip(
+            result.answer.trace.candidates,
+            trace_payload(result.answer.trace)["candidates"],
+            strict=True,
+        ):
+            expected = measure(candidate.passage.text, candidate.passage.lang)
+            self.assertEqual(rendered["readability"]["words"], expected.words)
+            self.assertNotEqual(
+                rendered["readability"]["words"],
+                measure(excerpt(candidate.passage.text), candidate.passage.lang).words,
+                "the excerpt and the passage happen to agree; pick a longer passage",
+            )

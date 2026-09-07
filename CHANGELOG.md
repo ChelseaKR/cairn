@@ -22,6 +22,30 @@ becomes a version section like any other.
 
 #### Added
 
+- **The reading level of every candidate passage, in explain mode.**
+  `cairn lint --readability` measures a corpus; an operator diagnosing one bad
+  answer is not looking at a corpus, they are looking at the trace. Cairn
+  quotes verbatim, so the reading level of an answer is the reading level of
+  the passage retrieval chose, and until now the trace showed the score that
+  chose it and nothing about whether the asker could read it.
+
+  Each candidate row in `ask --explain` now carries
+  `readability grade 8.2 (flesch_kincaid_grade); 26 word(s), 3 sentence(s),
+  mean sentence length 8.7`, and `--explain --json` carries the same figures
+  per candidate under `readability`. A language with no formula in force
+  prints `n/a (no formula in force for ar)` and serialises `grade: null`,
+  never `0`, because zero is a reading level a passage could plausibly have
+  and an unmeasured passage must not be mistaken for an easy one. `grade` and
+  `reason` are exclusive, so a consumer never has to guess whether a missing
+  grade means unmeasurable or unmeasured. The `[lint.readability]` override
+  applies here too and the number is labelled with the formula that produced
+  it.
+
+  Measured on the passage text rather than the truncated excerpt beside it, so
+  the figure does not move when `EXCERPT_CHARS` does. Part of #102; the
+  evidence page's readability block is still outstanding there, because it
+  would move a reviewed audit baseline.
+
 - **Answer receipts, and `cairn verify-receipt` to recompute one.** DESIGN.md
   promises that an identical corpus, an identical configuration and an
   identical question always yield an identical answer. That promise was

@@ -30,6 +30,7 @@ from typing import Any, Literal
 
 from cairn.answer import Answer
 from cairn.engine import AskResult
+from cairn.readability import Measurement, measure
 from cairn.retrieve import Candidate, RetrievalTrace
 
 StageName = Literal["retrieval", "answer"]
@@ -272,7 +273,27 @@ def diagnose(answer: Answer, *, max_passages: int) -> Diagnosis:
     )
 
 
-def _candidate_rows(trace: RetrievalTrace) -> list[str]:
+def candidate_readability(
+    candidate: Candidate, overrides: dict[str, str] | None = None
+) -> Measurement:
+    """The reading level of the text this candidate would be quoted from.
+
+    Cairn quotes passages verbatim, so the reading level of an answer is the
+    reading level of the passage that won. An operator diagnosing a bad answer
+    can see the score that chose it; until now they could not see whether the
+    thing it chose is written at a level the asker can read.
+
+    A language with no formula in force comes back with `grade=None` and a
+    reason, and every renderer below prints the reason. Running the English
+    formula over Arabic would produce a number with the right shape and no
+    referent, which is the failure this repository refuses everywhere else.
+    """
+    return measure(candidate.passage.text, candidate.passage.lang, overrides)
+
+
+def _candidate_rows(
+    trace: RetrievalTrace, readability_overrides: dict[str, str] | None = None
+) -> list[str]:
     if not trace.candidates:
         return ["  (no candidate passage shared a scoring term with the question)"]
     width = max(len(c.passage.passage_id) for c in trace.candidates)
@@ -292,6 +313,8 @@ def _candidate_rows(trace: RetrievalTrace) -> list[str]:
             f"          matched {len(candidate.matched)}/{len(trace.scoring_terms)}: "
             + ", ".join(candidate.matched)
         )
+        reading = candidate_readability(candidate, readability_overrides)
+        rows.append(f"          readability {reading.describe()}")
     return rows
 
 
@@ -323,7 +346,9 @@ def _language_lines(result: AskResult) -> list[str]:
     return lines
 
 
-def _attempt_lines(result: AskResult) -> list[str]:
+def _attempt_lines(
+    result: AskResult, readability_overrides: dict[str, str] | None = None
+) -> list[str]:
     lines: list[str] = []
     for number, attempt in enumerate(result.attempts, start=1):
         trace = attempt.trace
@@ -338,7 +363,7 @@ def _attempt_lines(result: AskResult) -> list[str]:
         )
         lines.append(header)
         lines.extend(_term_lines(trace))
-        lines.extend(_candidate_rows(trace))
+        lines.extend(_candidate_rows(trace, readability_overrides))
         lines.append("")
     return lines
 
@@ -360,7 +385,12 @@ def _margin_line(trace: RetrievalTrace, margin_warn: float) -> str | None:
 
 
 def render(
-    result: AskResult, diagnosis: Diagnosis, *, index_summary: str, margin_warn: float = 0.02
+    result: AskResult,
+    diagnosis: Diagnosis,
+    *,
+    index_summary: str,
+    margin_warn: float = 0.02,
+    readability_overrides: dict[str, str] | None = None,
 ) -> str:
     """The operator's plain-text report. Written to stdout above the answer."""
     answer = result.answer
@@ -372,7 +402,7 @@ def render(
         f"Threshold: {_fmt(trace.threshold)} (retrieval.threshold)",
         *_language_lines(result),
         "",
-        *_attempt_lines(result),
+        *_attempt_lines(result, readability_overrides),
     ]
     for step, verdict in enumerate(diagnosis.stages, start=1):
         if verdict.code == "no-evidence":
@@ -406,7 +436,29 @@ def render(
     return "\n".join(lines)
 
 
-def trace_payload(trace: RetrievalTrace, *, margin_warn: float | None = None) -> dict[str, Any]:
+def _readability_payload(measurement: Measurement) -> dict[str, Any]:
+    """One candidate's reading level, with absence spelled as null.
+
+    `reason` is non-empty exactly when `grade` is null, so a consumer never
+    has to guess whether a missing grade means "unmeasurable" or "forgot to
+    measure".
+    """
+    return {
+        "grade": measurement.grade,
+        "formula": measurement.formula or None,
+        "reason": measurement.reason or None,
+        "words": measurement.words,
+        "sentences": measurement.sentences,
+        "mean_sentence_length": measurement.mean_sentence_length,
+    }
+
+
+def trace_payload(
+    trace: RetrievalTrace,
+    *,
+    margin_warn: float | None = None,
+    readability_overrides: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Machine-readable candidate list for ``ask --explain --json``.
 
     ``margin_warn`` is optional so a caller with no configured threshold in
@@ -437,6 +489,12 @@ def trace_payload(trace: RetrievalTrace, *, margin_warn: float | None = None) ->
                 "lang": candidate.passage.lang,
                 "excerpt": excerpt(candidate.passage.text),
                 "matched_terms": list(candidate.matched),
+                # `grade` is null, never 0, where no formula is in force. A
+                # consumer that sums or sorts these must be able to tell an
+                # unmeasured passage from an easy one.
+                "readability": _readability_payload(
+                    candidate_readability(candidate, readability_overrides)
+                ),
             }
             for rank, candidate in enumerate(trace.candidates, start=1)
         ],

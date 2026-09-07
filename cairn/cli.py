@@ -203,7 +203,11 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
             payload["receipt"] = receipt.to_payload()
         if diagnosis is not None:
             payload["explain"] = {
-                **trace_payload(answer.trace, margin_warn=cfg.margin_warn),
+                **trace_payload(
+                    answer.trace,
+                    margin_warn=cfg.margin_warn,
+                    readability_overrides=cfg.readability_by_language,
+                ),
                 "diagnosis": diagnosis.to_payload(),
                 "language": result.detection.to_payload(),
                 "attempts": [a.to_payload() for a in result.attempts],
@@ -224,7 +228,15 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
             f"{index.passage_count} passages from {index.doc_count} documents "
             f"({cfg.index_path})"
         )
-        print(render(result, diagnosis, index_summary=summary, margin_warn=cfg.margin_warn))
+        print(
+            render(
+                result,
+                diagnosis,
+                index_summary=summary,
+                margin_warn=cfg.margin_warn,
+                readability_overrides=cfg.readability_by_language,
+            )
+        )
         print()
     print(_render_answer(result))
     if receipt is not None:
