@@ -20,6 +20,7 @@ from pathlib import Path
 from cairn import stream, text
 from cairn.cli import main
 from cairn.config import Config, ConfigError, load_config
+from cairn.corpus import load_corpus
 from cairn.lint import lint_corpus, render
 from cairn.readability import (
     BUILTIN_FORMULAS,
@@ -266,11 +267,27 @@ class TestLintIntegration(unittest.TestCase):
         self.assertNotIn("Readability", render(without))
 
     def test_asking_for_it_measures_every_passage_including_the_unmeasurable(self):
+        """Every passage the corpus holds is reported, by id, none dropped.
+
+        This line used to read ``assertEqual(len(graded), sum(1 for _ in graded))``,
+        which is true of any sized iterable and so asserted nothing at all. The
+        property it was reaching for is that a passage the formula cannot measure
+        is still listed saying so, rather than quietly falling out of the table --
+        and that is a claim about *which* passages, not how many.
+
+        Named as a set rather than counted, deliberately. A count is satisfied by
+        any corpus of the same size, so swapping a passage for another would keep
+        it green; and a count breaks the moment the demo corpus grows, which
+        invites the next person to bump a number rather than look. A set fails
+        with the ids that went missing.
+        """
         report = lint_corpus(DEMO, readability=True)
         self.assertIsNotNone(report.readability)
         assert report.readability is not None
         graded = report.readability.per_passage
-        self.assertEqual(len(graded), sum(1 for _ in graded))
+        expected = {passage.passage_id for doc in load_corpus(DEMO) for passage in doc.passages}
+        self.assertTrue(expected, "the demo corpus loaded no passages at all")
+        self.assertEqual({passage_id for passage_id, _ in graded}, expected)
         langs = {m.lang for _, m in graded}
         self.assertEqual(langs, {"en", "es", "ar", "fr"})
         ungraded = [m for _, m in graded if m.grade is None]
