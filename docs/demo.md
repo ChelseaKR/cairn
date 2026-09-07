@@ -173,15 +173,19 @@ Attempt 1 (restricted to 'en'): 16 passages scored, 28 excluded, 4 candidates
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
           ## Income limits: who can apply Your household's gross monthly income must be at or bel…
           matched 1/5: need
+          readability grade 7.1 (flesch_kincaid_grade); 38 word(s), 3 sentence(s), mean sentence length 12.7
    2  0.044  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
           ## What the credit is worth An eligible household receives a credit of $95 per month fr…
           matched 1/5: what
+          readability grade 10.8 (flesch_kincaid_grade); 36 word(s), 2 sentence(s), mean sentence length 18.0
    3  0.041  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
           ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
           matched 1/5: what
+          readability grade 11.6 (flesch_kincaid_grade); 41 word(s), 3 sentence(s), mean sentence length 13.7
    4  0.041  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
           ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
           matched 1/5: what
+          readability grade 10.7 (flesch_kincaid_grade); 50 word(s), 3 sentence(s), mean sentence length 16.7
 
 Attempt 2 (widened to every language): 44 passages scored, 0 excluded, 4 candidates
   question terms:      does, dog, need, vacci, what
@@ -189,15 +193,19 @@ Attempt 2 (widened to every language): 44 passages scored, 0 excluded, 4 candida
    1  0.069  reject  grocery-allowance-en#3  [en] Fresh Start Grocery Allowance
           ## Income limits: who can apply Your household's gross monthly income must be at or bel…
           matched 1/5: need
+          readability grade 7.1 (flesch_kincaid_grade); 38 word(s), 3 sentence(s), mean sentence length 12.7
    2  0.044  reject  utility-credit-en#2     [en] Harbor Winter Utility Credit
           ## What the credit is worth An eligible household receives a credit of $95 per month fr…
           matched 1/5: what
+          readability grade 10.8 (flesch_kincaid_grade); 36 word(s), 2 sentence(s), mean sentence length 18.0
    3  0.041  reject  utility-credit-en#4     [en] Harbor Winter Utility Credit
           ## Applying, and what a decision takes Applications open on October 1 and close on Febr…
           matched 1/5: what
+          readability grade 11.6 (flesch_kincaid_grade); 41 word(s), 3 sentence(s), mean sentence length 13.7
    4  0.041  reject  grocery-allowance-en#4  [en] Fresh Start Grocery Allowance
           ## How to apply and what happens next Apply online, by mail, or in person at any Commun…
           matched 1/5: what
+          readability grade 10.7 (flesch_kincaid_grade); 50 word(s), 3 sentence(s), mean sentence length 16.7
 
 Stage 1 - retrieval: FAILED (below-threshold)
   4 candidates were scored and none cleared the 0.165 threshold. The best,

@@ -140,6 +140,28 @@ a warning and never an error: `lint` still exits 0, `index` is untouched, and a
 passage with no formula in force earns no warning whatever the ceiling is,
 because "not measured" is not "measured and over".
 
+The same measurement appears in explain mode, beside the score that chose the
+passage:
+
+```console
+$ python3 -m cairn ask "How much is the monthly grocery allowance for one person?" --explain
+   1  0.518  ACCEPT  grocery-allowance-en#2  [en] Fresh Start Grocery Allowance
+          ## How much you get A one-person household receives $212 per month...
+          matched 8/8: allow, for, groce, how, month, much, one, perso
+          readability grade 8.2 (flesch_kincaid_grade); 26 word(s), 3 sentence(s), mean sentence length 8.7
+```
+
+`lint` answers "is this corpus readable"; the explain line answers "was the
+passage this answer quoted readable", which is the question an operator
+diagnosing a specific bad answer actually has. It measures the passage, not
+the truncated excerpt printed above it, so the number does not move when the
+excerpt width does. `--json` carries the same figures per candidate under
+`readability`, where an absent grade is `null` and never `0`: zero is a
+reading level a passage could plausibly have, so publishing it for one that
+was never measured would be exactly the confusion this whole section avoids.
+An operator override in `[lint.readability]` applies here too, and the
+formula that produced the number is named alongside it.
+
 What the number is worth, stated so it is not over-read:
 
 - Syllable counting is a deterministic, dictionary-free heuristic. Spanish is
