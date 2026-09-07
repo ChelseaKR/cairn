@@ -256,7 +256,7 @@ tell you why, and the two are different findings:
 ## 8. Serve the chat interface
 
 ```text
-$ python3 -m cairn serve
+$ python3 -m cairn serve --allow-demo-contact
 cairn: serving the chat interface on http://127.0.0.1:8765/  (ctrl-c to stop)
 cairn: 44 passages, 11 documents, languages ar, en, es, fr
 ```

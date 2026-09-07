@@ -1,0 +1,63 @@
+# The audit interlock, run on every push.
+#
+# Written by `cairn init`. It fails closed in both directions that matter: a
+# gate that cannot resolve its pinned harness fails rather than skipping, and
+# `audit_guard.py` fails on a score that moved down against the committed
+# baseline rather than merely reporting it.
+#
+# This is the only job in a Cairn deployment that needs the network, and it
+# needs it for one thing: fetching the harnesses at the exact commits
+# `plumbline.pin` and `gauntlet.pin` name. Nothing about your corpus leaves
+# the runner.
+name: audit
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Keyed on the ref *and* the event, so a push and its pull request do not
+  # cancel each other and leave a commit with no verdict at all.
+  group: audit-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cairn
+        run: python3 -m pip install "cairn-assistant=={{VERSION}}"
+
+      # Re-recorded here rather than trusted from the commit, so the evidence
+      # the auditor grades is evidence this checkout's engine actually
+      # produced. A bundle edited by hand would otherwise be graded as though
+      # the engine had said it.
+      - name: Record the evidence bundle from the engine
+        run: |
+          python3 -m cairn index
+          python3 -m cairn record
+
+      - name: The bundle must be the one the engine just wrote
+        run: git diff --exit-code -- plumbline/bundle
+
+      - name: Plumbline gate
+        run: ./plumbline-gate.sh
+
+      - name: Gauntlet gate
+        run: ./gauntlet-gate.sh
+
+      # Runs whatever the gates did. A guard that only runs when the gate
+      # passed cannot report the case it exists for.
+      - name: Audit guard against the committed baseline
+        if: ${{ always() }}
+        run: python3 audit_guard.py

@@ -14,6 +14,40 @@ built entirely on the existing markdown-with-front-matter format (see
 `cairn/corpus.py`) — an agency's real corpus is still just files in a
 directory, reviewed by a person before they're real.
 
+## Starting the deployment itself
+
+Before either of the concerns below, there is the directory the corpus goes
+into. `cairn init DIR --corpus PATH` writes it, with both audit interlocks
+already wired up:
+
+```console
+$ cairn init ./harbor-county --corpus ./corpus/harbor
+Scaffolded ./harbor-county against corpus ./corpus/harbor:
+  .github/workflows/audit.yml
+  README.md
+  cairn.toml
+  ...
+
+11 question item(s) drafted, none of them written.
+```
+
+The interlock is the part of this project that is not a demo, and until this
+verb existed an agency adopting Cairn got the engine from PyPI and none of it
+— the gate scripts, the pins, the target file and the guard all live at the
+root of *this* repository, shaped for *this* repository's corpus, and a reader
+had to reconstruct the arrangement from DESIGN.md.
+
+Read the README it writes. It names every step left to a person, and there are
+several: the refusal contact, the question set, the baseline, and copying
+`audit_guard.py` and Gauntlet's own suites, which are gate logic rather than
+configuration and belong with the projects that maintain them.
+
+The three files it leaves unfinished each refuse rather than guess — `serve`
+will not start on a blank contact, `record` refuses the drafted question set,
+and the baseline placeholder fails the guard. That is the same stance the
+review step below takes, one layer up: a scaffold nobody has read is not a
+deployment, exactly as a scaffolded document is not a corpus document.
+
 ## Getting content in
 
 `cairn index` reads exactly one format: markdown with a minimal front-matter

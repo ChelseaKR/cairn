@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "A placeholder, not a baseline. It fails on purpose, and it will go on",
+    "failing until a person replaces it with a run of ./plumbline-gate.sh they",
+    "have read and are willing to be held to.",
+    "",
+    "It is here rather than absent because absent is the more dangerous state:",
+    "a gate with no baseline compares nothing, so a score can decay from 0.99",
+    "to 0.36 and stay green the whole way down. A floor is a minimum; a",
+    "baseline is the bar.",
+    "",
+    "Replace this whole file with the audit JSON the gate writes. Do not edit",
+    "the numbers in a real one to make a red gate green: that is the one",
+    "manoeuvre the interlock exists to make impossible, and it is why the",
+    "baseline is committed and reviewed like any other diff."
+  ],
+  "format": "plumbline-baseline",
+  "format_version": 0,
+  "verdict": "PLACEHOLDER",
+  "suites": []
+}

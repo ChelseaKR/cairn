@@ -22,6 +22,52 @@ becomes a version section like any other.
 
 #### Added
 
+- **`cairn init`: a deployment scaffolded with both audit interlocks in it.**
+  An agency adopting Cairn installed the package and got the engine. It did
+  not get the part of this project that is not a demo — two independent
+  harnesses pinned to exact commits, grading an evidence bundle the engine
+  recorded itself, against a committed baseline a score cannot decay past.
+  That machinery lives at this repository's root, shaped for this repository's
+  corpus, and a reader had to reconstruct it from DESIGN.md. Shipping the
+  engine without the interlock ships the confident-wrong-answer risk without
+  the check.
+
+  `cairn init DIR --corpus PATH` writes a `cairn.toml`, a question set drafted
+  one item per document, both pin files at the commits this release was
+  audited with, both gate scripts, an audit target declaring every suite with
+  no floor (so each takes the pinned harness's own default), a baseline
+  placeholder, a CI workflow and a README naming every step left to a person.
+  Offline, deterministic, and it refuses to overwrite: one existing file is
+  enough to stop it, because a half-scaffolded directory looks finished and
+  the file it left alone is the one somebody had already customised.
+
+  **Three of the files it writes are unfinished on purpose, and each refuses
+  rather than guesses.** `[refusal] contact` is blank and `cairn serve` will
+  not start until it is set; `questions.toml` has empty prompts and no
+  `answering_sources` and `cairn record` refuses it; `plumbline/baseline.json`
+  is a placeholder that fails the guard. A scaffold that filled those in with
+  something plausible would hand an agency a green gate it never earned.
+
+  The gate scripts and pin files ship inside the wheel, because a deployment
+  scaffolded from PyPI has the package and no repository to copy them out of.
+  Tests hold each byte-equal to the file at this repository's root, and
+  `tests/test_gauntlet_interlock.py` — which requires the pinned commit to
+  appear exactly once in the tree, since a second unreviewed copy is how a pin
+  stops meaning anything — now names the one place the copy is allowed to be,
+  so a third copy still fails.
+
+- **`cairn serve` refuses a refusal that points nowhere.** A blank
+  `[refusal] contact`, or Cairn's own fictional demo contact, stops the server
+  before it binds a port. That contact line is the only actionable thing a
+  refusal contains, and a phone number that does not exist attached to a
+  county that does not exist is worse than no server. `--allow-demo-contact`
+  runs the demonstration knowingly, and `./plumbline-live.sh` passes it.
+
+  The check runs *after* the stale-index check, not before, and the order is
+  load-bearing: a deployment can have both problems, and a stale index means
+  Cairn quotes text its source no longer says, which is the worse of the two.
+  `tests/test_freshness.py` caught this being the other way round.
+
 - **Per-language and per-layer retrieval thresholds, and the measurement that
   sets them.** `retrieval.threshold` was one number calibrated against the
   demo corpus in three languages at once. Score bands differ by language —

@@ -22,7 +22,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 1142 tests plus
+evidence and, separately, against the running server. 1175 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -212,6 +212,46 @@ milestone with every check green. The
 [write-up](DESIGN.md#the-cross-language-path-in-the-evidence) lists every score
 the one new item moved, including `multilingual` scoring it zero.
 
+## Starting a deployment with the audit already in it
+
+Installing Cairn gets you the engine. It does not get you the part of this
+project that is not a demo: two independent harnesses, each pinned to an exact
+commit, grading an evidence bundle the engine recorded itself, against a
+committed baseline a score cannot decay past.
+
+```console
+$ cairn init ./harbor-county --corpus ./corpus/harbor
+```
+
+That writes a `cairn.toml`, a question set drafted from your corpus, both pin
+files at the commits this release was audited with, both gate scripts, an
+audit target, a baseline placeholder, a CI workflow and a README naming every
+step left to a person. It is offline, deterministic, and it refuses to
+overwrite anything.
+
+**Three of the files it writes are deliberately unfinished, and each refuses
+rather than guesses.**
+
+- `[refusal] contact` is blank, and `cairn serve` will not start until it is
+  set. A refusal is the whole of what Cairn says to somebody it cannot help,
+  and its contact line is the only actionable thing in it.
+- `questions.toml` is one item per document with an empty prompt and no
+  `answering_sources`, and `cairn record` refuses it as it stands. Only a
+  person who has read the document can say what question it answers and which
+  passage answers it; a question set full of plausible items nobody checked is
+  a check that is not running.
+- `plumbline/baseline.json` is a placeholder that fails until somebody commits
+  a run they are willing to be held to. A floor is a minimum; without a
+  baseline a score can decay from 0.99 to 0.36 and stay green the whole way
+  down.
+
+None of those are gaps. A scaffold that filled them in with something
+plausible would hand an agency a green gate it never earned.
+
+`cairn serve` now refuses Cairn's own fictional demo contact too, for the same
+reason: it is a phone number that does not exist attached to a county that
+does not exist. Pass `--allow-demo-contact` to run the demonstration knowingly.
+
 ## One threshold is one threshold
 
 `retrieval.threshold` was calibrated once, against the demo corpus, over all
@@ -328,7 +368,7 @@ written down before its first number.
 ## The chat interface
 
 ```text
-$ python3 -m cairn serve
+$ python3 -m cairn serve --allow-demo-contact
 cairn: serving the chat interface on http://127.0.0.1:8765/  (ctrl-c to stop)
 ```
 

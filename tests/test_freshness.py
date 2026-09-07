@@ -332,13 +332,23 @@ class TestEverySubcommandThatCanAnswerRefusesAStaleIndex(unittest.TestCase):
     # `--followup-store` file the same way. Anything else added to this set
     # is somebody deciding a new command may quote a corpus it has not
     # checked.
-    DOES_NOT_ANSWER = {"index", "lint", "config", "diff", "refusals", "followups"}
+    DOES_NOT_ANSWER = {
+        "index", "lint", "config", "diff", "refusals", "followups",
+        # `init` writes the first configuration a deployment has. It never
+        # reads an index, and the one it is about to create does not exist
+        # yet, so there is no stale index for it to refuse.
+        "init",
+    }
 
     # Arguments each subcommand needs to get as far as reading the index.
     # A subcommand with no entry here fails the completeness test below rather
     # than being skipped.
     ARGV = {
         "index": [],
+        # Never run by `test_each_one_refuses` (see DOES_NOT_ANSWER), and
+        # present because the table has to cover every subcommand or a new
+        # one could be added with nobody asking whether it answers.
+        "init": ["unused-directory", "--corpus", str(DEMO)],
         "lint": [],
         "config": [],
         "diff": [str(DEMO), str(DEMO)],

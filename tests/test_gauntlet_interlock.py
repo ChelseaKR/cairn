@@ -93,6 +93,18 @@ class TestThePin(unittest.TestCase):
         for key in ("suites = ", "target = ", "results = "):
             self.assertIn(key, text)
 
+    # The one place other than `gauntlet.pin` that may name the commit: the
+    # copy `cairn init` writes into a scaffolded deployment. A deployment
+    # scaffolded from a wheel has the package and no repository to copy a pin
+    # out of, so the file has to ship inside the package.
+    #
+    # That is still a second copy, and the docstring below is still right
+    # about what a second copy does. What makes it safe is that it is not an
+    # independent statement of the commit: `tests/test_scaffold.py` holds it
+    # byte-equal to the file beside it, so it cannot say something different,
+    # and naming it here means a *third* copy appearing anywhere still fails.
+    SCAFFOLD_COPY = "cairn/templates/gauntlet.pin"
+
     def test_the_pinned_commit_apars_exactly_once_in_the_tree(self):
         """One place names the commit; a second unreviewed copy is how a pin
         stops meaning anything."""
@@ -112,7 +124,7 @@ class TestThePin(unittest.TestCase):
                 continue
             if commit in path.read_text(encoding="utf-8", errors="replace"):
                 hits.append(name)
-        self.assertEqual(hits, ["gauntlet.pin"])
+        self.assertEqual(hits, sorted([self.SCAFFOLD_COPY, "gauntlet.pin"]))
 
 
 class TestTheSuites(unittest.TestCase):

@@ -1,0 +1,55 @@
+# The auditor that gates this repository.
+#
+# One file, both callers: a developer running ./plumbline-gate.sh and the
+# audit job in CI read this and nothing else, so a local run and a CI run are
+# the same run. There is no second place recording a version.
+#
+# 'ref' is an exact commit, never a branch or a tag, and the runner rejects
+# anything else. A moving ref would mean a green gate today could quietly mean
+# something different tomorrow, which is the opposite of what an audit record
+# is for. Bumping it is a reviewed diff like any other dependency upgrade.
+#
+# Two questions to answer in the review, in this order. Did `src/` change at
+# all? An upstream commit that touches only the harness's own demo data, its
+# tooling or its documentation cannot move a score here, and saying that after
+# looking is a better review note than "bumped". If `src/` did change, does the
+# judge configuration hash move? That is the harness declining to subtract the
+# new scores from the old ones, which is correct of it and is the case
+# audit_guard.py exists to cover — expect the gate to report a refused
+# comparison and expect the guard to make it anyway.
+#
+# Then run the gate. The run id is a function of the evidence, the judge
+# configuration and the suites; if it comes back unchanged, the bump provably
+# did nothing to the measurement.
+#
+# The harness is NOT a dependency of this project. It is resolved at run time
+# into .plumbline-cache/ and verified to be at the pinned commit. Cairn's
+# install, lint and test path never touches it, and nothing in Cairn's own
+# dependency resolution can move the thing auditing Cairn.
+#
+# If it cannot be resolved, the gate FAILS. It does not skip and it does not
+# report green: a gate that could not run is not a gate that passed.
+
+repo = https://github.com/ChelseaKR/plumbline.git
+ref  = a258b2e2e3cd859b1f80caaeb417ad579ade9ac2
+
+config = plumbline/target.toml
+out = plumbline/audits
+
+# The bar this repository is holding, distilled from a run we were happy with:
+# one line per suite, short enough to read in a code review. Every later run
+# reports what moved against it, and `audit_guard.py` — run straight after the
+# gate, locally and in CI — turns "reported" into "failed". A floor is a
+# minimum; without a baseline a score can decay from 0.99 to 0.36 and stay
+# green the whole way down.
+baseline = plumbline/baseline.json
+
+# `require_comparable_baseline` is deliberately NOT set here.
+#
+# It would make the harness exit 4 the moment the evidence hash moves — which
+# is every behavior change, because `cairn record` re-records the bundle. That
+# is a configuration-error exit before anything is said about the scores, and
+# "the gate did not run" is the wrong report for "the answers changed and here
+# is how much worse they got". audit_guard.py makes that comparison instead,
+# and fails on it. See its module docstring for why Cairn is entitled to a
+# comparison the harness declines to make on evidence it did not produce.
