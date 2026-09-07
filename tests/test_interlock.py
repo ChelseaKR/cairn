@@ -34,6 +34,10 @@ from cairn.record import bundle_checksums
 
 ROOT = Path(__file__).resolve().parent.parent
 PIN = ROOT / "plumbline.pin"
+# The one place other than the pin itself that may name the harness commit:
+# the copy `cairn init` writes into a scaffolded deployment. Held byte-equal
+# by `test_the_one_sanctioned_copy_is_byte_equal_to_the_pin` below.
+SCAFFOLD_COPY = ROOT / "cairn" / "templates" / "plumbline.pin"
 RUNNER = ROOT / "plumbline-gate.sh"
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 TARGET = ROOT / "plumbline" / "target.toml"
@@ -101,7 +105,7 @@ class TestPinFile(unittest.TestCase):
         scanned = 0
         for name in tracked:
             path = ROOT / name
-            if path == PIN or not path.is_file():
+            if path == PIN or path == SCAFFOLD_COPY or not path.is_file():
                 continue
             # Bytes, not decoded text. A file the scan could not decode used
             # to be skipped, and a skipped file is indistinguishable from a
@@ -115,6 +119,21 @@ class TestPinFile(unittest.TestCase):
                 elsewhere.append(name)
         self.assertGreater(scanned, 10, "the scan ran on almost nothing; it proves nothing")
         self.assertEqual(elsewhere, [], "the pinned commit is repeated outside the pin file")
+
+    def test_the_one_sanctioned_copy_is_byte_equal_to_the_pin(self):
+        """`cairn init` writes the pin into a scaffolded deployment, and a
+        deployment scaffolded from a wheel has the package and no repository
+        to copy a pin out of, so the file ships inside the package.
+
+        The scan above skips it, so this is what stops it being the second
+        unreviewed copy that scan exists to catch: it is not an independent
+        statement of the commit, it is the same bytes. A drift here fails
+        here, and a *third* copy anywhere still fails the scan.
+        """
+        self.assertEqual(
+            SCAFFOLD_COPY.read_text(encoding="utf-8"),
+            PIN.read_text(encoding="utf-8"),
+        )
 
 
 class TestTheAuditorIsNotADependency(unittest.TestCase):

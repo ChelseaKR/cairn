@@ -327,7 +327,13 @@ class TestAScaffoldedDeploymentWorks(ScaffoldHarness):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=120,
+            # Short, and short on purpose. The one way `serve` fails this file
+            # is by *not* refusing, and then it does not exit at all -- it
+            # serves. A generous timeout turns that into a two-minute wait for
+            # a verdict the first second already had. Measured under a
+            # negative control: with the blank contact filled in, the
+            # sabotaged run sat here for the whole timeout.
+            timeout=30,
         )
 
     def test_index_then_ask_works_in_a_fresh_directory(self):
@@ -343,7 +349,14 @@ class TestAScaffoldedDeploymentWorks(ScaffoldHarness):
     def test_serve_refuses_the_blank_contact(self):
         directory = self.scaffold()
         self.assertEqual(self.run_cairn(directory, "index").returncode, 0)
-        served = self.run_cairn(directory, "serve", "--port", "0")
+        try:
+            served = self.run_cairn(directory, "serve", "--port", "0")
+        except subprocess.TimeoutExpired:
+            self.fail(
+                "`cairn serve` did not exit against a blank [refusal] contact. "
+                "It is serving, which means a refusal from this deployment "
+                "points nowhere and nothing said so."
+            )
         self.assertEqual(served.returncode, 1, served.stdout)
         self.assertIn("[refusal] contact", served.stderr)
         self.assertEqual(served.stdout, "", "nothing was served")
