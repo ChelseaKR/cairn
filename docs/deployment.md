@@ -164,6 +164,14 @@ RUN useradd --no-create-home --shell /usr/sbin/nologin cairn
 USER cairn
 EXPOSE 8765
 ENTRYPOINT ["cairn", "serve", "--host", "0.0.0.0"]
+# The demonstration contact, acknowledged, as CMD rather than baked into the
+# ENTRYPOINT. This image ships Cairn's synthetic demo corpus and its fictional
+# contact, and `cairn serve` refuses to start on that contact without being
+# told. Putting the acknowledgement here means `docker run IMAGE` serves the
+# demo, and an operator who passes any argument of their own -- which is what
+# running this against a real corpus and config looks like -- drops the flag
+# and gets the refusal back.
+CMD ["--allow-demo-contact"]
 ```
 
 `cairn index` at build time bakes an index for whatever corpus is in the

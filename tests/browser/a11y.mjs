@@ -74,7 +74,13 @@ function section(title) {
 
 function startServer() {
   return new Promise((resolve, reject) => {
-    const proc = spawn("python3", ["-m", "cairn", "serve", "--port", "0"], {
+    // `--allow-demo-contact`: this drives the bundled demonstration, whose
+    // cairn.toml carries Cairn's own fictional contact. `cairn serve` refuses
+    // to start on it without being told, and that refusal is for an agency
+    // about to put this in front of the public, not for the suite that checks
+    // the page they would see.
+    const args = ["-m", "cairn", "serve", "--port", "0", "--allow-demo-contact"];
+    const proc = spawn("python3", args, {
       cwd: ROOT,
       env: { ...process.env, PYTHONUNBUFFERED: "1" }
     });
