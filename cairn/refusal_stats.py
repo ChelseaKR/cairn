@@ -5,7 +5,8 @@ exactly as it always has, and nothing here changes that default path. When
 an operator opts in, every refusal increments one counter keyed by
 *(language, reason code)* — the same machine-stable codes
 `cairn ask --explain` already names for the retrieval stage
-(`below-threshold`, `no-lexical-overlap`, `no-passages-in-language`, and
+(`below-threshold`, `no-lexical-overlap`, `no-passages-in-language`,
+`no-passages-in-jurisdiction`, and
 `no-matching-rows` for a structured-table count that bound a table and
 matched no row; see `cairn.explain.refusal_reason`) — and the running totals
 are written to a JSON file the operator names.
@@ -35,6 +36,12 @@ from threading import Lock
 # effect on counting.
 _REASON_ORDER = (
     "no-passages-in-language",
+    # Beside it rather than below: an empty *layer* is as stark a gap as an
+    # empty language, and it used to be counted as one — the language wording
+    # named a language the corpus was full of, so an operator reading these
+    # counts would have gone looking for a translation problem that was not
+    # there.
+    "no-passages-in-jurisdiction",
     "no-lexical-overlap",
     "below-threshold",
     # Last because it is the only one of the four that is not a gap in the
@@ -53,6 +60,11 @@ _REASON_LEGEND = {
     "no-passages-in-language": (
         "the corpus holds nothing at all in this language — a coverage gap, "
         "not a ranking problem."
+    ),
+    "no-passages-in-jurisdiction": (
+        "no document is labelled with the jurisdiction this question was "
+        "asked about — the layer is empty, which is an authoring gap in that "
+        "layer rather than a gap in the corpus as a whole."
     ),
     "no-lexical-overlap": (
         "no passage shared even one scoring term with the question — likely "

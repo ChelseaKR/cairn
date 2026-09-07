@@ -47,6 +47,25 @@ default = "en"
 # document would do more harm than refusing.
 cross_language_fallback = true
 
+# The area this deployment serves, when the corpus is layered by
+# jurisdiction. Documents declare theirs in front matter (`jurisdiction:
+# us-ca-sonoma`); this names the one questions are asked about.
+#
+# Commented out by default, which is not the same as `""`. A corpus whose
+# documents carry no jurisdiction is scoped by language alone and every
+# command behaves exactly as it did before layers existed; setting this
+# against such a corpus is refused rather than ignored, because ignoring it
+# would answer from pages that never said where they apply and present the
+# result as the layer that was asked for.
+# [jurisdiction]
+# default = "us-ca-sonoma"
+# When no page in that layer clears the threshold, widen one layer at a time
+# — us-ca-sonoma, then us-ca, then us — and say in the answer which layer
+# the source covers. Set false to refuse instead, which is appropriate where
+# quoting a statewide rule to somebody asking about their county would do
+# more harm than saying nothing.
+# cross_jurisdiction_fallback = true
+
 [refusal]
 # The human channel a refusal points to. These defaults are FICTIONAL demo
 # content; a real deployment must replace them.

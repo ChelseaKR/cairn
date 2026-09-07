@@ -61,6 +61,7 @@ def split_intents(
     threshold: float,
     candidates: int,
     lang: str | None = None,
+    jurisdiction: str | None = None,
     dense_weight: float = 0.0,
 ) -> RetrievalTrace:
     """Retrieve once per sentence-part, merge pools by best score.
@@ -80,11 +81,12 @@ def split_intents(
             threshold=threshold,
             candidates=candidates,
             lang=lang,
+            jurisdiction=jurisdiction,
             dense_weight=dense_weight,
         )
     traces = [
         retrieve(part, index, threshold=threshold, candidates=candidates, lang=lang,
-                 dense_weight=dense_weight)
+                 jurisdiction=jurisdiction, dense_weight=dense_weight)
         for part in parts
     ]
     best: dict[str, tuple[float, Candidate]] = {}
@@ -93,10 +95,11 @@ def split_intents(
     ignored: set[str] = set()
     query_terms: set[str] = set()
     for trace in traces:
-        # scoped/excluded reflect the corpus and the lang restriction alone
-        # (see retrieve()): every part scans the same index under the same
-        # restriction, so these are identical across traces, not additive.
-        # Summing them inflated both roughly parts-many-times over.
+        # scoped/excluded/unlabelled reflect the corpus and the lang and
+        # jurisdiction restrictions alone (see retrieve()): every part scans
+        # the same index under the same restrictions, so these are identical
+        # across traces, not additive. Summing them inflated each roughly
+        # parts-many-times over.
         unmatched.update(trace.unmatched)
         ignored.update(trace.ignored)
         query_terms.update(trace.query_terms)
@@ -126,8 +129,10 @@ def split_intents(
         threshold=threshold,
         candidates=merged,
         lang=lang,
+        jurisdiction=jurisdiction,
         scoped=traces[0].scoped,
         excluded=traces[0].excluded,
+        unlabelled=traces[0].unlabelled,
         query_terms=tuple(sorted(query_terms)),
         unmatched=tuple(sorted(unmatched)),
         ignored=tuple(sorted(ignored)),

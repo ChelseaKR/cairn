@@ -287,8 +287,32 @@ def bundle_checksums(bundle_dir: Path) -> dict[str, Any]:
     }
 
 
+def _answering_layer(result: Any) -> str | None:
+    """The jurisdiction every quoted source came from, or `None`.
+
+    `None` covers three genuinely different things — a refusal, a corpus
+    with no jurisdiction labels, and an answer quoted from an unlabelled
+    document — and they are collapsed on purpose, because the caller does
+    the same thing with all three: write no group rather than write one that
+    is not a jurisdiction. Writing `"none"` or `""` would put a label in the
+    disaggregation that is not a layer, and the sweep would report a rate
+    for it beside the real ones.
+
+    A composed answer's sources always share one layer (a jurisdiction pass
+    searches exactly one; see `cairn.engine._search`), so the set below is a
+    guard rather than an expectation: if it ever holds two, nothing is
+    written, because there is no single layer to name.
+    """
+    layers = {code for code in result.source_jurisdictions if code is not None}
+    return layers.pop() if len(layers) == 1 else None
+
+
 def build_items_and_responses(
-    index: Index, cfg: Config, questions: list[dict[str, Any]]
+    index: Index,
+    cfg: Config,
+    questions: list[dict[str, Any]],
+    *,
+    jurisdiction: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The evidence-shaped records :func:`record` writes to `items.jsonl` and
     `responses.jsonl`, built but not written anywhere.
@@ -301,12 +325,29 @@ def build_items_and_responses(
     items: list[dict[str, Any]] = []
     responses: list[dict[str, Any]] = []
     for question in questions:
-        result = ask(question["prompt"], index, cfg, lang=question["lang"])
+        result = ask(
+            question["prompt"], index, cfg, lang=question["lang"],
+            jurisdiction=jurisdiction,
+        )
         answer = result.answer
         item = {"id": question["id"]}
         for field in AUTHORED_FIELDS:
             if question.get(field) not in (None, [], {}):
                 item[field] = question[field]
+        # The layer that answered, so the pinned harness can disaggregate by
+        # it — "the county pages answer 8 of 10, the state pages the rest" is
+        # the pilot's decision gate, and until now it was reconstructed after
+        # the fact from `layers.json` rather than recorded from the engine's
+        # own decision.
+        #
+        # An authored `group` always wins. The question set is ground truth
+        # about the question and this is an observation about the answer; a
+        # recorder that overwrote the author would silently retitle whatever
+        # grouping the set was built around.
+        if "group" not in item:
+            layer = _answering_layer(result)
+            if layer is not None:
+                item["group"] = layer
         # "Source ids retrieved for this item" — the passages composition
         # chose from on the retrieval path, or the table rows the tool quoted
         # when a structured tool produced the answer. A tool answer records
@@ -333,12 +374,15 @@ def record(
     questions_path: str | Path = DEFAULT_QUESTIONS,
     out_dir: str | Path = DEFAULT_BUNDLE,
     name: str = "cairn-demo",
+    jurisdiction: str | None = None,
 ) -> BundleReport:
     questions = load_questions(questions_path)
     bundle = Path(out_dir)
     bundle.mkdir(parents=True, exist_ok=True)
 
-    items, responses = build_items_and_responses(index, cfg, questions)
+    items, responses = build_items_and_responses(
+        index, cfg, questions, jurisdiction=jurisdiction
+    )
 
     sources = [
         {

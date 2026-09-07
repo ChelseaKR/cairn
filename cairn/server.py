@@ -59,6 +59,25 @@ def _resolve_lang(raw: str | None, default: str) -> str:
     return raw if raw in SELECTABLE else default
 
 
+def _submitted_jurisdiction(raw: Any) -> str | None:
+    """A jurisdiction a request asked for, or `None` for "whatever the
+    configuration says".
+
+    Deliberately *not* the `_resolve_lang` shape. That one falls back to the
+    configured default for an unrecognised value, which is right for a
+    language — the page can only be rendered in one it has strings for, so
+    silently serving the default is the only thing it could do. A
+    jurisdiction is a claim about which county's rules apply, and quietly
+    substituting a different county for an unrecognised one is the failure
+    this whole feature exists to prevent. An unusable value is passed
+    through to the engine, which refuses it and says why; the 400 that
+    produces reaches the client in its own content type.
+    """
+    if raw is None:
+        return None
+    return str(raw) or None
+
+
 def _json_object(raw: bytes) -> dict[str, Any]:
     """The request body as a JSON *object*, or `ValueError`.
 
@@ -235,7 +254,21 @@ class CairnHandler(BaseHTTPRequestHandler):
         if wants_json:
             self._json({"error": error}, status=400)
         else:
-            self._html(render_page(lang), status=400)
+            self._html(self._page(lang), status=400)
+
+    def _page(self, lang: str, *, jurisdiction: str | None = None, **kwargs: Any) -> str:
+        """`render_page` with this deployment's layers filled in.
+
+        One place, so the selector cannot be present on one route and absent
+        on the next — which is what "the page is complete before JavaScript
+        runs" means for a control that changes what gets searched.
+        """
+        return render_page(
+            lang,
+            jurisdictions=self._index.jurisdiction_codes,
+            jurisdiction=jurisdiction or self._cfg.default_jurisdiction,
+            **kwargs,
+        )
 
     # --- routes ---------------------------------------------------------
 
@@ -249,7 +282,11 @@ class CairnHandler(BaseHTTPRequestHandler):
             lang = _resolve_lang(
                 lang_values[0] if lang_values else None, self._cfg.default_lang
             )
-            self._html(render_page(lang))
+            jurisdiction_values = query.get("jurisdiction")
+            jurisdiction = _submitted_jurisdiction(
+                jurisdiction_values[0] if jurisdiction_values else None
+            )
+            self._html(self._page(lang, jurisdiction=jurisdiction))
         elif route.path == "/app.css":
             self._static("app.css", "text/css; charset=utf-8")
         elif route.path == "/app.js":
@@ -278,11 +315,11 @@ class CairnHandler(BaseHTTPRequestHandler):
 
     def _ask_submission(
         self, raw: bytes, wants_json: bool
-    ) -> tuple[dict[str, Any], str, str] | None:
-        """The question and language a request asked with, from whichever of
-        the two body shapes it sent, or `None` when a JSON body could not be
-        read at all — in which case the 400 has already been written and the
-        caller has nothing left to do.
+    ) -> tuple[dict[str, Any], str, str, str | None] | None:
+        """The question, language and jurisdiction a request asked with, from
+        whichever of the two body shapes it sent, or `None` when a JSON body
+        could not be read at all — in which case the 400 has already been
+        written and the caller has nothing left to do.
 
         A form submission comes back with an empty submission dict rather
         than its own parsed fields. `history` and `stream` are JSON-caller
@@ -298,14 +335,19 @@ class CairnHandler(BaseHTTPRequestHandler):
                 return None
             question = str(submitted.get("question") or "")
             lang = _resolve_lang(submitted.get("lang"), self._cfg.default_lang)
-            return submitted, question.strip(), lang
+            jurisdiction = _submitted_jurisdiction(submitted.get("jurisdiction"))
+            return submitted, question.strip(), lang, jurisdiction
         fields = parse_qs(raw.decode("utf-8"))
         question = (fields.get("question") or [""])[0]
         lang_values = fields.get("lang")
         lang = _resolve_lang(
             lang_values[0] if lang_values else None, self._cfg.default_lang
         )
-        return {}, question.strip(), lang
+        jurisdiction_values = fields.get("jurisdiction")
+        jurisdiction = _submitted_jurisdiction(
+            jurisdiction_values[0] if jurisdiction_values else None
+        )
+        return {}, question.strip(), lang, jurisdiction
 
     def _ask_session(self, submitted: dict[str, Any]) -> Session | None:
         """The conversation this request wants resolved against, or `None`
@@ -326,7 +368,11 @@ class CairnHandler(BaseHTTPRequestHandler):
         return None
 
     def _ask_turn(
-        self, session: Session | None, question: str, lang: str
+        self,
+        session: Session | None,
+        question: str,
+        lang: str,
+        jurisdiction: str | None = None,
     ) -> tuple[AskResult, dict[str, Any] | None]:
         """The answer, and the turn metadata a session request also reports.
 
@@ -334,13 +380,18 @@ class CairnHandler(BaseHTTPRequestHandler):
         what keeps the `turn` key out of a single-turn payload.
         """
         if session is not None:
-            turn_result = session.ask(question, self._index, self._cfg, lang=lang)
+            turn_result = session.ask(
+                question, self._index, self._cfg, lang=lang, jurisdiction=jurisdiction
+            )
             return turn_result.result, {
                 "resolved_with_context": turn_result.resolved_with_context,
                 "context_from_turns": list(turn_result.context_from_turns),
                 "context_terms": list(turn_result.context_terms),
             }
-        return ask(question, self._index, self._cfg, lang=lang), None
+        return (
+            ask(question, self._index, self._cfg, lang=lang, jurisdiction=jurisdiction),
+            None,
+        )
 
     def _send_stream(self, answer: Answer) -> None:
         """The answer as server-sent events over a close-delimited body: no
@@ -372,6 +423,15 @@ class CairnHandler(BaseHTTPRequestHandler):
         plus the three keys only a server can know to add.
         """
         payload = result.answer.to_payload()
+        if result.jurisdiction is not None:
+            # Only when a layer was actually in force, so an unlayered
+            # deployment's payload is byte-identical to the one it served
+            # before layers existed. The human-readable half of this is
+            # `notice`, which every client already renders; this is the
+            # machine-readable half for a client that wants to show the
+            # asker which area they are looking at.
+            payload["jurisdiction"] = result.jurisdiction
+            payload["cross_jurisdiction"] = result.cross_jurisdiction
         if result.tool is not None:
             payload["tool"] = result.tool
         if turn_meta is not None:
@@ -393,7 +453,7 @@ class CairnHandler(BaseHTTPRequestHandler):
         submission = self._ask_submission(raw, wants_json)
         if submission is None:
             return
-        submitted, question, lang = submission
+        submitted, question, lang, jurisdiction = submission
 
         if not question:
             self._bad_request(wants_json, "empty question", lang)
@@ -406,7 +466,7 @@ class CairnHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            result, turn_meta = self._ask_turn(session, question, lang)
+            result, turn_meta = self._ask_turn(session, question, lang, jurisdiction)
         except EngineError as exc:
             # Reachable, and the comment here used to say it was not: it
             # read "lang is validated above", but `_resolve_lang` falls
@@ -419,6 +479,7 @@ class CairnHandler(BaseHTTPRequestHandler):
             # `{"error": ...}` is the no-JavaScript path breaking.
             self._bad_request(wants_json, str(exc), self._cfg.default_lang)
             return
+
 
         if self._refusal_counter is not None and result.answer.kind == "refusal":
             # lang and a fixed reason code only — never the question.
@@ -437,8 +498,9 @@ class CairnHandler(BaseHTTPRequestHandler):
             self._json(self._ask_payload(result, turn_meta, offer_followup))
         else:
             self._html(
-                render_page(
+                self._page(
                     lang,
+                    jurisdiction=result.jurisdiction,
                     turns=turn_markup(
                         question, result, lang, followup_enabled=offer_followup
                     ),
@@ -480,7 +542,7 @@ class CairnHandler(BaseHTTPRequestHandler):
                 self._json({"error": "missing contact information"}, status=400)
             else:
                 self._html(
-                    render_page(
+                    self._page(
                         lang,
                         followup_notice=message("error_missing_contact", lang),
                     ),
@@ -505,7 +567,7 @@ class CairnHandler(BaseHTTPRequestHandler):
             self._json({"received": True})
         else:
             self._html(
-                render_page(
+                self._page(
                     lang, followup_notice=message("followup_confirmation", lang)
                 )
             )

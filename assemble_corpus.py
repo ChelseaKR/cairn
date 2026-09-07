@@ -54,10 +54,12 @@ import shutil
 import sys
 import tomllib
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from cairn.corpus import CorpusError, load_document
+from cairn.jurisdiction import JurisdictionError
+from cairn.jurisdiction import validate as validate_jurisdiction
 from cairn.tabular import TABLES_DIRNAME, load_table
 
 PILOT_FILE = "pilot.toml"
@@ -83,6 +85,10 @@ class Pilot:
     root: Path
     shared: tuple[str, ...]
     counties: dict[str, County]
+    # `{layer: jurisdiction code}`, from an optional `[jurisdictions]` table.
+    # Empty means the pilot does not use jurisdictions and every assembled
+    # document is copied through untouched, exactly as before this existed.
+    jurisdictions: dict[str, str] = field(default_factory=dict)
 
     def layer_dir(self, layer: str) -> Path:
         return self.root / LAYERS_DIRNAME / layer
@@ -112,7 +118,59 @@ def load_pilot(root: str | Path) -> Pilot:
     for layer in shared:
         if not (base / LAYERS_DIRNAME / layer).is_dir():
             raise AssembleError(f"{path}: shared layer {layer!r} has no directory in layers/")
-    return Pilot(root=base, shared=shared, counties=counties)
+    jurisdictions = _jurisdictions(data, path, shared, counties)
+    return Pilot(
+        root=base, shared=shared, counties=counties, jurisdictions=jurisdictions
+    )
+
+
+def _jurisdictions(
+    data: dict, path: Path, shared: tuple[str, ...], counties: dict[str, County]
+) -> dict[str, str]:
+    """The optional `[jurisdictions]` table: one code per layer.
+
+    Absent is a complete answer — a pilot that does not label its layers
+    assembles exactly as it did before, and every document is copied byte for
+    byte. Present is all-or-nothing: every layer this pilot can assemble must
+    have a code.
+
+    Partial labelling is refused rather than allowed through, and this is the
+    decision worth stating. An unlabelled document is out of scope for every
+    layer (`cairn.retrieve`), so a `[jurisdictions]` table that named the
+    county layers and forgot the federal one would assemble a corpus in which
+    the federal pages are unreachable from any question asked about a county
+    — a corpus that quietly answers less, with no error anywhere. Every
+    direction this can be wrong in should be the direction that says so.
+    """
+    table = data.get("jurisdictions")
+    if table is None:
+        return {}
+    if not isinstance(table, dict):
+        raise AssembleError(f"{path}: [jurisdictions] must be a table of layer names")
+    layers = tuple(shared) + tuple(sorted(counties))
+    missing = [layer for layer in layers if layer not in table]
+    if missing:
+        raise AssembleError(
+            f"{path}: [jurisdictions] names no code for {', '.join(missing)}. "
+            f"An unlabelled layer is out of scope for every jurisdiction, so a "
+            f"partly labelled pilot assembles a corpus whose unlabelled pages no "
+            f"question asked about a jurisdiction can reach."
+        )
+    unknown = [layer for layer in table if layer not in layers]
+    if unknown:
+        raise AssembleError(
+            f"{path}: [jurisdictions] names {', '.join(sorted(unknown))}, which "
+            f"is not a layer this pilot declares"
+        )
+    out: dict[str, str] = {}
+    for layer, code in table.items():
+        if not isinstance(code, str):
+            raise AssembleError(f"{path}: jurisdictions.{layer} must be a string")
+        try:
+            out[layer] = validate_jurisdiction(code, where=f"{path}: jurisdictions.{layer}")
+        except JurisdictionError as exc:
+            raise AssembleError(str(exc)) from exc
+    return out
 
 
 def is_unreviewed(path: Path) -> bool:
@@ -237,12 +295,41 @@ def plan(
     return files
 
 
+def layer_of_file(path: Path) -> str:
+    """Which layer directory a planned file sits in."""
+    return path.parent.name if path.suffix != ".csv" else path.parent.parent.name
+
+
+def _copy_document(source: Path, destination: Path, code: str | None) -> None:
+    """Copy one document, stamping `jurisdiction:` into its front matter.
+
+    Copied byte for byte when the pilot declares no code for this layer, so
+    an unlabelled pilot's assembled corpus is unchanged.
+
+    A document that already declares its own jurisdiction keeps it, and is
+    not overwritten by the layer's. The front matter is the author's
+    statement about where the text applies; the layer table is the pilot's
+    convenience for documents that did not say. Where the two disagree the
+    author is the one who read the page.
+    """
+    raw = source.read_text(encoding="utf-8")
+    if code is None or "\njurisdiction:" in raw.split("\n---", 2)[0]:
+        destination.write_text(raw, encoding="utf-8")
+        return
+    lines = raw.splitlines(keepends=True)
+    # `plan()` has already loaded every one of these through `load_document`,
+    # which refuses a file whose first line is not `---`, so the opening
+    # fence is known to be line one and the insertion point is line two.
+    lines.insert(1, f"jurisdiction: {code}\n")
+    destination.write_text("".join(lines), encoding="utf-8")
+
+
 def layer_of(pilot: Pilot, files: list[Path]) -> dict[str, str]:
     """`{doc_or_table_id: layer}` for every planned file, by which layer
     directory it sits in."""
     out: dict[str, str] = {}
     for path in files:
-        layer = path.parent.name if path.suffix != ".csv" else path.parent.parent.name
+        layer = layer_of_file(path)
         if path.suffix == ".csv":
             out[load_table(path).table_id] = layer
         else:
@@ -315,7 +402,8 @@ def assemble(
             shutil.copyfile(path, out_dir / TABLES_DIRNAME / path.name)
             tables += 1
         else:
-            shutil.copyfile(path, out_dir / path.name)
+            code = pilot.jurisdictions.get(layer_of_file(path))
+            _copy_document(path, out_dir / path.name, code)
             docs += 1
     if not tables:
         (out_dir / TABLES_DIRNAME).rmdir()
@@ -327,7 +415,19 @@ def assemble(
     # and tables/*.csv.
     with open(out_dir / LAYERS_FILE, "w", encoding="utf-8", newline="\n") as handle:
         json.dump(
-            {"layers": list(layers), "documents": provenance},
+            {
+                "layers": list(layers),
+                "documents": provenance,
+                # The codes the documents were stamped with, so a reader of
+                # this file can go from a layer name to the jurisdiction the
+                # engine actually scopes on. Empty for a pilot that declares
+                # none, which keeps the file's shape for one that does not.
+                "jurisdictions": {
+                    layer: pilot.jurisdictions[layer]
+                    for layer in layers
+                    if layer in pilot.jurisdictions
+                },
+            },
             handle,
             indent=2,
             sort_keys=True,

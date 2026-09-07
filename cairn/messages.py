@@ -15,9 +15,18 @@ Two rules this module enforces, both tested:
    first half, which an audit of recorded answers caught — a standard refusal
    detector read it as an answer, and so would a person skimming.
 2. A key's placeholders are the same in every language. ``{contact}``,
-   ``{language}``, ``{count}``, ``{total}``, ``{title}`` and ``{question}``
-   are the whole vocabulary; anything else is a typo waiting to raise at the
-   worst possible moment.
+   ``{language}``, ``{jurisdiction}``, ``{asked}``, ``{count}``, ``{total}``,
+   ``{title}`` and ``{question}`` are the whole vocabulary; anything else is a
+   typo waiting to raise at the worst possible moment.
+
+   ``{jurisdiction}`` and ``{asked}`` are filled with jurisdiction codes
+   (``us-ca``, ``us-ca-sonoma``), not with translated place names. A code is
+   what the operator wrote in the corpus and in the config, so it is the one
+   string that means the same thing to the reader, to the operator reading a
+   transcript, and to the sweep counting layer mismatches. Cairn does not
+   hold a table of county names in four languages and inventing one would put
+   an unsourced place name inside a disclosure whose entire job is to be
+   exact about which place it is talking about.
 
 A key whose name ends in ``_notice`` is a third thing, and the narrowest:
 Cairn's own voice about the answer directly below it, carried in
@@ -60,6 +69,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
         # Spoken when a structured-table tool ran: the count is computed, not
         # quoted, so it says so in Cairn's own voice and stays out of
         # Answer.text, which remains byte-for-byte the quoted rows.
+        "cross_jurisdiction_notice": (
+            "No page written for {asked} covers this question. What follows is "
+            "the rule for {jurisdiction}, which covers a wider area, quoted "
+            "below exactly as published."
+        ),
         "table_count_notice": (
             "That number is not quoted from a document — I counted it over "
             "the {title} table: {count} of its {total} rows match. The "
@@ -108,6 +122,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "input_hint": "Press Enter to send. Press Shift and Enter together for a new line.",
         "send_button": "Send question",
         "language_label": "Language",
+        "jurisdiction_label": "Area",
         "you_said": "You asked",
         "assistant_said": "Answer",
         "assistant_refused": "No answer",
@@ -154,6 +169,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "Algunas de las fuentes citadas abajo están escritas en otro idioma "
             "({language}). Se citan tal como fueron publicadas."
         ),
+        "cross_jurisdiction_notice": (
+            "Ninguna página escrita para {asked} cubre esta pregunta. Lo que "
+            "sigue es la norma de {jurisdiction}, que abarca un área más amplia, "
+            "citada a continuación tal como fue publicada."
+        ),
         "table_count_notice": (
             "Ese número no está citado de un documento — lo conté sobre la "
             "tabla {title}: {count} de sus {total} filas coinciden. Las filas "
@@ -198,6 +218,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
         ),
         "send_button": "Enviar pregunta",
         "language_label": "Idioma",
+        "jurisdiction_label": "Área",
         "you_said": "Usted preguntó",
         "assistant_said": "Respuesta",
         "assistant_refused": "Sin respuesta",
@@ -243,6 +264,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "بعض المصادر أدناه مكتوبة بلغة أخرى ({language})، وهي مقتبسة كما "
             "نُشرت تمامًا."
         ),
+        "cross_jurisdiction_notice": (
+            "لا توجد صفحة مكتوبة لـ {asked} تغطي هذا السؤال. ما يلي هو القاعدة "
+            "الخاصة بـ {jurisdiction}، وهي تشمل نطاقًا أوسع، ومقتبسة أدناه كما "
+            "نُشرت تمامًا."
+        ),
         "table_count_notice": (
             "هذا الرقم ليس مقتبسًا من مستند — لقد حسبته من جدول {title}: "
             "{count} من أصل {total} صفوف تطابق. الصفوف المطابقة مقتبسة أدناه "
@@ -282,6 +308,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "input_hint": "اضغط Enter للإرسال. اضغط Shift مع Enter معًا لسطر جديد.",
         "send_button": "إرسال السؤال",
         "language_label": "اللغة",
+        "jurisdiction_label": "المنطقة",
         "you_said": "سألتَ",
         "assistant_said": "الإجابة",
         "assistant_refused": "لا توجد إجابة",
@@ -323,6 +350,12 @@ CATALOGUE: dict[str, dict[str, str]] = {
             "Certaines des sources ci-dessous sont rédigées dans une autre langue "
             "({language}). Elles sont citées exactement telles qu'elles ont été "
             "publiées."
+        ),
+        "cross_jurisdiction_notice": (
+            "Aucune page rédigée pour {asked} ne couvre cette question. Ce qui "
+            "suit est la règle applicable à {jurisdiction}, qui couvre un "
+            "territoire plus large, citée ci-dessous exactement telle qu'elle a "
+            "été publiée."
         ),
         "table_count_notice": (
             "Ce nombre n'est pas cité d'un document — je l'ai compté à partir "
@@ -373,6 +406,7 @@ CATALOGUE: dict[str, dict[str, str]] = {
         ),
         "send_button": "Envoyer la question",
         "language_label": "Langue",
+        "jurisdiction_label": "Territoire",
         "you_said": "Vous avez demandé",
         "assistant_said": "Réponse",
         "assistant_refused": "Aucune réponse",

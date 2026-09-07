@@ -298,6 +298,40 @@ Reported overall, and split by `source`, `jurisdiction`, `county`,
   questions): what a small agency's first week looks like, and the first
   real exercise of `--refusal-stats`.
 
+### The engine knows about layers now
+
+Until 2026-09-07 the engine did not know a jurisdiction existed. It answered
+from the whole assembled corpus, and `sweep.py` labelled a wrong answer
+`jurisdiction-mismatch` or `wrong-county` *after the fact*, by reading the
+`layers.json` that assembly wrote. The measurement was honest and the system
+was not: the Siskiyou page that answered a Sonoma question was quoted with
+nothing said, and the label existed to count how often that happened.
+
+Documents now declare `jurisdiction:` in their front matter,
+`assemble_corpus.py` stamps it from `pilot.toml`'s `[jurisdictions]` table,
+and retrieval searches one layer at a time from the most specific — county,
+then state, then federal — stopping at the first that clears the threshold. An
+answer from a wider layer says so, in the asker's language, naming both
+layers. `[jurisdiction] cross_jurisdiction_fallback = false` refuses instead.
+
+Two consequences for this pilot's numbers, both of which have to be stated
+before the arm is run rather than explained afterwards:
+
+- **`jurisdiction-mismatch` and `wrong-county` should go to zero for a run
+  made with `--jurisdiction`**, because a sibling county's pages are never
+  searched. They remain meaningful for a run made *without* one, which is
+  still worth measuring: it is the "one corpus, no layer awareness" arm, and
+  the difference between the two arms is what the mechanism is worth.
+- **The combined corpus arm changes meaning.** Assembling every county into
+  one corpus was the arm that measured what happens when a question with
+  fifty-eight correct answers is asked of a corpus holding three of them.
+  Asked with a jurisdiction, that corpus now behaves like a single-county one;
+  asked without, it behaves as before. Run it both ways and report which.
+
+`sweep.py` reads the engine's own decision now, and `layers.json` only where
+the engine has nothing to say — so a label says what the engine did rather
+than what a side file implies it did.
+
 Every wrong refusal and wrong answer gets one label, first-pass from
 `sweep.py --at` and then hand-reviewed: `vocabulary-gap`, `threshold`,
 `wrong-passage`, `jurisdiction-mismatch`, `wrong-county`, `multi-intent`,

@@ -170,10 +170,18 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
         cfg_b = load_config(args.compare_config) if args.compare_config else cfg
         index_b_path = args.compare_index or cfg_b.index_path
         index_b = read_index(index_b_path, cfg_b.corpus_path)
-        comparison = compare(args.question, index, cfg, index_b, cfg_b, lang=args.lang)
+        comparison = compare(
+            args.question,
+            index,
+            cfg,
+            index_b,
+            cfg_b,
+            lang=args.lang,
+            jurisdiction=args.jurisdiction,
+        )
         print(render_explain_diff(comparison))
         return 0
-    result = ask(args.question, index, cfg, lang=args.lang)
+    result = ask(args.question, index, cfg, lang=args.lang, jurisdiction=args.jurisdiction)
     answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages) if args.explain else None
 
@@ -184,6 +192,7 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
             question=args.question,
             corpus_fingerprint=index.corpus_fingerprint,
             cfg=cfg,
+            jurisdiction=result.jurisdiction,
         )
         if want_receipt
         else None
@@ -212,6 +221,8 @@ def _cmd_ask(args: argparse.Namespace, cfg: Config) -> int:
                 "language": result.detection.to_payload(),
                 "attempts": [a.to_payload() for a in result.attempts],
                 "cross_language": result.cross_language,
+                "jurisdiction": result.jurisdiction,
+                "cross_jurisdiction": result.cross_jurisdiction,
             }
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
         return 0
@@ -297,8 +308,13 @@ def _cmd_verify_receipt(args: argparse.Namespace, cfg: Config) -> int:
         receipt,
         corpus_fingerprint=index.corpus_fingerprint,
         cfg=cfg,
+        # Re-asked under the receipt's own jurisdiction, not this
+        # deployment's configured one. A receipt records what was asked; a
+        # verification that re-asked something else and reported MATCH would
+        # be attesting to a comparison it never made.
         recompute=lambda: ask(
-            receipt.question, index, cfg, lang=receipt.lang
+            receipt.question, index, cfg, lang=receipt.lang,
+            jurisdiction=receipt.jurisdiction,
         ).answer,
     )
     if args.json:
@@ -394,7 +410,13 @@ def _cmd_record(args: argparse.Namespace, cfg: Config) -> int:
         )
         print(render_record_diff(diffs))
         return 0
-    report = record(index, cfg, questions_path=args.questions, out_dir=args.out)
+    report = record(
+        index,
+        cfg,
+        questions_path=args.questions,
+        out_dir=args.out,
+        jurisdiction=args.jurisdiction,
+    )
     print(
         f"Recorded {report.item_count} items "
         f"({report.answer_count} answers, {report.refusal_count} refusals) "
@@ -420,7 +442,9 @@ def _cmd_chat(args: argparse.Namespace, cfg: Config) -> int:
         if not question:
             continue
         try:
-            turn = session.ask(question, index, cfg, lang=args.lang)
+            turn = session.ask(
+                question, index, cfg, lang=args.lang, jurisdiction=args.jurisdiction
+            )
         except EngineError as exc:
             print(f"cairn: error: {exc}", file=sys.stderr)
             return 1
@@ -525,6 +549,17 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "answer in this language and prefer its sources (en, es, ar). "
             "Omit to detect the language from the question."
+        ),
+    )
+    p_ask.add_argument(
+        "--jurisdiction",
+        metavar="CODE",
+        default=None,
+        help=(
+            "answer as this jurisdiction would be answered: prefer the pages "
+            "labelled with it, then widen one layer at a time (us-ca-sonoma, "
+            "us-ca, us) and say so in the answer. Overrides `[jurisdiction] "
+            "default`. Refused if no document in the corpus declares one."
         ),
     )
     p_ask.add_argument(
@@ -665,6 +700,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="answer in this language (en, es, ar). Omit to detect per turn.",
     )
+    p_chat.add_argument(
+        "--jurisdiction",
+        metavar="CODE",
+        default=None,
+        help=(
+            "answer as this jurisdiction would be answered: prefer the pages "
+            "labelled with it, then widen one layer at a time (us-ca-sonoma, "
+            "us-ca, us) and say so in the answer. Overrides `[jurisdiction] "
+            "default`. Refused if no document in the corpus declares one."
+        ),
+    )
     p_chat.set_defaults(func=_cmd_chat)
 
     p_refusals = sub.add_parser(
@@ -692,6 +738,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_record.add_argument(
         "--out", default=DEFAULT_BUNDLE, help=f"bundle directory (default: {DEFAULT_BUNDLE})"
+    )
+    p_record.add_argument(
+        "--jurisdiction",
+        metavar="CODE",
+        default=None,
+        help=(
+            "record every item as it would be answered for this jurisdiction, and "
+            "write the layer that answered into each item's `group` so the pinned "
+            "harness disaggregates by it. An item that authors its own `group` "
+            "keeps it."
+        ),
     )
     p_record.add_argument(
         "--coverage",
