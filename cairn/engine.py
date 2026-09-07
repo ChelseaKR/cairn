@@ -222,8 +222,13 @@ def _answer_from_tables(
     # byte-identical to the trace a real search produces when a language has
     # no passages at all -- so `explain`, `refusal_reason` and `calibrate`
     # each read "scoring found nothing" off a trace that was never scored.
+    threshold, threshold_key = cfg.threshold_for(lang=response_lang)
     trace = RetrievalTrace(
-        query=question, threshold=cfg.threshold, candidates=(), attempted=False
+        query=question,
+        threshold=threshold,
+        threshold_key=threshold_key,
+        candidates=(),
+        attempted=False,
     )
     tool = {
         "op": query.op,
@@ -331,27 +336,44 @@ def resolve_jurisdiction(
 
 
 def _retrieve_scoped(
-    question: str, index: Index, cfg: Config, *, lang: str | None, jurisdiction: str | None
+    question: str,
+    index: Index,
+    cfg: Config,
+    *,
+    lang: str | None,
+    jurisdiction: str | None,
+    response_lang: str,
 ) -> RetrievalTrace:
-    """One retrieval pass at one scope, through whichever pass is configured."""
+    """One retrieval pass at one scope, through whichever pass is configured.
+
+    The threshold is resolved per pass rather than once per question, because
+    the layer differs between rungs of the widening ladder and a
+    `[retrieval.threshold_by_jurisdiction]` entry is a statement about one
+    layer's vocabulary. `lang` is the *restriction* — `None` on the widened
+    cross-language pass — while the language override is keyed on the language
+    being answered in, which is the language whose score band was measured.
+    """
+    threshold, key = cfg.threshold_for(lang=response_lang, jurisdiction=jurisdiction)
     if cfg.split_intents:
         return split_intents(
             question,
             index,
-            threshold=cfg.threshold,
+            threshold=threshold,
             candidates=cfg.candidates,
             lang=lang,
             jurisdiction=jurisdiction,
             dense_weight=cfg.dense_weight,
+            threshold_key=key,
         )
     return retrieve(
         question,
         index,
-        threshold=cfg.threshold,
+        threshold=threshold,
         candidates=cfg.candidates,
         lang=lang,
         jurisdiction=jurisdiction,
         dense_weight=cfg.dense_weight,
+        threshold_key=key,
     )
 
 
@@ -379,20 +401,16 @@ def _search(
     attempts: list[Attempt] = []
     for rung in ladder(jurisdiction):
         primary = _retrieve_scoped(
-            question, index, cfg, lang=response_lang, jurisdiction=rung
+            question, index, cfg, lang=response_lang, jurisdiction=rung,
+            response_lang=response_lang,
         )
         attempts.append(Attempt(scope="language", trace=primary))
         if primary.grounded:
             return attempts, primary
         if cfg.cross_language_fallback:
-            widened = retrieve(
-                question,
-                index,
-                threshold=cfg.threshold,
-                candidates=cfg.candidates,
-                lang=None,
-                jurisdiction=rung,
-                dense_weight=cfg.dense_weight,
+            widened = _retrieve_scoped(
+                question, index, cfg, lang=None, jurisdiction=rung,
+                response_lang=response_lang,
             )
             attempts.append(Attempt(scope="corpus", trace=widened))
             if widened.grounded:

@@ -14,10 +14,19 @@ no `answering_sources`, no `fact_id`, nothing audit-specific, because
 picking a threshold needs only two facts about each probe: what it is, and
 whether the system should answer it.
 
+Probes may carry a `lang` and a `jurisdiction`, and where they do, each slice
+gets its own band. One threshold for four languages either over-refuses in
+the narrow band or over-answers in the wide one, and a set mixing them can
+report NO SEPARATING THRESHOLD overall while every language separates
+cleanly on its own — which is a recommendation, not a dead end, and the
+overall number hides it.
+
 This is advisory, like `cairn lint` and `cairn diff`: it never edits
 `cairn.toml`, and choosing a new threshold is the operator's decision, not
-this tool's. What it changes is whether that decision is informed by a
-number measured against their own corpus, or by nothing.
+this tool's. `--emit-config` writes the tables to stdout for an operator to
+read, edit and paste; it applies nothing. What this changes is whether that
+decision is informed by a number measured against their own corpus, or by
+nothing.
 """
 
 from __future__ import annotations
@@ -42,7 +51,29 @@ class CalibrationError(ValueError):
 class ProbeResult:
     question: str
     behavior: Behavior  # what the operator expects
+    # The language this probe was *answered in* and the layer it was
+    # *asked about*, after the probe's own labels and the configuration's
+    # defaults have both been resolved — not the raw strings in the file.
+    #
+    # The distinction decides what `--emit-config` can recommend. The bundled
+    # example probe set labels its Spanish and Arabic probes and leaves the
+    # English ones to detection, exactly as `cairn ask` does; grouping on the
+    # authored field put four English probes in no slice at all and emitted a
+    # `[retrieval.threshold_by_language]` table with no `en` in it. A
+    # recommendation silently missing the language most of the set is written
+    # in is worse than no recommendation.
+    #
+    # `jurisdiction` is `None` for an unlayered corpus, where it is genuinely
+    # absent rather than merely unwritten.
     lang: str | None
+    jurisdiction: str | None
+    # The threshold this probe was actually gated at, and the key it came
+    # from. Recorded per probe rather than read off the report, because with
+    # override tables in play the probes in one set are not all gated at the
+    # same number, and a report that printed one would be printing a number
+    # that decided some of its own rows and not others.
+    threshold: float
+    threshold_key: str
     # The best-scoring candidate's score; 0.0 if scoring ran and nothing
     # scored. `None` when scoring was never consulted at all -- the
     # structured-table count tool answered (or refused) this probe before
@@ -111,6 +142,43 @@ class CalibrationReport:
         assert worst is not None and best is not None  # gap positive implies both present
         return (worst + best) / 2
 
+    def slice(self, results: tuple[ProbeResult, ...]) -> CalibrationReport:
+        """A sub-report over a subset of these probes.
+
+        Every band property above is a pure function of `results`, so a slice
+        is the same type rather than a parallel one — there is no second
+        implementation of "worst answer probe" to disagree with the first.
+        """
+        return CalibrationReport(threshold=self.threshold, results=results)
+
+    def by_label(self, key: str) -> dict[str, CalibrationReport]:
+        """Sub-reports grouped by a probe label, for labelled probes only.
+
+        A probe that does not carry the label is left out rather than
+        collected under a placeholder: "the probes that did not say" is not a
+        language and not a layer, and a band computed over it would be
+        reported beside the real ones as though it were.
+        """
+        groups: dict[str, list[ProbeResult]] = {}
+        for result in self.results:
+            value = getattr(result, key)
+            if value is not None:
+                groups.setdefault(value, []).append(result)
+        return {
+            value: self.slice(tuple(members))
+            for value, members in sorted(groups.items())
+        }
+
+    @property
+    def thresholds_in_force(self) -> tuple[str, ...]:
+        """The distinct config keys that gated these probes, sorted.
+
+        More than one means this report's own `threshold` is not the number
+        that decided every row in it, which the renderer says out loud rather
+        than printing a single figure over a mixed set.
+        """
+        return tuple(sorted({r.threshold_key for r in self.results}))
+
     @property
     def misclassified(self) -> tuple[ProbeResult, ...]:
         return tuple(r for r in self.results if not r.correct)
@@ -140,10 +208,12 @@ def load_probes(path: str | Path) -> list[dict[str, Any]]:
                 f"{file}: probe {probe['question']!r} has behavior "
                 f"{probe.get('behavior')!r}; expected 'answer' or 'refuse'"
             )
-        if "lang" in probe and not isinstance(probe["lang"], str):
-            raise CalibrationError(
-                f"{file}: probe {probe['question']!r} has a non-string 'lang'"
-            )
+        for label in ("lang", "jurisdiction"):
+            if label in probe and not isinstance(probe[label], str):
+                raise CalibrationError(
+                    f"{file}: probe {probe['question']!r} has a non-string "
+                    f"{label!r}"
+                )
     return probes
 
 
@@ -151,7 +221,10 @@ def calibrate(index: Index, cfg: Config, probes_path: str | Path) -> Calibration
     results = []
     for probe in load_probes(probes_path):
         lang = probe.get("lang")
-        result = ask(probe["question"], index, cfg, lang=lang)
+        jurisdiction = probe.get("jurisdiction")
+        result = ask(
+            probe["question"], index, cfg, lang=lang, jurisdiction=jurisdiction
+        )
         trace = result.answer.trace
         if not trace.attempted:
             # Not 0.0. Retrieval never ran, so "the best candidate scored
@@ -164,7 +237,10 @@ def calibrate(index: Index, cfg: Config, probes_path: str | Path) -> Calibration
             ProbeResult(
                 question=probe["question"],
                 behavior=probe["behavior"],
-                lang=lang,
+                lang=result.answer.lang,
+                jurisdiction=result.jurisdiction,
+                threshold=trace.threshold,
+                threshold_key=trace.threshold_key,
                 top_score=top_score,
                 outcome=outcome,
                 correct=(outcome == probe["behavior"]),
@@ -173,8 +249,106 @@ def calibrate(index: Index, cfg: Config, probes_path: str | Path) -> Calibration
     return CalibrationReport(threshold=cfg.threshold, results=tuple(results))
 
 
+def _header(report: CalibrationReport) -> str:
+    """The first line: how many probes, gated by what.
+
+    Not one threshold with a footnote. With override tables in play the probes
+    in one set are gated at several different numbers, and a single figure
+    here would be the number that decided some of these rows and not others.
+    """
+    in_force = report.thresholds_in_force
+    if len(in_force) > 1:
+        return (
+            f"{len(report.results)} probe(s), gated by {len(in_force)} different "
+            f"keys: {', '.join(in_force)}"
+        )
+    return f"{len(report.results)} probe(s) against threshold {report.threshold:.3f}"
+
+
+def _band_line(report: CalibrationReport) -> str:
+    """One slice's verdict in one line: the band, or why there is none."""
+    worst, best = report.worst_answer_score, report.best_refuse_score
+    gap = report.gap
+    if gap is None:
+        missing = "no 'answer' probes" if worst is None else "no 'refuse' probes"
+        return f"no band ({missing} that retrieval scored)"
+    assert worst is not None and best is not None
+    if gap <= 0:
+        return (
+            f"NO SEPARATING THRESHOLD (worst answer {worst:.3f} <= "
+            f"best refuse {best:.3f})"
+        )
+    suggested = report.suggested_threshold
+    assert suggested is not None
+    return (
+        f"band {best:.3f}..{worst:.3f}  gap {gap:.3f}  midpoint {suggested:.3f}"
+    )
+
+
+def _slice_lines(report: CalibrationReport, key: str, heading: str) -> list[str]:
+    """Per-slice bands for one probe label, or nothing when none carry it."""
+    groups = report.by_label(key)
+    if not groups:
+        return []
+    lines = ["", f"By {heading}:"]
+    for value, group in groups.items():
+        in_force = group.thresholds_in_force
+        gate = in_force[0] if len(in_force) == 1 else f"{len(in_force)} different keys"
+        lines.append(
+            f"  {value:<16} n={len(group.results):<3} {_band_line(group)}  "
+            f"[gated by {gate}]"
+        )
+    unlabelled = sum(1 for r in report.results if getattr(r, key) is None)
+    if unlabelled:
+        lines.append(
+            f"  ({unlabelled} probe(s) carry no {key}, and are in none of the "
+            f"bands above)"
+        )
+    return lines
+
+
+def emit_config(report: CalibrationReport) -> str:
+    """The override tables this measurement recommends, as TOML on stdout.
+
+    Never applied and never written to a file: adopting a threshold is the
+    operator's decision, exactly as it is for the single one, and a tool that
+    edited `cairn.toml` would be making that decision by being run.
+
+    A slice that does not separate is emitted as a comment naming the two
+    scores rather than omitted. Omitting it would leave the operator reading a
+    table that silently covers three of their four languages, and the missing
+    one is the one that needs them.
+    """
+    lines = [
+        "# Recommended by `cairn calibrate --emit-config`. Nothing has been",
+        "# applied: paste what you agree with into cairn.toml.",
+        "#",
+        "# Each midpoint is the middle of that slice's own band — the same",
+        "# reasoning DESIGN.md applies to the shipped default, measured per",
+        "# slice instead of once over all of them.",
+    ]
+    for key, table in (
+        ("lang", "threshold_by_language"),
+        ("jurisdiction", "threshold_by_jurisdiction"),
+    ):
+        groups = report.by_label(key)
+        if not groups:
+            continue
+        lines.append("")
+        lines.append(f"[retrieval.{table}]")
+        for value, group in groups.items():
+            suggested = group.suggested_threshold
+            if suggested is None:
+                lines.append(
+                    f"# {value} = ?  # {_band_line(group)}; nothing to recommend"
+                )
+            else:
+                lines.append(f'"{value}" = {suggested:.3f}')
+    return "\n".join(lines)
+
+
 def render(report: CalibrationReport) -> str:
-    lines = [f"{len(report.results)} probe(s) against threshold {report.threshold:.3f}"]
+    lines = [_header(report)]
     for r in report.results:
         mark = "ok" if r.correct else "MISCLASSIFIED"
         score = "  n/a" if r.top_score is None else f"{r.top_score:.3f}"
@@ -219,6 +393,9 @@ def render(report: CalibrationReport) -> str:
             f"Gap: {report.gap:.3f}  Suggested threshold (midpoint): "
             f"{report.suggested_threshold:.3f}"
         )
+
+    lines.extend(_slice_lines(report, "lang", "language"))
+    lines.extend(_slice_lines(report, "jurisdiction", "jurisdiction"))
 
     lines.append("")
     if report.safe:

@@ -270,6 +270,7 @@ class TestTheMergeHandlesEveryFieldItIsHandedOnPurpose(unittest.TestCase):
         "ignored": "union across parts",
         "intents": "the parts themselves",
         "attempted": "all of the parts', so a merge never claims a pass none made",
+        "threshold_key": "passed through unchanged, beside the threshold it names",
     }
     CANDIDATE_MERGE = {
         "passage": "the passage itself",

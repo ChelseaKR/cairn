@@ -208,10 +208,11 @@ Attempt 2 (widened to every language): 44 passages scored, 0 excluded, 4 candida
           readability grade 10.7 (flesch_kincaid_grade); 50 word(s), 3 sentence(s), mean sentence length 16.7
 
 Stage 1 - retrieval: FAILED (below-threshold)
-  4 candidates were scored and none cleared the 0.165 threshold. The best,
-  grocery-allowance-en#3, scored 0.069 and was short by 0.096 on 1 of 5
-  question terms (need). No passage searched contained does, dog, vacci — that
-  part of the question is a corpus coverage gap, not a threshold setting.
+  4 candidates were scored and none cleared the 0.165 threshold
+  (retrieval.threshold). The best, grocery-allowance-en#3, scored 0.069 and
+  was short by 0.096 on 1 of 5 question terms (need). No passage searched
+  contained does, dog, vacci — that part of the question is a corpus coverage
+  gap, not a threshold setting.
 Stage 2 - answer: NOT REACHED (no-evidence)
   The answer stage was handed no passages, so it refused. It could not have
   produced text here; look upstream at retrieval.
