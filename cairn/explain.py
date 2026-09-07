@@ -11,7 +11,10 @@ separately:
 When a language restriction is in play the report shows every retrieval
 attempt, including the widened cross-language one, so the operator sees the
 filter that was applied rather than a candidate list that quietly omits most
-of the corpus.
+of the corpus. A jurisdiction restriction is shown the same way: every rung
+of the widening ladder is a labelled attempt, so "answered from the state
+page" and "the county page lost on score" are two different pictures rather
+than one candidate list with no layer on it.
 
 Because composition is extractive, an answer stage holding evidence cannot
 invent or garble a fact — so when retrieval succeeds and the answer is still
@@ -121,6 +124,30 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
             ),
         )
     if not trace.candidates and trace.scoped == 0:
+        if trace.jurisdiction is not None:
+            # Must be tested before the language branch, not after. Both
+            # branches are reached with `scoped == 0`, and the language
+            # wording names a language and a count that are true of a
+            # different filter -- so an empty *layer* was reported as "the
+            # corpus holds nothing at all in 'en'" for a corpus with plenty
+            # of English in it, which is a coverage gap that does not exist.
+            unlabelled = (
+                f" {trace.unlabelled} of them declare no jurisdiction at all."
+                if trace.unlabelled
+                else ""
+            )
+            return StageVerdict(
+                stage="retrieval",
+                ok=False,
+                code="no-passages-in-jurisdiction",
+                detail=(
+                    f"No passage in this corpus is labelled "
+                    f"{trace.jurisdiction!r}; all {trace.excluded} were excluded "
+                    f"before scoring.{unlabelled} This layer is empty, which is "
+                    f"not the same as the corpus being silent on the subject: a "
+                    f"wider layer may still answer it."
+                ),
+            )
         return StageVerdict(
             stage="retrieval",
             ok=False,
@@ -171,8 +198,9 @@ def refusal_reason(trace: RetrievalTrace) -> str:
     never hold anything drawn from the question itself. `_retrieval_verdict`
     computes a `.detail` string that quotes matched/unmatched question terms;
     this returns only `.code` — one of `"no-matching-rows"`,
-    `"no-passages-in-language"`, `"no-lexical-overlap"`, or
-    `"below-threshold"` for a trace with no accepted candidates,
+    `"no-passages-in-language"`, `"no-passages-in-jurisdiction"`,
+    `"no-lexical-overlap"`, or `"below-threshold"` for a trace with no
+    accepted candidates,
     machine-stable and question-content-free by construction, per this
     module's own docstring. Call this only when `trace.accepted` is empty; on
     an accepted trace it returns `"passages-accepted"`, which is not a
@@ -331,6 +359,31 @@ def _term_lines(trace: RetrievalTrace) -> list[str]:
     return lines
 
 
+def _jurisdiction_lines(result: AskResult) -> list[str]:
+    """The layer decision: what was asked about, and what answered.
+
+    Printed only when a jurisdiction was in force. A deployment that does not
+    use layers gets a report byte-identical to the one it got before layers
+    existed, which is the same rule the rest of this feature follows.
+    """
+    if result.jurisdiction is None:
+        return []
+    lines = [f"Layer:     {result.jurisdiction} (jurisdiction.default or --jurisdiction)"]
+    rungs = [a.jurisdiction for a in result.attempts if a.jurisdiction is not None]
+    ordered = list(dict.fromkeys(rungs))
+    if len(ordered) > 1:
+        lines.append("           widened through: " + " -> ".join(ordered))
+    if result.cross_jurisdiction:
+        answered = ", ".join(
+            sorted({j for j in result.source_jurisdictions if j is not None})
+        )
+        lines.append(
+            f"           answered from {answered}, not {result.jurisdiction} "
+            "(cross-jurisdiction fallback)"
+        )
+    return lines
+
+
 def _language_lines(result: AskResult) -> list[str]:
     detection = result.detection
     lines = [f"Language:  {detection.lang} ({detection.basis})"]
@@ -357,10 +410,16 @@ def _attempt_lines(
             if attempt.scope == "language"
             else "widened to every language"
         )
+        if attempt.jurisdiction is not None:
+            scope += f", layer {attempt.jurisdiction!r}"
         header = (
             f"Attempt {number} ({scope}): {trace.scoped} passages scored, "
             f"{trace.excluded} excluded, {len(trace.candidates)} candidates"
         )
+        if trace.unlabelled:
+            # Said out loud rather than folded into `excluded`: a passage in
+            # no layer is an authoring gap, and one in another layer is not.
+            header += f" ({trace.unlabelled} declaring no jurisdiction)"
         lines.append(header)
         lines.extend(_term_lines(trace))
         lines.extend(_candidate_rows(trace, readability_overrides))
@@ -401,6 +460,7 @@ def render(
         f"Index:     {index_summary}",
         f"Threshold: {_fmt(trace.threshold)} (retrieval.threshold)",
         *_language_lines(result),
+        *_jurisdiction_lines(result),
         "",
         *_attempt_lines(result, readability_overrides),
     ]
@@ -468,6 +528,12 @@ def trace_payload(
     """
     return {
         "threshold": trace.threshold,
+        # The layer this pass searched, and how many passages were set aside
+        # for declaring none. Null and zero respectively when the corpus is
+        # not layered, which is the shape every existing consumer already
+        # reads for a field it has not heard of.
+        "jurisdiction": trace.jurisdiction,
+        "unlabelled": trace.unlabelled,
         # So a JSON consumer can tell a skipped retrieval stage from an empty
         # one without re-deriving it from the emptiness of every other field.
         "attempted": trace.attempted,
@@ -487,6 +553,7 @@ def trace_payload(
                 "doc_id": candidate.passage.doc_id,
                 "title": candidate.passage.title,
                 "lang": candidate.passage.lang,
+                "jurisdiction": candidate.passage.jurisdiction,
                 "excerpt": excerpt(candidate.passage.text),
                 "matched_terms": list(candidate.matched),
                 # `grade` is null, never 0, where no formula is in force. A

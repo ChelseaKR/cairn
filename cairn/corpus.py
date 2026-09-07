@@ -10,6 +10,11 @@ Corpus documents are Markdown files carrying a minimal front-matter block:
     ---
     body...
 
+An optional ``jurisdiction:`` key names the area the document's text applies
+to (``us``, ``us-ca``, ``us-ca-sonoma`` -- see :mod:`cairn.jurisdiction`).
+Unlike the inert keys below it is read by retrieval, so it is validated here:
+a malformed code would silently narrow what a question can reach.
+
 The front matter is a strict ``key: value`` list between two ``---`` lines at
 the top of the file. Cairn parses it itself; there is no YAML dependency.
 Unrecognized keys are accepted and ignored by everything that answers a
@@ -31,6 +36,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from cairn.jurisdiction import JurisdictionError
+from cairn.jurisdiction import validate as validate_jurisdiction
 from cairn.language import normalize_code
 
 REQUIRED_KEYS = ("id", "title", "lang")
@@ -62,6 +69,11 @@ class Passage:
     title: str
     lang: str
     text: str
+    # The area this text applies to, from its document (see
+    # :mod:`cairn.jurisdiction`). `None` when the document does not say, and
+    # `None` is not a jurisdiction: a document that makes no claim about
+    # where it applies is never treated as applying everywhere.
+    jurisdiction: str | None = None
 
 
 @dataclass(frozen=True)
@@ -82,6 +94,13 @@ class Document:
     # finding, not a load-time error, because staleness tracking is opt-in
     # and a corpus author who never uses it should never see it fail to load.
     reviewed_at: str | None = None
+    # The area every passage of this document applies to. Optional, and
+    # absent from the demo corpus, so a corpus that says nothing about
+    # jurisdiction retrieves exactly as it always has. Validated at load
+    # time, unlike `reviewed_at`: a malformed date is a lint finding because
+    # staleness tracking never changes an answer, and a malformed
+    # jurisdiction would change which passages a question can reach.
+    jurisdiction: str | None = None
 
 
 def _parse_front_matter(raw: str, path: Path) -> tuple[dict[str, str], str]:
@@ -102,7 +121,9 @@ def _parse_front_matter(raw: str, path: Path) -> tuple[dict[str, str], str]:
     raise CorpusError(f"{path}: front-matter block never closed with ---")
 
 
-def _chunk(body: str, doc_id: str, title: str, lang: str) -> tuple[Passage, ...]:
+def _chunk(
+    body: str, doc_id: str, title: str, lang: str, jurisdiction: str | None = None
+) -> tuple[Passage, ...]:
     blocks: list[str] = []
     pending_heading: list[str] = []
     for raw_block in body.split("\n\n"):
@@ -124,6 +145,7 @@ def _chunk(body: str, doc_id: str, title: str, lang: str) -> tuple[Passage, ...]
             title=title,
             lang=lang,
             text=block,
+            jurisdiction=jurisdiction,
         )
         for ordinal, block in enumerate(blocks, start=1)
     )
@@ -153,7 +175,16 @@ def load_document(path: Path) -> Document:
     # written in another language (en-GB)". One front-matter subtag, a
     # permanently false grounding claim on every answer from that document.
     lang = normalize_code(meta["lang"])
-    passages = _chunk(body, doc_id=doc_id, title=title, lang=lang)
+    # An empty `jurisdiction:` line is the same statement as no line at all —
+    # the document does not say — and must not become the code `""`, which
+    # would match nothing and be indistinguishable from a typo.
+    jurisdiction = meta.get("jurisdiction", "").strip() or None
+    if jurisdiction is not None:
+        try:
+            validate_jurisdiction(jurisdiction, where=f"{path}: front-matter jurisdiction")
+        except JurisdictionError as exc:
+            raise CorpusError(str(exc)) from exc
+    passages = _chunk(body, doc_id=doc_id, title=title, lang=lang, jurisdiction=jurisdiction)
     if not passages:
         raise CorpusError(f"{path}: document has no body passages to index")
     return Document(
@@ -164,6 +195,7 @@ def load_document(path: Path) -> Document:
         path=str(path),
         passages=passages,
         reviewed_at=meta.get("reviewed_at") or None,
+        jurisdiction=jurisdiction,
     )
 
 

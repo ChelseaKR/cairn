@@ -8,9 +8,20 @@ computed **within the passage's language**: ``log((N_lang + 1) / (df_lang + 1))
 (:attr:`cairn.index.LanguageStats.suppressed`, which owns the floor and its
 one exemption). Ties break by passage id so ranking is fully deterministic.
 
-A retrieval may be restricted to one language. Restriction happens before
-scoring, not after, so the reported candidate list is exactly what was
-considered — an explain-mode trace that hid a filter would be a lie.
+A retrieval may be restricted to one language, to one jurisdiction, or to
+both. Restriction happens before scoring, not after, so the reported
+candidate list is exactly what was considered — an explain-mode trace that
+hid a filter would be a lie.
+
+A jurisdiction restriction is exact: a pass scoped to ``us-ca`` scores the
+passages labelled ``us-ca`` and nothing else. Widening outward through
+``us-ca-sonoma``, ``us-ca``, ``us`` is one pass per layer and belongs to
+:mod:`cairn.engine`, which has to disclose the widening it did; a retriever
+that quietly searched a whole subtree would leave nothing to disclose. A
+passage carrying no jurisdiction at all is out of scope for *every* layer,
+counted separately in the trace, and reachable only when no jurisdiction is
+asked for — a document that does not say where it applies has not said it
+applies here.
 
 Every retrieval produces a :class:`RetrievalTrace`: each candidate with its
 score and its accepted/rejected verdict at the threshold, plus an explicit
@@ -61,8 +72,16 @@ class RetrievalTrace:
     threshold: float
     candidates: tuple[Candidate, ...]  # ranked: score desc, then passage id
     lang: str | None = None  # language restriction applied, if any
+    jurisdiction: str | None = None  # jurisdiction restriction applied, if any
     scoped: int = 0  # passages actually scored
-    excluded: int = 0  # passages the restriction removed before scoring
+    excluded: int = 0  # passages any restriction removed before scoring
+    # Of `excluded`, how many were removed for carrying no jurisdiction while
+    # one was in force. Kept apart from the rest because it is a different
+    # finding for an operator: a passage in the wrong layer is a corpus that
+    # covers other places, and a passage in no layer is a corpus document
+    # nobody has said where to apply — an authoring gap, not a coverage one.
+    # Reported rather than folded in, so it cannot be read as either.
+    unlabelled: int = 0
     # Term evidence, partitioning the question's distinct terms three ways.
     query_terms: tuple[str, ...] = ()  # every distinct term the question tokenized to
     unmatched: tuple[str, ...] = ()  # terms absent from every passage searched
@@ -210,6 +229,7 @@ def retrieve(
     threshold: float,
     candidates: int,
     lang: str | None = None,
+    jurisdiction: str | None = None,
     dense_weight: float = 0.0,
 ) -> RetrievalTrace:
     """Score every passage in scope against ``query`` and gate at the threshold.
@@ -242,10 +262,16 @@ def retrieve(
     matched_anywhere: set[str] = set()
     langs_scored: set[str] = set()
     excluded = 0
+    unlabelled = 0
     scoped = 0
     for passage in index.passages:
         if lang is not None and passage.lang != lang:
             excluded += 1
+            continue
+        if jurisdiction is not None and passage.jurisdiction != jurisdiction:
+            excluded += 1
+            if passage.jurisdiction is None:
+                unlabelled += 1
             continue
         scoped += 1
         if not query_counts:
@@ -302,8 +328,10 @@ def retrieve(
         threshold=threshold,
         candidates=top,
         lang=lang,
+        jurisdiction=jurisdiction,
         scoped=scoped,
         excluded=excluded,
+        unlabelled=unlabelled,
         query_terms=tuple(sorted(query_counts)),
         unmatched=unmatched,
         ignored=ignored,

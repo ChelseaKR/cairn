@@ -22,6 +22,63 @@ becomes a version section like any other.
 
 #### Added
 
+- **Jurisdiction as a corpus dimension, with layer-aware retrieval and
+  disclosure.** A corpus assembled for a county deployment is federal pages
+  plus state pages plus that county's own, and the engine did not know it. A
+  Sonoma resident asking about office hours could be answered from a Siskiyou
+  page with nothing said; `sweep.py` labelled it `jurisdiction-mismatch`
+  afterwards, from a `layers.json` the engine never reads.
+
+  Documents may now declare `jurisdiction:` in front matter — hyphen-separated
+  lowercase segments, outermost first, the first two levels being the ISO 3166
+  spelling (`us`, `us-ca`, `us-ca-sonoma`). `[jurisdiction] default` and
+  `--jurisdiction` on `ask`, `chat` and `record` say which layer a question is
+  about; `/ask` takes a `jurisdiction` field and the served page grows a
+  selector, a plain form element with no script behind it.
+
+  Retrieval then runs one layer at a time from the most specific and stops at
+  the first that clears the threshold. An answer from a wider layer carries a
+  notice in the asker's language naming both layers, composed with the
+  cross-language notice where both apply and said first, because which place's
+  rule this is matters more than which language it is written in.
+  `cross_jurisdiction_fallback = false` refuses instead. `ask --explain` prints
+  the layer asked about, the rungs it widened through, and the layer that
+  answered.
+
+  Three decisions worth reading rather than inferring. A passage carrying no
+  jurisdiction is out of scope for *every* layer and is counted separately in
+  the trace: a document that never said where it applies has not said it
+  applies here. The structured-table count tool stands down entirely while a
+  jurisdiction is in force, because a CSV has no front matter to declare one in
+  and a count over a statewide table handed to a county resident with nothing
+  said is the same defect one path over. And a jurisdiction asked of a corpus
+  whose documents declare none is refused rather than ignored — ignoring it
+  answers from unlabelled pages and presents the result as the layer that was
+  asked for.
+
+  `record` writes the answering layer into each item's `group` so the pinned
+  harness disaggregates by it, leaving an authored `group` alone and writing
+  nothing at all for a refusal. `sweep.py` reads the engine's own decision,
+  falling back to `layers.json` only where the engine has nothing to say, and
+  derives which layers are shared instead of naming `federal` and `california`
+  by hand. `assemble_corpus.py` stamps the code from an optional
+  `[jurisdictions]` table in `pilot.toml`, which is all-or-nothing: a partly
+  labelled pilot would assemble a corpus whose unlabelled pages no county
+  question can reach.
+
+  Nothing changes for a corpus that does not use the field. The index omits
+  the key rather than serialising `null`, so such an index is byte-identical;
+  the demo corpus's `items.jsonl`, `responses.jsonl` and `sources.jsonl` are
+  unchanged by this release.
+
+  Two format bumps carry it. `INDEX_FORMAT_VERSION` is 5: a build that has
+  never heard of jurisdictions reads a layered index happily and ignores every
+  layer in it, which is the original failure reintroduced by a version skew.
+  `RECEIPT_VERSION` is 2, and receipts now record the jurisdiction asked
+  about: without it a verification re-asks under no layer at all and, where the
+  text happens to match, reports MATCH for a comparison it did not make.
+  Both cost one re-run of the command that writes them.
+
 - **The reading level of every candidate passage, in explain mode.**
   `cairn lint --readability` measures a corpus; an operator diagnosing one bad
   answer is not looking at a corpus, they are looking at the trace. Cairn

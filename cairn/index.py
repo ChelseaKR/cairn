@@ -40,9 +40,18 @@ from cairn.text import tokenize
 
 # 2 when per-language statistics replaced the corpus-wide ones; 3 when the
 # corpus fingerprint was added; 4 when structured corpus tables joined the
-# index (`cairn.tabular`). A format bump is how an older index — which cannot
+# index (`cairn.tabular`); 5 when passages began carrying a jurisdiction
+# (`cairn.jurisdiction`). A format bump is how an older index — which cannot
 # answer from tables it has never heard of — is refused rather than trusted.
-INDEX_FORMAT_VERSION = 4
+#
+# 5 is a bump even though the field is optional and omitted for a corpus that
+# does not use it, and that is the whole reason for it. A build that has never
+# heard of jurisdictions reads a layered index perfectly happily and ignores
+# every layer in it, so a Sonoma question comes back answered from a Siskiyou
+# page with nothing said — precisely the failure the field exists to stop,
+# reintroduced by a version skew rather than by a bug. Refusing the file is
+# loud and costs one `cairn index`.
+INDEX_FORMAT_VERSION = 5
 
 # A sha256 hex digest, which is the only thing `corpus.fingerprint` returns.
 FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
@@ -81,6 +90,12 @@ class IndexedPassage:
     lang: str
     text: str
     term_counts: dict[str, int]
+    # The area this passage's document applies to, or `None` when it does not
+    # say. Carried through the index rather than re-read from the corpus at
+    # query time for the same reason `lang` is: retrieval scopes on it, and a
+    # scope that depended on a second read of the corpus would be a second
+    # thing that can be stale.
+    jurisdiction: str | None = None
 
 
 # Terms appearing in more than this fraction of a language's passages carry no
@@ -273,6 +288,19 @@ class Index:
     def language_codes(self) -> tuple[str, ...]:
         return tuple(sorted(self.languages))
 
+    @property
+    def jurisdiction_codes(self) -> tuple[str, ...]:
+        """Every jurisdiction any passage declares, sorted.
+
+        Empty for a corpus that does not use the field, which is how the
+        engine tells "this corpus is not layered" from "this corpus is
+        layered and the layer you asked for happens to hold no pages". The
+        second is ordinary — a county whose own pages are not published yet
+        still answers from the state layer under a notice — and the first is
+        a request that cannot be honoured at all.
+        """
+        return tuple(sorted({p.jurisdiction for p in self.passages if p.jurisdiction}))
+
     def stats_for(self, lang: str) -> LanguageStats:
         """Statistics for a language the index actually has. The empty
         fallback that used to live here is the defect described in
@@ -345,6 +373,7 @@ def build_index(corpus_dir: str | Path) -> Index:
                     lang=p.lang,
                     text=p.text,
                     term_counts=dict(sorted(counts.items())),
+                    jurisdiction=p.jurisdiction,
                 )
             )
     languages = {
@@ -385,6 +414,11 @@ def write_index(index: Index, index_path: str | Path) -> None:
             lang: {"passage_count": stats.passage_count, "doc_freq": stats.doc_freq}
             for lang, stats in index.languages.items()
         },
+        # `jurisdiction` is written only when a passage has one. A corpus that
+        # does not use the field therefore serializes byte-for-byte as it did
+        # before the field existed, so `cairn index` stays idempotent across
+        # this change for every corpus that has not opted in — including the
+        # bundled demo, whose recorded evidence bundle is committed.
         "passages": [
             {
                 "passage_id": p.passage_id,
@@ -393,6 +427,7 @@ def write_index(index: Index, index_path: str | Path) -> None:
                 "lang": p.lang,
                 "text": p.text,
                 "term_counts": p.term_counts,
+                **({"jurisdiction": p.jurisdiction} if p.jurisdiction else {}),
             }
             for p in index.passages
         ],
@@ -439,6 +474,7 @@ def read_index(index_path: str | Path, corpus_dir: str | Path | None) -> Index:
                     lang=p["lang"],
                     text=p["text"],
                     term_counts=p["term_counts"],
+                    jurisdiction=p.get("jurisdiction"),
                 )
                 for p in payload["passages"]
             ),

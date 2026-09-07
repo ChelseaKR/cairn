@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeVar
 
+from cairn.jurisdiction import CODE as JURISDICTION_CODE
 from cairn.language import LANGUAGES
 from cairn.readability import ReadabilityError, validate_formulas
 
@@ -86,6 +87,20 @@ class Config:
     tables_enabled: bool = True
     default_lang: str = "en"
     cross_language_fallback: bool = True
+    # The area this deployment serves (`cairn.jurisdiction`). `None` — the
+    # default — means the corpus is not layered and retrieval is scoped by
+    # language alone, exactly as it was before jurisdictions existed. A
+    # county deployment sets it to its own code, and every question is then
+    # answered from the most specific layer that has an answer.
+    default_jurisdiction: str | None = None
+    # When no page in the asked-for layer clears the threshold, widen one
+    # layer at a time — county, then state, then federal — and say in the
+    # answer that the source covers a wider area than the question asked
+    # about. Set false to refuse instead. The same trade the cross-language
+    # fallback makes, over a different axis: a wider-layer answer under a
+    # notice is honest, and the same answer with no notice is the confident
+    # wrong answer this project exists to refuse.
+    cross_jurisdiction_fallback: bool = True
     contact: str = _DEMO_CONTACTS["en"]
     contact_by_language: dict[str, str] = field(
         default_factory=lambda: dict(_DEMO_CONTACTS)
@@ -169,6 +184,17 @@ class Config:
             validate_formulas(self.readability_by_language)
         except ReadabilityError as exc:
             raise ConfigError(str(exc)) from exc
+        if self.default_jurisdiction is not None and not JURISDICTION_CODE.match(
+            self.default_jurisdiction
+        ):
+            raise ConfigError(
+                f"jurisdiction.default must be lowercase alphanumeric segments "
+                f"joined by single hyphens, outermost first ('us', 'us-ca', "
+                f"'us-ca-sonoma'), got {self.default_jurisdiction!r}. Bounds are "
+                f"checked here rather than only in the loader because a "
+                f"malformed code silently narrows what every question can "
+                f"reach, and an empty one narrows it to nothing."
+            )
         if self.default_lang not in LANGUAGES:
             raise ConfigError(
                 f"language.default must be a language Cairn has system strings "
@@ -243,6 +269,22 @@ def _optional_float(section: dict[str, Any], key: str, name: str) -> float | Non
     return float(value)
 
 
+def _optional_string(section: dict[str, Any], key: str, name: str) -> str | None:
+    """A key that may be absent, where absent means "not set at all".
+
+    Not `_get` with `""` as the default: an empty string is a *value* here,
+    and one that would restrict retrieval to a jurisdiction no document can
+    ever carry. Absence stays absence, the same rule `_optional_float`
+    applies to the readability ceiling.
+    """
+    if key not in section:
+        return None
+    value = section[key]
+    if not isinstance(value, str) or isinstance(value, bool):
+        raise ConfigError(f"config key {name!r} must be a string, got {value!r}")
+    return value
+
+
 def _readability(lint: dict[str, Any]) -> dict[str, str]:
     """`[lint.readability]`, a language code to a formula name.
 
@@ -280,6 +322,7 @@ def load_config(path: str | Path | None = None) -> Config:
     tables = data.get("tables", {})
     refusal = data.get("refusal", {})
     language = data.get("language", {})
+    jurisdiction = data.get("jurisdiction", {})
     lint = data.get("lint", {})
     defaults = Config()
     contact = _get(refusal, "contact", str, defaults.contact)
@@ -298,6 +341,15 @@ def load_config(path: str | Path | None = None) -> Config:
         default_lang=_get(language, "default", str, defaults.default_lang),
         cross_language_fallback=_get(
             language, "cross_language_fallback", bool, defaults.cross_language_fallback
+        ),
+        default_jurisdiction=_optional_string(
+            jurisdiction, "default", "jurisdiction.default"
+        ),
+        cross_jurisdiction_fallback=_get(
+            jurisdiction,
+            "cross_jurisdiction_fallback",
+            bool,
+            defaults.cross_jurisdiction_fallback,
         ),
         contact=contact,
         contact_by_language=_contacts(refusal, defaults.contact_by_language),

@@ -61,8 +61,16 @@ from cairn.messages import CATALOGUE, DEFAULT_LANG
 from cairn.session import Session
 from cairn.stream import format_sse
 from cairn.ui.page import turn_markup
+from tests.layered import layered_index
 
 DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
+
+# A question the layered fixture answers only from the federal layer, asked
+# about a county — so the answer arrives from two layers out and has to say
+# so. Deliberately a question the county layer *does* hold other pages about,
+# so the notice is not standing in for "this corpus knows nothing about you".
+WIDER_LAYER = "What is the countable income limit for a household of four?"
+SONOMA = "us-ca-sonoma"
 
 # The demo corpus publishes the transit pass in English only, and the Spanish
 # grocery document carries the same amounts as the English one, so a question
@@ -150,6 +158,30 @@ def _table_crossing(index):
     return TABLE_COUNT, ask(TABLE_COUNT, index, Config(), lang="es")
 
 
+def _wider_jurisdiction(index):
+    """A county question answered from the federal layer.
+
+    Ignores the demo index it is handed and builds its own: the demo corpus
+    declares no jurisdiction at all, which is exactly what makes it the right
+    default corpus for every other scenario here and the wrong one for this.
+    """
+    return WIDER_LAYER, ask(
+        WIDER_LAYER, layered_index(), Config(), jurisdiction=SONOMA
+    )
+
+
+def _wider_jurisdiction_and_language(index):
+    """The same question in Spanish: two disclosures, one after the other.
+
+    Here because the two notices are composed into one string, and a
+    composition is a place a sentence can be dropped without any single
+    notice's own test noticing.
+    """
+    return WIDER_LAYER, ask(
+        WIDER_LAYER, layered_index(), Config(), lang="es", jurisdiction=SONOMA
+    )
+
+
 def _context_resolved(index):
     session = Session()
     session.ask(GROCERY, index, Config())
@@ -172,6 +204,14 @@ SCENARIOS = (
              _table_crossing),
     Scenario("a follow-up resolved from a prior turn", "context_notice",
              _context_resolved),
+    Scenario("an answer from a wider jurisdiction", "cross_jurisdiction_notice",
+             _wider_jurisdiction),
+    # Two notices on one answer. The key is the jurisdiction one, which is
+    # what the completeness test matches on; the assertion below that the
+    # *whole* notice reaches every surface is what holds the language half
+    # on, because the whole notice is both sentences joined.
+    Scenario("a wider jurisdiction and another language",
+             "cross_jurisdiction_notice", _wider_jurisdiction_and_language),
 )
 
 
@@ -434,6 +474,7 @@ class TestTheResultTypesCarryNoUndisclosedSignal(DisclosureHarness):
         "detection": "operator diagnostics; explain mode prints it",
         "attempts": "operator diagnostics; explain mode prints it",
         "tool": "disclosed by table_count_notice",
+        "jurisdiction": "disclosed by cross_jurisdiction_notice",
     }
     TURN_RESULT = {
         "result": "the AskResult, covered above",

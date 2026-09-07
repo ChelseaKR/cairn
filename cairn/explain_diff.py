@@ -28,8 +28,14 @@ class ComparisonSide:
     scores: dict[str, float]  # every scored candidate across every attempt
 
 
-def _side(question: str, index: Index, cfg: Config, lang: str | None) -> ComparisonSide:
-    result = ask(question, index, cfg, lang=lang)
+def _side(
+    question: str,
+    index: Index,
+    cfg: Config,
+    lang: str | None,
+    jurisdiction: str | None = None,
+) -> ComparisonSide:
+    result = ask(question, index, cfg, lang=lang, jurisdiction=jurisdiction)
     answer = result.answer
     diagnosis = diagnose(answer, max_passages=cfg.max_passages)
     scores = {
@@ -60,11 +66,17 @@ def compare(
     cfg_b: Config,
     *,
     lang: str | None = None,
+    jurisdiction: str | None = None,
 ) -> Comparison:
+    # One jurisdiction across both sides, like `lang`: this compares two
+    # configurations against the same question, and asking each side about a
+    # different place would make every difference it reports unreadable. A
+    # side whose config sets a *different* `[jurisdiction] default` still
+    # honours it, because `None` here means "whatever each config says".
     return Comparison(
         question=question,
-        a=_side(question, index_a, cfg_a, lang),
-        b=_side(question, index_b, cfg_b, lang),
+        a=_side(question, index_a, cfg_a, lang, jurisdiction),
+        b=_side(question, index_b, cfg_b, lang, jurisdiction),
     )
 
 

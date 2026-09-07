@@ -22,7 +22,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 1029 tests plus
+evidence and, separately, against the running server. 1097 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -211,6 +211,55 @@ milestone with every check green. The
 [write-up](DESIGN.md#the-cross-language-path-in-the-evidence) lists every score
 the one new item moved, including `multilingual` scoring it zero.
 
+## One corpus, several jurisdictions
+
+A county agency's corpus is federal pages plus state pages plus its own. Held
+as one flat directory, the engine cannot tell them apart, and a Sonoma
+resident asking about office hours can be answered from a Siskiyou page with
+nothing said.
+
+Documents may declare where they apply:
+
+```markdown
+---
+id: sonoma-office-hours-en
+title: Sonoma service counter hours
+lang: en
+jurisdiction: us-ca-sonoma
+---
+```
+
+Hyphen-separated lowercase segments, outermost first; the first two levels are
+the ISO 3166 spelling, so `us` and `us-ca` say what a reader already expects
+them to. Set `[jurisdiction] default` to the area a deployment serves, or pass
+`--jurisdiction` per question, and the search runs one layer at a time from the
+most specific and stops at the first that clears the threshold. Another
+county's pages are never searched.
+
+An answer from a wider layer says so, in the language the question was asked
+in:
+
+```
+No page written for us-ca-sonoma covers this question. What follows is the
+rule for us-ca, which covers a wider area, quoted below exactly as published.
+```
+
+Set `[jurisdiction] cross_jurisdiction_fallback = false` to refuse instead.
+`ask --explain` prints the layer asked about, every rung it widened through,
+and the layer that answered.
+
+Three things worth knowing before turning it on. A document that declares no
+jurisdiction is out of scope for *every* layer, because it has not said it
+applies here — so label all of a corpus or none of it. The structured-table
+count tool does not run while a jurisdiction is in force, since a CSV has no
+front matter to declare one in. And asking about a jurisdiction of a corpus
+whose documents declare none is an error rather than a no-op: ignoring it
+would answer from unlabelled pages and present the result as the layer you
+asked for.
+
+A corpus that does not use the field is unaffected in every respect,
+including the bytes of its index.
+
 ## The demo corpus is synthetic
 
 The bundled corpus under [`corpus/demo/`](corpus/demo/) is **entirely
@@ -293,7 +342,8 @@ Everything tunable lives in [`cairn.toml`](cairn.toml), which ships with every
 default written out: corpus and index locations, the relevance threshold
 (bounded [0, 1]; calibrated against the demo corpus — re-check it against
 probe questions when you swap corpora), how many passages compose an answer,
-and the human-contact line refusals point to.
+the human-contact line refusals point to, and — for a corpus layered by
+jurisdiction — the area the deployment serves and whether it may widen.
 
 ## Development
 
@@ -331,10 +381,10 @@ a separate project, pinned to an exact commit in
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
-Bundle sha256: 124f7e4a41baf7eb25c2ff1f37ec56956887984b6d9528dacc7ccccb7763f8cc
+Bundle sha256: e016df307ea9a77f480ffcd759bcb24a6a3ef7f825ef82f26620b34be8131055
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset 124f7e4a41ba, run ...
+GATE: PASS — target cairn-demo, dataset e016df307ea9, run ...
 all 14 suites passed:
   ...
   multilingual           score 0.9667  floor 0.95  PASS  n=30  ci ...  mde ...

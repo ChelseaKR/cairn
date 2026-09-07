@@ -258,6 +258,46 @@ def turn_markup(
   </li>"""
 
 
+def _jurisdiction_options(codes: tuple[str, ...], selected: str | None) -> str:
+    """One option per layer the corpus actually holds, plus the selected one.
+
+    The selected code is included even when no document carries it, because a
+    county whose own pages are not published yet is the ordinary case and
+    dropping it from the list would silently move the asker to the state
+    layer with the selector still showing where they thought they were.
+
+    The option label is the code. Cairn holds no table of place names in four
+    languages and inventing one would put an unsourced place name in the
+    interface; the code is what the operator wrote in the corpus and in the
+    config, and it is the same string on every surface.
+    """
+    options = []
+    for code in sorted(set(codes) | ({selected} if selected else set())):
+        chosen = " selected" if code == selected else ""
+        options.append(
+            f'          <option value="{escape(code)}"{chosen}>{escape(code)}</option>'
+        )
+    return "\n".join(options)
+
+
+def _jurisdiction_field(codes: tuple[str, ...], selected: str | None, lang: str) -> str:
+    """The layer selector, or nothing at all.
+
+    Rendered only for a corpus that is actually layered. A deployment with
+    one jurisdiction gets no control either: a selector whose every choice is
+    the same choice invites a person to believe they changed something.
+    """
+    if len(set(codes) | ({selected} if selected else set())) < 2:
+        return ""
+    return f"""        <div class="field">
+          <label for="jurisdiction">{escape(message("jurisdiction_label", lang))}</label>
+          <select id="jurisdiction" name="jurisdiction">
+{_jurisdiction_options(codes, selected)}
+          </select>
+        </div>
+"""
+
+
 def _language_options(lang: str) -> str:
     options = []
     for code in SELECTABLE:
@@ -311,7 +351,13 @@ def _embedded_strings(lang: str) -> str:
 
 
 def render_page(
-    lang: str, *, turns: str = "", status: str = "", followup_notice: str = ""
+    lang: str,
+    *,
+    turns: str = "",
+    status: str = "",
+    followup_notice: str = "",
+    jurisdictions: tuple[str, ...] = (),
+    jurisdiction: str | None = None,
 ) -> str:
     """The whole document. ``turns`` is pre-rendered transcript markup.
 
@@ -370,7 +416,7 @@ def render_page(
 {_language_options(lang)}
           </select>
         </div>
-        <div class="field">
+{_jurisdiction_field(jurisdictions, jurisdiction, lang)}        <div class="field">
           <label for="question">{escape(message("input_label", lang))}</label>
           <textarea id="question" name="question" rows="3"
                     aria-describedby="question-hint"></textarea>

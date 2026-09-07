@@ -28,3 +28,20 @@ contact = "the Sonoma County Human Services Department (sonomacounty.gov/health-
 [counties.siskiyou]
 name = "Siskiyou County"
 contact = "Siskiyou County Health and Human Services (siskiyoucounty.gov)"
+
+# The jurisdiction code each layer's documents are stamped with when the
+# corpus is assembled (`cairn.jurisdiction`). `us` and `us-ca` are the ISO
+# 3166 spellings for the United States and California, which is the point:
+# a reader who has never seen this file knows what they mean.
+#
+# Every layer this pilot can assemble must appear. An unlabelled layer is
+# out of scope for every jurisdiction, so a partly labelled pilot would
+# assemble a corpus whose unlabelled pages no question asked about a county
+# could reach — and it would answer less, with no error anywhere. See
+# `_jurisdictions` in assemble_corpus.py.
+[jurisdictions]
+federal = "us"
+california = "us-ca"
+san-mateo = "us-ca-san-mateo"
+sonoma = "us-ca-sonoma"
+siskiyou = "us-ca-siskiyou"

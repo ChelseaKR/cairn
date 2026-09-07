@@ -210,6 +210,8 @@ class TestConfigDigest(unittest.TestCase):
             "tables_enabled": False,
             "default_lang": "es",
             "cross_language_fallback": False,
+            "default_jurisdiction": "us-ca",
+            "cross_jurisdiction_fallback": False,
             "contact": "someone@example.gov",
             "contact_by_language": {"en": "someone@example.gov"},
             # Lint-only keys. They cannot change an answer, so they could

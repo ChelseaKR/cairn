@@ -56,8 +56,11 @@ evidence supports:
 - `wrong-passage`: answered from a non-answering passage in the same layer
   as the answering one — a ranking loss, whatever the threshold;
 - `jurisdiction-mismatch`: as above, but the composed passage is from a
-  different layer than the answering one (needs `layers.json`, which
-  `assemble_corpus.py` writes);
+  different layer than the answering one. Read from the engine's own
+  decision — every passage now carries its jurisdiction through the index —
+  and from `layers.json` only for a corpus assembled before that, so the
+  label says what the engine did rather than what a side file implies it
+  did;
 - `wrong-county`: both layers are county layers;
 - `unclassified`: everything else.
 """
@@ -75,6 +78,7 @@ from cairn.answer import citation_marker
 from cairn.config import ConfigError, load_config
 from cairn.engine import ask
 from cairn.index import IndexError_, read_index
+from cairn.jurisdiction import covers
 from cairn.record import AUTHORED_FIELDS, RecordError, load_questions
 
 RECORDER_FIELDS = frozenset(AUTHORED_FIELDS) | {"id"}
@@ -97,6 +101,18 @@ class Scored:
 
 def normalise(passage_id: str) -> str:
     return citation_marker(passage_id)
+
+
+def engine_layers(index) -> dict[str, str]:
+    """`{doc_id: jurisdiction}` for every labelled passage in the index.
+
+    The engine's own answer to the question `layers.json` was invented to
+    answer, and it is a better one: `layers.json` records which *directory* a
+    file was copied from, while this records what the document itself claims
+    about where it applies. The two agree for a corpus `assemble_corpus.py`
+    built, and only this one exists for a corpus that was not assembled.
+    """
+    return {p.doc_id: p.jurisdiction for p in index.passages if p.jurisdiction}
 
 
 def score_questions(questions: list[dict], index, cfg) -> list[Scored]:
@@ -215,10 +231,39 @@ def classify(
     answer_layers = {layers.get(pid.split(".")[0]) for pid in in_candidates}
     if composed_layers & answer_layers:
         return "wrong-passage"
-    shared = {"federal", "california"}
+    shared = shared_layers(layers)
     if composed_layers - shared and answer_layers - shared:
         return "wrong-county"
     return "jurisdiction-mismatch"
+
+
+def shared_layers(layers: dict[str, str]) -> set[str]:
+    """The layers that are *not* a single county's — the ones every county's
+    corpus holds a copy of.
+
+    Two sources, because there are two kinds of label in circulation. A
+    corpus assembled by `assemble_corpus.py` before documents carried their
+    own jurisdiction is labelled with layer *directory* names, of which
+    `federal` and `california` are the pilot's shared pair; those are named
+    here because nothing about the string "california" says it is wider than
+    the string "sonoma".
+
+    A jurisdiction code does say so, so for those it is derived: a layer is
+    shared when some other observed layer sits inside it. `us` and `us-ca`
+    each contain `us-ca-sonoma` and are shared; `us-ca-sonoma` contains no
+    other observed layer and is a county. Deriving it means a pilot in a
+    second state does not have to remember to add a name here — which is
+    exactly the kind of hand-kept list this repository keeps replacing with
+    the thing it was standing in for.
+    """
+    values = {value for value in layers.values() if value}
+    legacy = {"federal", "california"} & values
+    derived = {
+        value
+        for value in values
+        if any(other != value and covers(value, other) for other in values)
+    }
+    return legacy | derived
 
 
 def load_layers(corpus_dir: Path) -> dict[str, str]:
@@ -319,13 +364,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     max_passages = args.max_passages or cfg.max_passages
     scored = score_questions(questions, index, cfg)
-    layers = load_layers(Path(cfg.corpus_path))
+    # The engine's decision first, the side file only where the engine has
+    # nothing to say. A corpus whose documents declare their own jurisdiction
+    # no longer needs `layers.json` for this at all, and where both exist the
+    # document's own claim is the one the engine actually retrieved on — so
+    # reading the file over it would label a failure by a provenance the
+    # answer did not use.
+    layers = {**load_layers(Path(cfg.corpus_path)), **engine_layers(index)}
 
     answerable = sum(1 for s in scored if s.behavior == "answer")
     print(
         f"{len(scored)} questions ({answerable} answer, {len(scored) - answerable} refuse), "
         f"{sum(1 for s in scored if s.cross_language)} swept over corpus-scope candidates, "
-        f"max_passages {max_passages}, layers {'known' if layers else 'unknown'}"
+        f"max_passages {max_passages}, layers {'known' if layers else 'unknown'} "
+        f"({len(engine_layers(index))} from the index, "
+        f"{len(load_layers(Path(cfg.corpus_path)))} from {LAYERS_FILE})"
     )
     print()
     grid = thresholds_range(args.start, args.stop, args.step)

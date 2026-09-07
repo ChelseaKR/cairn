@@ -51,7 +51,14 @@ __all__ = [
     "verify_receipt",
 ]
 
-RECEIPT_VERSION = 1
+# 2 when the jurisdiction a question was asked about joined the document.
+# A version bump rather than an optional field read with `.get`, because a
+# build that has never heard of jurisdictions would recompute a receipt
+# written for one county against no county at all — and where the two happen
+# to give the same text, report MATCH for an answer produced under a
+# different scope. A receipt that can say MATCH about a comparison it did not
+# make is worse than one this build declines to read.
+RECEIPT_VERSION = 2
 
 # `Config` fields that say *where* files are, not *what the system does*.
 #
@@ -139,6 +146,10 @@ class Receipt:
     config_digest: str
     question: str
     lang: str
+    # The jurisdiction the question was asked about, or `None` where the
+    # deployment is not layered. Part of what was asked, exactly like `lang`,
+    # and therefore part of what a verification has to re-ask.
+    jurisdiction: str | None
     kind: str  # "grounded" | "refusal"
     answer_sha256: str
     citations: tuple[Citation, ...]
@@ -165,6 +176,7 @@ class Receipt:
             "citations": [c.to_payload() for c in self.citations],
             "config_digest": self.config_digest,
             "corpus_fingerprint": self.corpus_fingerprint,
+            "jurisdiction": self.jurisdiction,
             "kind": self.kind,
             "lang": self.lang,
             "question": self.question,
@@ -194,6 +206,7 @@ class Receipt:
                 f"version {RECEIPT_VERSION} only"
             )
         values = _required_strings(payload)
+        jurisdiction = _jurisdiction_of(payload)
         citations = _citations_of(payload)
         reason = _refusal_reason_of(payload)
         _check_kind_consistency(values["kind"], citations, reason)
@@ -204,6 +217,7 @@ class Receipt:
             config_digest=values["config_digest"],
             question=values["question"],
             lang=values["lang"],
+            jurisdiction=jurisdiction,
             kind=values["kind"],
             answer_sha256=values["answer_sha256"],
             citations=citations,
@@ -235,6 +249,23 @@ def _required_strings(payload: dict[str, Any]) -> dict[str, str]:
     if values["kind"] not in {"grounded", "refusal"}:
         raise ReceiptError(f"receipt has unknown kind {values['kind']!r}")
     return values
+
+
+def _jurisdiction_of(payload: dict[str, Any]) -> str | None:
+    """The layer asked about: text, or absent.
+
+    Absent and `null` both mean "no layer was in force", which is a real
+    state and not a missing field — so this is not in `_REQUIRED_STRINGS`.
+    An empty string is refused rather than folded into that: it is a value
+    nothing can produce, so a document carrying one has been edited or
+    written by something that did not understand the field.
+    """
+    value = payload.get("jurisdiction")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ReceiptError("receipt jurisdiction is neither a code nor absent")
+    return value
 
 
 def _citations_of(payload: dict[str, Any]) -> tuple[Citation, ...]:
@@ -298,6 +329,7 @@ def receipt_for(
     question: str,
     corpus_fingerprint: str,
     cfg: Config,
+    jurisdiction: str | None = None,
 ) -> Receipt:
     """Build the receipt for one answer or refusal."""
     citations = tuple(
@@ -311,6 +343,7 @@ def receipt_for(
         config_digest=config_digest(cfg),
         question=question,
         lang=answer.lang,
+        jurisdiction=jurisdiction,
         kind=answer.kind,
         answer_sha256=_sha256(answer.text),
         citations=citations,
@@ -385,6 +418,11 @@ def verify_receipt(
         question=receipt.question,
         corpus_fingerprint=corpus_fingerprint,
         cfg=cfg,
+        # The receipt's own jurisdiction, not this deployment's default. The
+        # caller is required to have recomputed under it (see `recompute`);
+        # taking it from the config here would let the two disagree silently,
+        # and the disagreement is exactly what the field exists to catch.
+        jurisdiction=receipt.jurisdiction,
     )
     if current.digest == receipt.digest:
         return Verification(

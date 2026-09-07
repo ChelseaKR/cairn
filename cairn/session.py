@@ -131,7 +131,13 @@ class Session:
     turns: list[Turn] = field(default_factory=list)
 
     def ask(
-        self, question: str, index: Index, cfg: Config, *, lang: str | None = None
+        self,
+        question: str,
+        index: Index,
+        cfg: Config,
+        *,
+        lang: str | None = None,
+        jurisdiction: str | None = None,
     ) -> TurnResult:
         languages = available_languages(index)
         if lang is not None and lang not in languages:
@@ -139,11 +145,17 @@ class Session:
                 f"unsupported language {lang!r}; this corpus and interface offer: "
                 + ", ".join(languages)
             )
-        result = ask(question, index, cfg, lang=lang)
+        result = ask(question, index, cfg, lang=lang, jurisdiction=jurisdiction)
         if result.answer.kind == "grounded" or not self.turns:
             return self._record(question, result)
 
-        retry = self._retry_with_context(question, result, index, cfg, lang=lang)
+        # The retry is scoped to the same jurisdiction as the question it is
+        # retrying. A conversation does not move the person to another county
+        # between turns, and a retry that quietly widened the layer would put
+        # a source from somewhere else under a follow-up nobody re-scoped.
+        retry = self._retry_with_context(
+            question, result, index, cfg, lang=lang, jurisdiction=jurisdiction
+        )
         if retry is None:
             return self._record(question, result)
         resolved, source_turns, terms = retry
@@ -175,6 +187,7 @@ class Session:
         cfg: Config,
         *,
         lang: str | None,
+        jurisdiction: str | None = None,
     ) -> tuple[AskResult, tuple[int, ...], tuple[str, ...]] | None:
         """The single bounded retry, or ``None`` when there is nothing to try.
 
@@ -214,7 +227,7 @@ class Session:
         if not terms:
             return None
         rewritten = question + " " + " ".join(terms)
-        retry = ask(rewritten, index, cfg, lang=lang)
+        retry = ask(rewritten, index, cfg, lang=lang, jurisdiction=jurisdiction)
         if retry.answer.kind != "grounded":
             return None
 
