@@ -1,0 +1,40 @@
+# What the pinned auditor grades {{NAME}} on.
+#
+# NO FLOOR IS SET HERE, and that is deliberate. Every suite the harness ships
+# has a default floor, chosen by the people who wrote the suite and who know
+# what its metric means. A suite with no `floor` key takes that default, which
+# is the right place for a new deployment to start.
+#
+# You are entitled to disagree with any of them. What you are not entitled to
+# do is disagree silently: a floor moved without a reason is indistinguishable
+# from a floor moved to make a red gate green. So a suite whose `floor`
+# differs from the harness's own default must also carry a `floor_reason`,
+# which `audit_guard.py` enforces against the defaults it reads out of the
+# pinned harness rather than out of a number typed in this file.
+#
+# Cairn's own target file departs from six defaults and explains all six at
+# length. Read it before you move your first one.
+#
+# The suite list below is the one the harness pinned in `plumbline.pin`
+# declares. After a pin bump, check it: a suite the harness has added and this
+# file does not name is a suite nobody is being graded on.
+
+[target]
+name = "{{NAME}}"
+
+[dataset]
+# Relative to this file.
+path = "bundle"
+
+[judge]
+kind = "lexical"
+
+# The lexical judge tells Latin-script languages apart by function words and
+# ships profiles for a fixed set of languages. If your corpus holds a language
+# it has no profile for, the harness refuses to score those items rather than
+# guessing -- which is the harness working. Declare a profile here when it
+# asks, and read Cairn's own `[judge.languages.fr]` block first: every word in
+# such a list must be absent from every other profile in force, or declaring
+# it retunes how an existing response is classified.
+
+{{SUITES}}

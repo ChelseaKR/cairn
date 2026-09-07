@@ -279,6 +279,34 @@ class Config:
             )
         return self.threshold, "retrieval.threshold"
 
+    def unserveable_contacts(self) -> tuple[str, ...]:
+        """Languages whose refusal points nowhere real, worst first.
+
+        A refusal is the whole of what Cairn says to somebody it cannot help,
+        and its contact line is the only actionable thing in it. Two ways it
+        can point nowhere: blank, which `cairn init` writes on purpose so a new
+        deployment has to state one, and Cairn's own fictional demo contact,
+        which is a phone number that does not exist attached to a county that
+        does not exist.
+
+        Returns the language codes, so a caller can name them. `""` stands for
+        the single `contact` key, which is what a one-language deployment
+        sets and the fallback every unlisted language uses.
+
+        A predicate on the configuration rather than a check inside the
+        server: `Config` is what an importer gets, and this is the question
+        they need answered before they serve anyone.
+        """
+        demo = set(_DEMO_CONTACTS.values())
+        bad = []
+        if not self.contact.strip() or self.contact in demo:
+            bad.append("")
+        for code in sorted(self.contact_by_language):
+            value = self.contact_by_language[code]
+            if not value.strip() or value in demo:
+                bad.append(code)
+        return tuple(bad)
+
     def contact_for(self, lang: str) -> str:
         """The human channel a refusal in ``lang`` should point to. Falls back
         to the single ``contact`` string, which is what a deployment that

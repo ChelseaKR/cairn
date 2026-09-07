@@ -70,6 +70,9 @@ from cairn.record_diff import render as render_record_diff
 from cairn.refusal_stats import RefusalStatsError
 from cairn.refusal_stats import render as render_refusal_stats
 from cairn.refusal_stats import report as refusal_report
+from cairn.scaffold import ScaffoldError
+from cairn.scaffold import init as init_deployment
+from cairn.scaffold import render_report as render_init
 from cairn.server import serve
 from cairn.session import Session
 from cairn.stream import events, format_sse
@@ -98,6 +101,19 @@ def _cmd_index(args: argparse.Namespace, cfg: Config) -> int:
     # changed line here after an edit is the whole point of the fingerprint
     # being visible rather than only internal.
     print(f"Corpus fingerprint: {report.corpus_fingerprint[:12]} ({cfg.corpus_path})")
+    return 0
+
+
+def _cmd_init(args: argparse.Namespace, cfg: Config) -> int:
+    """Scaffold a deployment. Deliberately ignores `cfg`.
+
+    Every other verb runs *against* a configuration; this one writes the
+    first. Reading the ambient `cairn.toml` here would make a scaffold inherit
+    whatever happened to be in the directory it was run from — including, from
+    a checkout of this repository, the fictional demo contact, which is the
+    one value a new deployment must not start with.
+    """
+    print(render_init(init_deployment(args.directory, args.corpus, name=args.name)))
     return 0
 
 
@@ -332,7 +348,36 @@ def _cmd_verify_receipt(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def _cmd_serve(args: argparse.Namespace, cfg: Config) -> int:
+    # The index first, as in every other verb that can answer, and this order
+    # is load-bearing rather than incidental. A deployment can have both
+    # problems at once, and an operator is told about one of them first: a
+    # stale index means Cairn quotes text its source no longer says, which is
+    # the failure this whole project exists to prevent, while a blank contact
+    # means a refusal is a dead end. Both matter; the wrong answer matters
+    # first. `tests/test_freshness.py` holds every answering verb to reporting
+    # the stale index, and it caught this being the other way round.
     index = read_index(cfg.index_path, cfg.corpus_path)
+    # Then the contact, before anything binds a port. A refusal is the whole
+    # of what Cairn says to somebody it cannot help, and its contact line is
+    # the only actionable thing in it: a blank one is a dead end, and Cairn's
+    # fictional demo contact is a phone number that does not exist attached to
+    # a county that does not exist, said with the same confidence as a real
+    # one.
+    #
+    # Only this verb, and only the command line. `build_handler` and `serve`
+    # are unchanged for anyone importing them -- the check belongs where a
+    # person is about to put this in front of the public, not in a library
+    # function a test harness calls a hundred times.
+    unserveable = cfg.unserveable_contacts()
+    if unserveable and not args.allow_demo_contact:
+        named = ", ".join(code or "the default `contact`" for code in unserveable)
+        raise ConfigError(
+            f"[refusal] contact is blank or still Cairn's fictional demo "
+            f"contact for: {named}. A refusal is the whole of what this system "
+            f"says to somebody it cannot help, and that line is the only "
+            f"actionable thing in it. Set a real one in cairn.toml, or pass "
+            f"--allow-demo-contact to serve the demonstration knowingly."
+        )
     # The flag wins if given; CAIRN_AUTH_TOKEN is there so a real deployment
     # never has to write a secret into a command line another process on the
     # same machine can read from /proc. Neither set: auth stays off, which is
@@ -509,6 +554,28 @@ def build_parser() -> argparse.ArgumentParser:
         "config", help="show the effective configuration against built-in defaults"
     )
     p_config.set_defaults(func=_cmd_config)
+
+    p_init = sub.add_parser(
+        "init",
+        help="scaffold a deployment directory with both audit interlocks",
+    )
+    p_init.add_argument("directory", help="the directory to scaffold into")
+    p_init.add_argument(
+        "--corpus",
+        required=True,
+        metavar="PATH",
+        help=(
+            "the corpus this deployment answers from. Read to draft one "
+            "question item per document; nothing in it is copied or changed."
+        ),
+    )
+    p_init.add_argument(
+        "--name",
+        default=None,
+        metavar="NAME",
+        help="the deployment's name in the audit target (default: the directory's)",
+    )
+    p_init.set_defaults(func=_cmd_init)
 
     p_diff = sub.add_parser(
         "diff",
@@ -706,6 +773,15 @@ def build_parser() -> argparse.ArgumentParser:
             "and cairn/followup.py."
         ),
     )
+    p_serve.add_argument(
+        "--allow-demo-contact",
+        action="store_true",
+        help=(
+            "serve even though the refusal contact is blank or is Cairn's own "
+            "fictional demo contact. For the bundled demonstration; a real "
+            "deployment sets [refusal] contact instead."
+        ),
+    )
     p_serve.set_defaults(func=_cmd_serve)
 
     p_chat = sub.add_parser(
@@ -806,6 +882,7 @@ def main(argv: list[str] | None = None) -> int:
         CalibrationError,
         RefusalStatsError,
         FollowupStoreError,
+        ScaffoldError,
     ) as exc:
         print(f"cairn: error: {exc}", file=sys.stderr)
         return 1

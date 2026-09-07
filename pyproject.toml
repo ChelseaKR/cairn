@@ -46,10 +46,15 @@ release = [
 cairn = "cairn.cli:main"
 
 [tool.setuptools]
-packages = ["cairn", "cairn.ui"]
+packages = ["cairn", "cairn.templates", "cairn.ui"]
 
 [tool.setuptools.package-data]
 "cairn.ui" = ["static/*.css", "static/*.js"]
+# `cairn init` writes these into a new deployment. They ship with the wheel
+# because a deployment scaffolded from PyPI has the package and no repository
+# to copy anything out of; tests/test_scaffold.py holds the two gate scripts
+# byte-equal to the ones at this repository's root so the copies cannot drift.
+"cairn.templates" = ["*.toml", "*.md", "*.json", "*.sh", "*.yml"]
 
 [tool.ruff]
 line-length = 96

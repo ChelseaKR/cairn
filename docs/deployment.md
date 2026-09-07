@@ -12,6 +12,17 @@ more importantly, what it still doesn't — the parts that have to come from
 outside this process, because they are not things a `pip install`-free
 stdlib tool should try to own.
 
+## One thing it refuses before it starts
+
+`cairn serve` will not start when `[refusal] contact` is blank, or when it is
+still Cairn's own fictional demo contact. A refusal is the whole of what this
+system says to somebody it cannot help, and that line is the only actionable
+thing in it; a demo phone number attached to an invented county, said with the
+same confidence as a real one, is worse than no server at all.
+
+`cairn init` writes that key blank on purpose. To run the bundled
+demonstration knowingly, pass `--allow-demo-contact`.
+
 ## What `cairn serve` adds, opt-in
 
 Two flags, both off unless you set them:

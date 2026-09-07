@@ -1,0 +1,43 @@
+# Cairn configuration for {{NAME}}, written by `cairn init`.
+#
+# Every key not written here takes its built-in default; see the shipped
+# cairn.toml in the Cairn repository for the full surface with each default
+# written out and explained.
+
+[corpus]
+path = "{{CORPUS_PATH}}"
+
+[index]
+path = ".cairn/index.json"
+
+[retrieval]
+# The relevance gate on bounded [0, 1] cosine scores. This is Cairn's shipped
+# default, calibrated against Cairn's own synthetic demo corpus -- which is
+# not your corpus. Re-measure it before you serve anyone:
+#
+#   cairn calibrate --probes probes.toml
+#   cairn calibrate --probes probes.toml --emit-config
+#
+# The second prints per-language and per-layer tables measured against your
+# corpus. It applies nothing; you paste what you agree with.
+threshold = 0.165
+
+[refusal]
+# THE ONE LINE THAT IS NOT OPTIONAL.
+#
+# This is what a refusal points a person at when Cairn has no source for their
+# question, and it is the whole of Cairn's answer to somebody it cannot help.
+# It is blank on purpose: there is no sensible default for "who a resident of
+# your county should call", and a placeholder here would be a wrong phone
+# number said with confidence.
+#
+# `cairn serve` refuses to start until this is set, and refuses Cairn's own
+# fictional demo contact unless `--allow-demo-contact` is passed.
+contact = ""
+
+# Optional per-language overrides. Without them every language gets the single
+# `contact` line above, which is right for a single-language deployment and
+# wrong the moment you serve more than one.
+# [refusal.contact_by_language]
+# en = ""
+# es = ""

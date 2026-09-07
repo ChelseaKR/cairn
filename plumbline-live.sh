@@ -144,7 +144,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-"$PLUMBLINE_PYTHON" -m cairn serve --host "$LIVE_HOST" --port "$LIVE_PORT" --quiet &
+# `--allow-demo-contact` because this is the demonstration, knowingly: the
+# bundled cairn.toml carries Cairn's own fictional contact, and `cairn serve`
+# refuses to start on it without being told. That refusal is for an agency
+# about to put this in front of the public; this script is the audit of the
+# demo and has to be able to stand it up.
+"$PLUMBLINE_PYTHON" -m cairn serve --host "$LIVE_HOST" --port "$LIVE_PORT" --quiet \
+    --allow-demo-contact &
 server_pid=$!
 
 # Wait for it, bounded. A server that never came up is exit 4, not a low score.
