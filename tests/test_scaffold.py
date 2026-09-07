@@ -74,6 +74,53 @@ class TestTheShippedCopiesAreTheRepositoryFiles(unittest.TestCase):
                     (ROOT / original).read_text(encoding="utf-8"),
                 )
 
+    def test_the_packaging_patterns_cover_every_template(self):
+        """A template that does not ship is a verb that crashes from a wheel.
+
+        `.pin` was missing from `[tool.setuptools.package-data]` when this
+        directory first landed and nothing caught it: every other test in this
+        file reads the templates out of the source tree, where they are simply
+        files on disk, so `cairn init` worked everywhere except from an
+        installed wheel — which is the only place the verb exists for.
+
+        Stated against the patterns rather than against a built wheel, so it
+        costs nothing and fails for the next template with a new extension
+        rather than for this one.
+        """
+        import fnmatch
+
+        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        patterns = pyproject["tool"]["setuptools"]["package-data"]["cairn.templates"]
+        packages = pyproject["tool"]["setuptools"]["packages"]
+        self.assertIn("cairn.templates", packages)
+        directory = ROOT / "cairn" / "templates"
+        shipped = [p.name for p in directory.iterdir() if p.is_file()]
+        self.assertTrue(shipped)
+        for name in shipped:
+            if name == "__init__.py":
+                continue  # a module, carried by `packages`, not by package-data
+            with self.subTest(template=name):
+                self.assertTrue(
+                    any(fnmatch.fnmatch(name, pattern) for pattern in patterns),
+                    f"{name} is in cairn/templates/ and no package-data pattern "
+                    f"matches it, so it will not be in the wheel",
+                )
+
+    def test_every_file_init_writes_is_readable_as_packaged_data(self):
+        """The other direction: a name `init` asks for that is not there.
+
+        `template()` goes through `importlib.resources`, which is how the
+        installed package reads them, so a missing file raises here exactly as
+        it would for an operator running the verb.
+        """
+        for name in (
+            "cairn.toml", "README.md", "target.toml", "baseline.json",
+            "audit.yml", "plumbline-gate.sh", "gauntlet-gate.sh",
+            "plumbline.pin", "gauntlet.pin",
+        ):
+            with self.subTest(template=name):
+                self.assertTrue(template(name).strip(), name)
+
     def test_the_suite_list_is_the_one_the_target_file_declares(self):
         """`SUITES` is a hand-held list because there is no repository at run
         time. This is the other half: a suite the harness has added and the

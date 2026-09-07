@@ -54,7 +54,15 @@ packages = ["cairn", "cairn.templates", "cairn.ui"]
 # because a deployment scaffolded from PyPI has the package and no repository
 # to copy anything out of; tests/test_scaffold.py holds the two gate scripts
 # byte-equal to the ones at this repository's root so the copies cannot drift.
-"cairn.templates" = ["*.toml", "*.md", "*.json", "*.sh", "*.yml"]
+#
+# `*.pin` is on this list because it was missing from it, and nothing caught
+# that. Every test reads the templates out of the source tree, where they are
+# simply files on disk, so `cairn init` worked everywhere except from an
+# installed wheel -- which is the only place the verb exists for. Found by
+# building a wheel and reading its manifest. `test_the_packaging_patterns_
+# cover_every_template` now fails for the next template with a new extension
+# rather than for this one.
+"cairn.templates" = ["*.toml", "*.md", "*.json", "*.sh", "*.yml", "*.pin"]
 
 [tool.ruff]
 line-length = 96
