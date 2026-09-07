@@ -37,6 +37,13 @@ SONOMA = "us-ca-sonoma"
 HOURS = "What are the service counter hours?"
 FEDERAL_ONLY = "What is the countable income limit for a household of four?"
 TRANSPORT = "transport reimbursement mileage rate"
+# Worded out of the Siskiyou page's own opening hours, so that page wins the
+# whole corpus outright. Asked as Sonoma it must still be Sonoma's page that
+# answers — which is the entire feature in one assertion, and an assertion
+# that can fail, which `HOURS` alone turned out not to be: with scoping
+# removed, `HOURS` is won by the *state* page, so "no Siskiyou id was cited"
+# stayed true while the answer was wrong anyway.
+SIBLING_WINS = "counter open ten in the morning until three"
 
 
 class LayeredHarness(unittest.TestCase):
@@ -293,6 +300,28 @@ class TestTheWrongCountyNeverAnswers(LayeredHarness):
         cited = [s.source_id for s in result.answer.sources]
         self.assertTrue(cited)
         self.assertNotIn("siskiyou", " ".join(cited))
+
+    def test_the_sibling_wins_the_open_corpus_and_is_still_not_quoted(self):
+        """The one that can actually fail, and the reason it is here.
+
+        A negative control on the test above showed it staying green with
+        jurisdiction scoping removed entirely: unscoped, `HOURS` is won by the
+        *state* page, so "no Siskiyou id was cited" was true of a wrong answer.
+        A fixture sitting where the failure is impossible reads as a verified
+        guard, so this one puts the failure back within reach — the first
+        assertion is the control, checked in the test rather than remembered
+        from a run.
+        """
+        open_corpus = retrieve(SIBLING_WINS, self.index, threshold=0.165, candidates=8)
+        self.assertEqual(
+            open_corpus.candidates[0].passage.jurisdiction,
+            "us-ca-siskiyou",
+            "this fixture only tests anything while the sibling county's page "
+            "outranks every other layer's on this question",
+        )
+        result = ask(SIBLING_WINS, self.index, Config(), jurisdiction=SONOMA)
+        self.assertEqual(result.source_jurisdictions, (SONOMA,))
+        self.assertIsNone(result.answer.notice)
 
     def test_the_sibling_county_holds_an_answer_that_would_have_been_wrong(self):
         """The negative half. Without the guard there is something for the
