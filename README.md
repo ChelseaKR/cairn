@@ -22,7 +22,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 1098 tests plus
+evidence and, separately, against the running server. 1142 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -114,8 +114,9 @@ Attempt 1 (restricted to 'en'): 16 passages scored, 28 excluded, 4 candidates
           matched 1/5: need
    ...
 Stage 1 - retrieval: FAILED (below-threshold)
-  4 candidates were scored and none cleared the 0.165 threshold. The best,
-  grocery-allowance-en#3, scored 0.069 and was short by 0.096 on 1 of 5
+  4 candidates were scored and none cleared the 0.165 threshold
+  (retrieval.threshold). The best, grocery-allowance-en#3, scored 0.069 and
+  was short by 0.096 on 1 of 5
   question terms (need). No passage searched contained does, dog, vacci —
   that part of the question is a corpus coverage gap, not a threshold setting.
 Stage 2 - answer: NOT REACHED (no-evidence)
@@ -210,6 +211,52 @@ above — which is how `Answer.cited_text` came to drop the notice for a whole
 milestone with every check green. The
 [write-up](DESIGN.md#the-cross-language-path-in-the-evidence) lists every score
 the one new item moved, including `multilingual` scoring it zero.
+
+## One threshold is one threshold
+
+`retrieval.threshold` was calibrated once, against the demo corpus, over all
+its languages at once. Score bands are not the same in every language —
+Arabic's measured band on that corpus is narrower — and a federal page's
+vocabulary overlaps a question differently from a county page's. One number
+either over-refuses in the narrow band or over-answers in the wide one.
+
+Two optional override tables, both empty by default:
+
+```toml
+[retrieval.threshold_by_language]
+ar = 0.21
+
+[retrieval.threshold_by_jurisdiction]
+"us-ca-sonoma" = 0.18
+```
+
+Resolution is jurisdiction, then language, then `retrieval.threshold`. Lookup
+is by exact code: a layer with no entry falls through to the language table
+rather than to its parent layer, because an entry for `us` inherited downward
+would just be a second way to write the default. Each value is held to the
+same `(0, 1]` bound as `threshold`, checked when the `Config` is built rather
+than only when the file is read.
+
+Measure them rather than guessing:
+
+```console
+$ python3 -m cairn calibrate --probes probes.toml
+...
+By language:
+  ar               n=2   band 0.000..0.690  gap 0.690  midpoint 0.345  [gated by retrieval.threshold]
+  en               n=4   band 0.087..0.518  gap 0.431  midpoint 0.302  [gated by retrieval.threshold]
+  es               n=2   band 0.000..0.457  gap 0.457  midpoint 0.228  [gated by retrieval.threshold]
+```
+
+`--emit-config` prints those tables as TOML for you to read, edit and paste. It
+writes nothing and applies nothing: adopting a threshold stays the operator's
+decision, exactly as it is for the single one. A slice that has no separating
+threshold is emitted as a comment naming the two scores rather than left out,
+because a table silently missing one of your languages is worse than a table
+that says why.
+
+`ask --explain` prints the threshold in force and the key it came from, so a
+surprising verdict names the line you would have to edit.
 
 ## One corpus, several jurisdictions
 

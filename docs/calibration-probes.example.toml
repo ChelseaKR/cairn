@@ -9,6 +9,16 @@
 #              should do with it
 #   lang       optional; omit to let Cairn detect the language the same way
 #              `cairn ask` does
+#   jurisdiction  optional; the layer to ask this probe about, for a corpus
+#              layered by jurisdiction (`us-ca-sonoma`). Omit for an
+#              unlayered corpus, or to use `[jurisdiction] default`.
+#
+# Slices are grouped on what actually happened, not on what is written here:
+# a probe with no `lang` is grouped under the language it was answered in,
+# and one with no `jurisdiction` under the layer it was asked about after the
+# configured default was applied. Four English probes that never say so are
+# still an English band, and `--emit-config` would otherwise recommend a
+# table with no `en` in it.
 #
 # A probe set this small (eight items) is illustrative, not sufficient — see
 # `tests/probes.py` for the shape a real calibration measurement takes: 15

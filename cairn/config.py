@@ -52,6 +52,30 @@ class ConfigError(ValueError):
     """The configuration file is unreadable or a value has the wrong shape."""
 
 
+def _check_threshold_table(name: str, table: dict[str, float]) -> None:
+    """Every entry in an override table is a threshold, held to a threshold's
+    bound.
+
+    A function rather than two loops inside ``__post_init__`` because that
+    method is what the complexity gate is measuring, and because the rule
+    itself — "an override is held to the bound of the key it overrides" — is
+    one rule stated once, not one per table.
+    """
+    for key, value in table.items():
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ConfigError(f"retrieval.{name}.{key} must be a number, got {value!r}")
+        if not 0.0 < value <= 1.0:
+            raise ConfigError(
+                f"retrieval.{name}.{key} must be in (0, 1], got {value!r}: an "
+                f"override is a threshold, and it is held to the bound "
+                f"`retrieval.threshold` is held to. A zero override accepts every "
+                f"passage that shares one scored term, which is the same as having "
+                f"no threshold for that slice at all — and the base key already "
+                f"refuses it, so allowing it here would make a table a way around "
+                f"a bound."
+            )
+
+
 @dataclass(frozen=True)
 class Config:
     corpus_path: str = "corpus/demo"
@@ -68,6 +92,21 @@ class Config:
     # it catches the documented GoPass near-tie (0.008 apart) rather than
     # only exact ties.
     margin_warn: float = 0.02
+    # Per-language and per-layer overrides of `threshold`, empty by default.
+    #
+    # One number for four languages either over-refuses in the narrow band or
+    # over-answers in the wide one: the measured Arabic band on the demo
+    # corpus is narrower than the English one, and a federal page's vocabulary
+    # overlaps a question differently from a county page's. `cairn calibrate`
+    # measures each slice separately and `--emit-config` writes these tables
+    # out; adopting them is the operator's decision, as it is for the single
+    # threshold.
+    #
+    # Bounded exactly as `threshold` is (see `__post_init__`). An override is
+    # held to the bound of the key it overrides, or a table becomes a way to
+    # write a value the base key refuses.
+    threshold_by_language: dict[str, float] = field(default_factory=dict)
+    threshold_by_jurisdiction: dict[str, float] = field(default_factory=dict)
     # Weight of the dense (hashed character-n-gram) channel in the fused
     # score. See cairn.toml's own comment on `retrieval.dense_weight` for
     # what it trades off; 0 is lexical-only and byte-identical to the
@@ -147,6 +186,10 @@ class Config:
                 "would emit an answer with no source behind it, which is the "
                 "one outcome this system does not have"
             )
+        _check_threshold_table("threshold_by_language", self.threshold_by_language)
+        _check_threshold_table(
+            "threshold_by_jurisdiction", self.threshold_by_jurisdiction
+        )
         if self.candidates < 1:
             raise ConfigError("retrieval.candidates must be >= 1")
         if self.margin_warn < 0.0:
@@ -202,6 +245,39 @@ class Config:
                 f"A corpus may be in any language; the language Cairn answers "
                 f"and refuses in may not be one it cannot write a refusal in."
             )
+
+    def threshold_for(
+        self, *, lang: str | None = None, jurisdiction: str | None = None
+    ) -> tuple[float, str]:
+        """The threshold in force for one retrieval pass, and the config key
+        it came from.
+
+        Jurisdiction, then language, then the default — the order #99 states,
+        and the order that makes sense: a layer is a statement about a body of
+        text, and a language is a statement about how a question is written,
+        so the narrower claim about the corpus wins.
+
+        Lookup is by exact code, and a layer with no entry falls through to
+        the language table rather than to its parent layer. Inheritance sounds
+        natural and is a trap: `threshold_by_jurisdiction.us = 0.2` would then
+        silently be a new default for everything under it, which is what
+        `retrieval.threshold` already is.
+
+        The key is returned beside the number rather than derived again by
+        whoever needs to print it, so a report of which key is in force cannot
+        drift from the resolution that actually happened.
+        """
+        if jurisdiction is not None and jurisdiction in self.threshold_by_jurisdiction:
+            return (
+                self.threshold_by_jurisdiction[jurisdiction],
+                f"retrieval.threshold_by_jurisdiction.{jurisdiction}",
+            )
+        if lang is not None and lang in self.threshold_by_language:
+            return (
+                self.threshold_by_language[lang],
+                f"retrieval.threshold_by_language.{lang}",
+            )
+        return self.threshold, "retrieval.threshold"
 
     def contact_for(self, lang: str) -> str:
         """The human channel a refusal in ``lang`` should point to. Falls back
@@ -285,6 +361,27 @@ def _optional_string(section: dict[str, Any], key: str, name: str) -> str | None
     return value
 
 
+def _threshold_table(retrieval: dict[str, Any], key: str) -> dict[str, float]:
+    """`[retrieval.threshold_by_*]`, a code to a threshold.
+
+    Absent means no overrides, which is what `Config()` gives. Bounds are
+    checked by `Config` itself, so a file and a caller are held to one set of
+    rules; the type check here is the same one `_get` applies, because an int
+    is a legitimate way to write `1` in TOML and a bool is not a number.
+    """
+    if key not in retrieval:
+        return {}
+    table = retrieval[key]
+    if not isinstance(table, dict):
+        raise ConfigError(f"retrieval.{key} must be a table of codes to thresholds")
+    out: dict[str, float] = {}
+    for code, value in table.items():
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ConfigError(f"retrieval.{key}.{code} must be a number, got {value!r}")
+        out[code] = float(value)
+    return out
+
+
 def _readability(lint: dict[str, Any]) -> dict[str, str]:
     """`[lint.readability]`, a language code to a formula name.
 
@@ -335,6 +432,10 @@ def load_config(path: str | Path | None = None) -> Config:
         max_passages=_get(retrieval, "max_passages", int, defaults.max_passages),
         candidates=_get(retrieval, "candidates", int, defaults.candidates),
         margin_warn=_get(retrieval, "margin_warn", float, defaults.margin_warn),
+        threshold_by_language=_threshold_table(retrieval, "threshold_by_language"),
+        threshold_by_jurisdiction=_threshold_table(
+            retrieval, "threshold_by_jurisdiction"
+        ),
         dense_weight=_get(retrieval, "dense_weight", float, defaults.dense_weight),
         split_intents=_get(retrieval, "split_intents", bool, defaults.split_intents),
         tables_enabled=_get(tables, "enabled", bool, defaults.tables_enabled),

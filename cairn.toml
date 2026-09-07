@@ -36,6 +36,25 @@ candidates = 8
 # absorbed. Opt in after measuring on YOUR corpus; values above 0.5 refused.
 dense_weight = 0
 
+# Per-language and per-layer overrides of `threshold`, both empty by default.
+# Resolution order is jurisdiction, then language, then the `threshold` above;
+# lookup is by exact code, so a layer with no entry falls through to the
+# language table rather than to its parent layer.
+#
+# One number for four languages either over-refuses in the narrow band or
+# over-answers in the wide one — Arabic's measured band on the demo corpus is
+# narrower than English's — and a federal page's vocabulary overlaps a
+# question differently from a county page's. Measure your own with
+# `cairn calibrate --probes ... --emit-config`, which prints these tables and
+# applies nothing. Each value is held to the same (0, 1] bound as `threshold`.
+#
+# `ask --explain` prints the threshold in force and the key it came from, so a
+# surprising verdict names the line you would have to edit.
+# [retrieval.threshold_by_language]
+# ar = 0.21
+# [retrieval.threshold_by_jurisdiction]
+# "us-ca-sonoma" = 0.18
+
 [language]
 # Used when a question's language cannot be told from the corpus vocabulary
 # (a very short question, or one with no corpus words in it at all). The web

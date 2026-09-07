@@ -5,6 +5,13 @@ The question an operator actually has is never "what is the score" — it is
 disappointing result, and this module reports a verdict for each of them
 separately:
 
+Every threshold this report prints is named with the configuration key it was
+resolved from, because `[retrieval.threshold_by_language]` and
+`[retrieval.threshold_by_jurisdiction]` mean one question can be gated at a
+number that appears nowhere in the operator's head. Reporting the number
+without the key would send them to edit `retrieval.threshold` and watch
+nothing happen.
+
 *Retrieval* either put passages in front of the answer stage or it did not.
 *Answer* either had usable evidence and used it, or it was handed nothing.
 
@@ -177,7 +184,8 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
     best = trace.candidates[0]
     detail = (
         f"{len(trace.candidates)} candidates were scored and none cleared the "
-        f"{_fmt(trace.threshold)} threshold. The best, {best.passage.passage_id}, "
+        f"{_fmt(trace.threshold)} threshold ({trace.threshold_key}). The best, "
+        f"{best.passage.passage_id}, "
         f"scored {_fmt(best.score)} and was short by "
         f"{_fmt(trace.threshold - best.score)} on "
         f"{len(best.matched)} of {len(trace.scoring_terms)} question terms "
@@ -458,7 +466,7 @@ def render(
         "=== retrieval trace " + "=" * (REPORT_WIDTH - 20),
         f"Question:  {trace.query}",
         f"Index:     {index_summary}",
-        f"Threshold: {_fmt(trace.threshold)} (retrieval.threshold)",
+        f"Threshold: {_fmt(trace.threshold)} ({trace.threshold_key})",
         *_language_lines(result),
         *_jurisdiction_lines(result),
         "",
@@ -528,6 +536,10 @@ def trace_payload(
     """
     return {
         "threshold": trace.threshold,
+        # Which key produced it. Always present, and `retrieval.threshold`
+        # when no override table applies, so a consumer never has to infer
+        # "the default was in force" from the absence of a field.
+        "threshold_key": trace.threshold_key,
         # The layer this pass searched, and how many passages were set aside
         # for declaring none. Null and zero respectively when the corpus is
         # not layered, which is the shape every existing consumer already

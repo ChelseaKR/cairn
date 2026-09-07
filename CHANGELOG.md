@@ -22,6 +22,51 @@ becomes a version section like any other.
 
 #### Added
 
+- **Per-language and per-layer retrieval thresholds, and the measurement that
+  sets them.** `retrieval.threshold` was one number calibrated against the
+  demo corpus in three languages at once. Score bands differ by language —
+  Arabic's measured band is narrower — and by layer, because a federal page's
+  vocabulary overlaps a question differently from a county page's; #91 showed
+  `calibrate` reporting NO SEPARATING THRESHOLD over a mixed probe set where a
+  per-language split separates cleanly.
+
+  `[retrieval.threshold_by_language]` and
+  `[retrieval.threshold_by_jurisdiction]` override it, both empty by default.
+  Resolution is jurisdiction, then language, then the base key, by exact code:
+  a layer with no entry falls through to the language table rather than to its
+  parent layer, because an entry for `us` inherited downward is only a second
+  way to write the default. Each value is bounded `(0, 1]` — the same bound
+  `threshold` carries, checked when the `Config` is built — because an
+  override held to a looser bound is a way around the bound of the key it
+  overrides.
+
+  The threshold is resolved *per retrieval pass* rather than once per
+  question, since the rungs of the jurisdiction ladder are different layers,
+  and the language key is the language being answered in rather than the
+  restriction being applied: the widened cross-language pass restricts to no
+  language at all, and keying on the restriction would silently drop the
+  override exactly when the fallback fires.
+
+  `RetrievalTrace` now carries `threshold_key` beside `threshold`, and every
+  surface that prints a threshold prints the key with it — the explain header,
+  the below-threshold diagnosis, and `--explain --json`. A number with no key
+  sends an operator to edit `retrieval.threshold` and watch nothing happen.
+
+  `cairn calibrate` reports a band per language and per layer, and probes may
+  carry a `jurisdiction` alongside `lang`. Slices are grouped on what
+  happened rather than on what was written: a probe with no `lang` is grouped
+  under the language it was answered in. The bundled example set labels its
+  Spanish and Arabic probes and leaves the English ones to detection, and
+  grouping on the authored field put four English probes in no slice and
+  emitted a recommendation table with no `en` in it. `--emit-config` prints
+  the tables as TOML on stdout, applying nothing; a slice with no separating
+  threshold is emitted as a comment naming the two scores rather than omitted.
+  Where a set was gated by more than one key, the report's header says so
+  instead of printing one figure that decided some of its rows and not others.
+
+  With no tables, every command's output is unchanged and every trace still
+  reports `retrieval.threshold`.
+
 - **Jurisdiction as a corpus dimension, with layer-aware retrieval and
   disclosure.** A corpus assembled for a county deployment is federal pages
   plus state pages plus that county's own, and the engine did not know it. A

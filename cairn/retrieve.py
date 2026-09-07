@@ -102,6 +102,14 @@ class RetrievalTrace:
     # any counting field. Defaults to True so every real retrieval path is
     # unchanged and only the tool path has to opt out.
     attempted: bool = True
+    # Which configuration key produced `threshold`. Carried beside the number
+    # for the reason `attempted` is carried beside the counts: with
+    # per-language and per-layer override tables, the same trace shape can
+    # come from three different keys, and an operator reading a report needs
+    # to know which one they would have to edit. Derived once where the
+    # resolution happens (`Config.threshold_for`), never re-derived by a
+    # renderer, so the report cannot disagree with the run.
+    threshold_key: str = "retrieval.threshold"
 
     @property
     def accepted(self) -> tuple[Candidate, ...]:
@@ -231,6 +239,7 @@ def retrieve(
     lang: str | None = None,
     jurisdiction: str | None = None,
     dense_weight: float = 0.0,
+    threshold_key: str = "retrieval.threshold",
 ) -> RetrievalTrace:
     """Score every passage in scope against ``query`` and gate at the threshold.
 
@@ -326,6 +335,7 @@ def retrieve(
     return RetrievalTrace(
         query=query,
         threshold=threshold,
+        threshold_key=threshold_key,
         candidates=top,
         lang=lang,
         jurisdiction=jurisdiction,

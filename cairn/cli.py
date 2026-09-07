@@ -40,7 +40,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from cairn import __version__
-from cairn.calibrate import CalibrationError, calibrate
+from cairn.calibrate import CalibrationError, calibrate, emit_config
 from cairn.calibrate import render as render_calibration
 from cairn.config import Config, ConfigError, load_config
 from cairn.config_report import diff_from_defaults
@@ -125,7 +125,14 @@ def _cmd_followups(args: argparse.Namespace, cfg: Config) -> int:
 def _cmd_calibrate(args: argparse.Namespace, cfg: Config) -> int:
     index = read_index(cfg.index_path, cfg.corpus_path)
     report = calibrate(index, cfg, args.probes)
-    print(render_calibration(report))
+    if args.emit_config:
+        # Stdout, and nothing else. The exit status still reports whether the
+        # configured thresholds classify the set, because a recommendation
+        # printed by a command that exited 0 over a misclassifying set would
+        # read as "and everything is fine".
+        print(emit_config(report))
+    else:
+        print(render_calibration(report))
     return 0 if report.safe else 1
 
 
@@ -520,6 +527,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_calibrate.add_argument(
         "--probes", required=True, metavar="PATH", help="TOML file of [[probe]] entries"
+    )
+    p_calibrate.add_argument(
+        "--emit-config",
+        action="store_true",
+        help=(
+            "print the [retrieval.threshold_by_language] and "
+            "[retrieval.threshold_by_jurisdiction] tables this measurement "
+            "recommends, as TOML on stdout, instead of the report. Nothing is "
+            "written and nothing is applied: adopting a threshold stays the "
+            "operator's decision."
+        ),
     )
     p_calibrate.set_defaults(func=_cmd_calibrate)
 

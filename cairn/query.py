@@ -63,6 +63,7 @@ def split_intents(
     lang: str | None = None,
     jurisdiction: str | None = None,
     dense_weight: float = 0.0,
+    threshold_key: str = "retrieval.threshold",
 ) -> RetrievalTrace:
     """Retrieve once per sentence-part, merge pools by best score.
 
@@ -83,10 +84,12 @@ def split_intents(
             lang=lang,
             jurisdiction=jurisdiction,
             dense_weight=dense_weight,
+            threshold_key=threshold_key,
         )
     traces = [
         retrieve(part, index, threshold=threshold, candidates=candidates, lang=lang,
-                 jurisdiction=jurisdiction, dense_weight=dense_weight)
+                 jurisdiction=jurisdiction, dense_weight=dense_weight,
+                 threshold_key=threshold_key)
         for part in parts
     ]
     best: dict[str, tuple[float, Candidate]] = {}
@@ -127,6 +130,7 @@ def split_intents(
     return RetrievalTrace(
         query=question,
         threshold=threshold,
+        threshold_key=threshold_key,
         candidates=merged,
         lang=lang,
         jurisdiction=jurisdiction,

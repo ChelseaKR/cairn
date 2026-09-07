@@ -205,6 +205,8 @@ class TestConfigDigest(unittest.TestCase):
             "max_passages": 3,
             "candidates": 5,
             "margin_warn": 0.05,
+            "threshold_by_language": {"ar": 0.12},
+            "threshold_by_jurisdiction": {"us-ca": 0.2},
             "dense_weight": 0.5,
             "split_intents": True,
             "tables_enabled": False,

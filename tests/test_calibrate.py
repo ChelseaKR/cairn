@@ -138,8 +138,14 @@ class TestCalibrate(unittest.TestCase):
         report = CalibrationReport(
             threshold=0.2,
             results=(
-                ProbeResult("a", "answer", None, 0.1, "refuse", False),
-                ProbeResult("b", "refuse", None, 0.3, "answer", False),
+                ProbeResult(
+                    "a", "answer", None, None, 0.165, "retrieval.threshold",
+                    0.1, "refuse", False,
+                ),
+                ProbeResult(
+                    "b", "refuse", None, None, 0.165, "retrieval.threshold",
+                    0.3, "answer", False,
+                ),
             ),
         )
         self.assertIsNotNone(report.gap)
