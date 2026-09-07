@@ -11,9 +11,9 @@ those facts quietly.
 `"Runs only where a sibling checkout exists; CI runs it always."` **No CI job
 ran it.** It looked for `../gauntlet`, a sibling of the repository root, and:
 
-- the three jobs that run the test suite (`core` twice over the matrix,
-  `core-windows`, `core-macos`) check out this repository and nothing else,
-  so no sibling exists in any of them;
+- the jobs that run the test suite (`core` twice over the matrix, and the
+  nightly `core-os` canary in `os-canary.yml`) check out this repository and
+  nothing else, so no sibling exists in any of them;
 - the `gauntlet` job clones the harness to `$RUNNER_TEMP/gauntlet` and passes
   it as `GAUNTLET_CHECKOUT` — the variable `gauntlet-gate.sh` resolves first
   and this file did not read — and then runs the gate directly rather than
