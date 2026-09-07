@@ -257,6 +257,40 @@ class TestTheWorkflowActuallyUsesTheGate(unittest.TestCase):
         # that the tag cannot be made to verify without rewriting it.
         self.assertEqual(GRANDFATHERED, ("v0.2.0",))
 
+    def test_the_readme_does_not_say_signing_is_absent(self):
+        """The conformance row read `**Not in place:** signed tags.`
+
+        It had been true, and stopped being true when this gate landed: the script
+        above refuses a lightweight tag, an unsigned one, and one signed by a key
+        outside `allowed_signers`, and every publishing job waits for it. Nothing
+        read that sentence, so the row went on understating a control the repository
+        actually enforces -- the same drift as the README's version prose, in the
+        other direction. A reader deciding whether to depend on this project reads
+        the conformance table, and a project that undersells its own release
+        integrity is describing a different project.
+        """
+        readme = (ROOT / "README.md").read_text("utf-8")
+        self.assertNotIn("**Not in place:** signed tags", readme)
+
+    def test_the_readme_names_exactly_the_tags_the_gate_exempts(self):
+        """The row states which tag is exempt. That claim is checkable, so check it.
+
+        Naming the exemption is what makes the corrected sentence honest rather than
+        a boast, and an exemption list a reader can see is only useful while it is
+        the list CI uses. This holds the README to `GRANDFATHERED`, which
+        `test_the_workflow_grandfathers_exactly_what_this_file_grandfathers` already
+        holds to the workflow -- so all three move together or the suite is red.
+        """
+        readme = (ROOT / "README.md").read_text("utf-8")
+        claim = re.search(
+            r"\*\*The one exemption is history, named literally:\*\*(.+?)`GRANDFATHERED_TAGS`",
+            readme,
+            re.S,
+        )
+        self.assertIsNotNone(claim, "the README no longer names the grandfathered tag")
+        named = re.findall(r"`(v\d+\.\d+\.\d+)`", claim.group(1))
+        self.assertEqual(sorted(named), sorted(GRANDFATHERED))
+
 
 if __name__ == "__main__":
     unittest.main()
