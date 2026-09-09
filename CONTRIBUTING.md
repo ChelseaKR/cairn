@@ -85,3 +85,12 @@ rewritten. See [ADR 0000](docs/adr/0000-record-architecture-decisions.md).
 ## Reporting a security problem
 
 Not here. See [SECURITY.md](SECURITY.md) for the private channel.
+
+## Commercial solicitation
+
+Issues here are not open to bids. They are design records — written so a decision is
+reconstructable later — not scope documents for outside quoting, and unsolicited offers to
+implement one for a fee will be declined.
+
+Contributions through the normal fork-and-PR process are welcome, and `good first issue` is the
+place to start.
