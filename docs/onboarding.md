@@ -153,6 +153,14 @@ $ cairn lint --max-age-days 90
   WARNING corpus/mine/transit-pass.en.md: no 'reviewed_at' front-matter key: staleness cannot be tracked for this document. Add 'reviewed_at: YYYY-MM-DD' the next time it is checked against its real source.
 ```
 
+A date is read into **three** states and not two: fresh, stale, and
+unmeasurable. A missing key, a date that is not `YYYY-MM-DD`, and a date in
+the **future** all land in the third and are warned about individually. The
+last is the one worth knowing about: `2027-01-15` where `2026-01-15` was meant
+is younger than every window there will ever be, so without that third state a
+single mistyped year exempts a document from the staleness check for good, and
+silently.
+
 Without `--max-age-days`, `cairn lint` never looks at `reviewed_at` at all —
 a corpus that has never adopted the convention gets exactly as quiet a lint
 as it always did. This is deliberate: staleness tracking is something an

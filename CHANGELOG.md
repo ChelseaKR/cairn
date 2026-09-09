@@ -253,6 +253,18 @@ becomes a version section like any other.
 
 #### Fixed
 
+- **A `reviewed_at` in the future satisfied the staleness window permanently.**
+  `cairn lint --max-age-days N` computed `age = (as_of - reviewed).days` and
+  warned only when `age > N`. A date that has not happened yet gives a negative
+  age, which is under every window there will ever be, so `2027-01-15` typed
+  where `2026-01-15` was meant exempted that document from the staleness check
+  for good — and silently, since the quiet path is what a fresh document also
+  gets. Absent and malformed dates were already warned about individually;
+  future ones took the fresh path. An age now reads into three states, not two:
+  fresh, stale, and unmeasurable, with absent, malformed and future all landing
+  in the third and each saying which it is. `docs/onboarding.md` states the
+  three-state rule beside the convention it belongs to.
+
 - The ruleset check no longer reports a lockout it cannot see. Issue #80 was
   opened automatically on 2026-08-31 saying the repository owner's standing
   bypass was **not enforced**. It was: ruleset `21223426` had carried it since
