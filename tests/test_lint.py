@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -252,6 +253,57 @@ class TestStaleness(unittest.TestCase):
             issue = report.issues[0]
             self.assertIn("last reviewed on 2026-01-01", issue.message)
             self.assertIn("over the 30-day staleness window", issue.message)
+
+    def test_a_future_reviewed_at_is_unmeasurable_not_fresh(self):
+        """A negative age satisfies every window there will ever be.
+
+        `test_a_recent_reviewed_at_is_quiet` cannot see this: it asserts
+        silence, and a future date is silent for the wrong reason. So this
+        pins the *warning*, and pins that the same document at a date in the
+        past is quiet, so the case is reached by the future date rather than
+        by anything else about the fixture.
+        """
+        from datetime import date
+
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = Path(tmp)
+            write_doc(
+                corpus, "a.md",
+                front_matter="id: a\ntitle: A\nlang: en\nreviewed_at: 2027-01-01",
+                body=(
+                    "Some content about a benefits program for residents.\n\n"
+                    "Additional details about eligibility and application deadlines "
+                    "apply here.\n"
+                ),
+            )
+            report = lint_corpus(corpus, max_age_days=30, as_of=date(2026, 1, 15))
+            self.assertEqual(report.warning_count, 1)
+            issue = report.issues[0]
+            self.assertIn("2027-01-01", issue.message)
+            self.assertIn("351 day(s) in the future", issue.message)
+            self.assertNotIn("staleness window", issue.message)
+
+            # The same document dated a fortnight before `as_of` is quiet, and
+            # a year before it is stale: the three states are distinguishable
+            # over one fixture, which is what makes the first assertion mean
+            # something.
+            for stamp, expected in (("2026-01-01", 0), ("2025-01-01", 1)):
+                other = Path(tmp) / "other"
+                other.mkdir()
+                write_doc(
+                    other, "a.md",
+                    front_matter=f"id: a\ntitle: A\nlang: en\nreviewed_at: {stamp}",
+                    body=(
+                        "Some content about a benefits program for residents.\n\n"
+                        "Additional details about eligibility and application "
+                        "deadlines apply here.\n"
+                    ),
+                )
+                again = lint_corpus(other, max_age_days=30, as_of=date(2026, 1, 15))
+                self.assertEqual(again.warning_count, expected, stamp)
+                for issue in again.issues:
+                    self.assertNotIn("in the future", issue.message)
+                shutil.rmtree(other)
 
     def test_a_malformed_reviewed_at_is_a_warning_not_a_crash(self):
         with tempfile.TemporaryDirectory() as tmp:

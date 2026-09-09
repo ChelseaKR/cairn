@@ -140,6 +140,16 @@ def _staleness_issues(
     that reads it, and only when an operator explicitly asks by passing
     `--max-age-days`. Silence by default: a corpus that has never adopted the
     convention should not get a warning per document just for existing.
+
+    An age has **three** answers here, not two. Fresh and stale are the ones a
+    window is for; the third is *unmeasurable*, and absent, malformed and
+    **future** dates all land in it. A future ``reviewed_at`` is the one that
+    hides, because it makes the arithmetic below produce a negative age, which
+    is under any window there will ever be — so a single mistyped year exempts
+    a document from the staleness check permanently and silently. A date that
+    has not happened is not evidence that anybody checked anything; it is a
+    typo or a wrong clock, and the honest reading of it is that this document's
+    staleness is unknown.
     """
     issues: list[LintIssue] = []
     for doc in docs:
@@ -167,6 +177,18 @@ def _staleness_issues(
             )
             continue
         age = (as_of - reviewed).days
+        if age < 0:
+            issues.append(
+                LintIssue(
+                    "warning",
+                    doc.path,
+                    f"'reviewed_at: {reviewed.isoformat()}' is {-age} day(s) in the "
+                    f"future, so staleness cannot be checked for this document. A "
+                    f"review that has not happened yet is a mistyped date or a wrong "
+                    f"clock; left as it is, it reads as younger than any window.",
+                )
+            )
+            continue
         if age > max_age_days:
             issues.append(
                 LintIssue(
