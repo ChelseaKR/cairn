@@ -251,6 +251,33 @@ becomes a version section like any other.
   has ever seen is the shape this repository already calls its own worst case.
   Replacing the script with `exit 0` fails twelve of them.
 
+- **The freshness check over the committed evidence read two of the seven
+  files the recorder writes.** `cairn record` writes `items.jsonl`,
+  `responses.jsonl`, `sources.jsonl`, `manifest.json`, `DATASET.md`,
+  `interface.html` and `checksums.json`.
+  `test_the_committed_bundle_matches_the_real_engine_right_now` answers "is
+  this what the engine produces today?" by opening the first two, and
+  `test_the_committed_bundle_verifies_against_its_own_checksums` answers a
+  different question — "were these bytes hand-edited?" — over all seven. Both
+  stay green while the recorder and the recorded evidence have drifted apart
+  in one of the five files neither compares, because re-sealing keeps the
+  second happy and the first never opens them.
+
+  The gap has a named occupant. `record.record` builds `sources.jsonl` from
+  `index.passages` and drops `passage.lang`; issue #102's remaining scope item
+  needs that field, because the evidence page cannot choose a readability
+  formula without it. Adding it to the recorder and not re-recording would
+  have left both existing checks green — measured: the change turns exactly
+  one test red, naming `sources.jsonl` and `checksums.json`, and leaves the
+  older freshness check passing.
+
+  `tests/test_interlock.py` now records the bundle into a temporary directory
+  and compares every file byte for byte, over a declared file set so that a
+  recorder which stopped writing one fails rather than being compared over a
+  smaller intersection, and with a self-limiting assertion that the older
+  check still reads exactly two of the seven — so the sentence above stops
+  being published the day it stops being true.
+
 #### Fixed
 
 - **A `reviewed_at` in the future satisfied the staleness window permanently.**
