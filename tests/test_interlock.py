@@ -30,7 +30,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cairn.record import bundle_checksums
+from cairn.config import Config
+from cairn.index import build_index
+from cairn.record import bundle_checksums, record
 
 ROOT = Path(__file__).resolve().parent.parent
 PIN = ROOT / "plumbline.pin"
@@ -333,6 +335,106 @@ class TestTheEvidenceIsIntact(unittest.TestCase):
         self.assertTrue(pairs)
         self.assertTrue(any("(dark)" in p["name"] for p in pairs), "both presentations")
         self.assertTrue(any("(light)" in p["name"] for p in pairs))
+
+
+# Every file `cairn record` writes into a bundle, named here rather than
+# discovered, so that a recorder which stopped writing one fails this module
+# instead of being compared over a smaller intersection.
+RECORDED_FILES = frozenset(
+    {
+        "DATASET.md",
+        "checksums.json",
+        "interface.html",
+        "items.jsonl",
+        "manifest.json",
+        "responses.jsonl",
+        "sources.jsonl",
+    }
+)
+
+# The two the older freshness check reads. `record_diff.diff_against_bundle`
+# opens `items.jsonl` and `responses.jsonl` and nothing else, so
+# `test_the_committed_bundle_matches_the_real_engine_right_now` in
+# tests/test_record_diff.py answers "is the committed evidence what the engine
+# produces?" over two of the seven files the recorder writes.
+FRESHNESS_CHECKED_BEFORE = frozenset({"items.jsonl", "responses.jsonl"})
+
+
+class TestTheCommittedBundleIsWhatTheRecorderWrites(unittest.TestCase):
+    """Two different questions, and only one of them was fully answered.
+
+    `TestTheEvidenceIsIntact` above proves the committed bytes are the bytes
+    `checksums.json` seals: nothing was hand-edited. `test_record_diff`'s
+    `test_the_committed_bundle_matches_the_real_engine_right_now` proves the
+    committed *answers* are the answers the engine gives today. Neither asks
+    whether the committed bundle is what `cairn record` would write now, over
+    every file it writes -- and those two checks stay green together while it
+    is not, because re-sealing a stale file keeps the first happy and the
+    second never opens it.
+
+    The gap is not hypothetical and it has a named occupant. `record.record`
+    builds `sources.jsonl` from `index.passages` and drops `passage.lang` on
+    the way; issue #102's remaining scope item needs that field, because the
+    evidence page cannot pick a readability formula without it. A change to
+    the recorder that added it would leave both existing checks green over a
+    `sources.jsonl` that no longer matched the code that produced it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        fresh = Path(cls.tmp.name) / "bundle"
+        index = build_index(ROOT / "corpus" / "demo")
+        record(
+            index,
+            Config(),
+            questions_path=ROOT / "plumbline" / "questions.toml",
+            out_dir=fresh,
+        )
+        cls.fresh = fresh
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    @staticmethod
+    def _names(directory):
+        return {p.name for p in directory.iterdir() if p.is_file()}
+
+    def test_the_recorder_writes_the_seven_files_this_module_compares(self):
+        """The floor. A comparison over a set nobody declared cannot fail for
+        the one reason that matters: a file going missing from both sides."""
+        self.assertEqual(self._names(self.fresh), set(RECORDED_FILES))
+        self.assertEqual(self._names(BUNDLE), set(RECORDED_FILES))
+
+    def test_the_older_freshness_check_reads_two_of_those_seven(self):
+        """Self-limiting: if `record_diff` is ever widened, this fails and the
+        docstrings above stop describing something that is no longer true."""
+        self.assertLess(FRESHNESS_CHECKED_BEFORE, RECORDED_FILES)
+        source = (ROOT / "cairn" / "record_diff.py").read_text(encoding="utf-8")
+        opened = {name for name in RECORDED_FILES if name in source}
+        self.assertEqual(opened, set(FRESHNESS_CHECKED_BEFORE))
+
+    @staticmethod
+    def _bytes(path):
+        """`None` for a file that is not there, so an absent file is reported
+        as a difference by name rather than as an unhandled exception."""
+        return path.read_bytes() if path.is_file() else None
+
+    def test_every_recorded_file_is_byte_identical_to_the_committed_one(self):
+        differing = sorted(
+            name
+            for name in RECORDED_FILES
+            if self._bytes(self.fresh / name) != self._bytes(BUNDLE / name)
+        )
+        self.assertEqual(
+            differing,
+            [],
+            "plumbline/bundle/ is not what `cairn record` writes today. Re-run "
+            "the recorder, re-seal the bundle, and re-cut plumbline/baseline.json "
+            "in the same reviewed diff: the dataset id on the evidence page is "
+            "the bundle hash and moves with these bytes.",
+        )
 
 
 if __name__ == "__main__":
