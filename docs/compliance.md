@@ -63,7 +63,7 @@ different enough in kind that they need separate answers:
 | What | Default | Opt-in |
 |---|---|---|
 | The corpus (an agency's own documents) | Stays on the operator's machine; never uploaded anywhere | N/A — always local |
-| A question someone asks | Answered, then gone. No log, no database row, nothing written to disk | N/A — there is no flag that turns question logging on |
+| A question someone asks | Answered, then gone. No log, no database row, nothing written to disk. `cairn serve` has no flag that changes this | N/A over HTTP. On the command line, `cairn ask --receipt-out PATH` writes a receipt that carries the question verbatim; see "Records retention" |
 | Refusal analytics (`--refusal-stats`) | Off | An aggregate count per (language, reason) only — never a question, a client address, or a timestamp. See `docs/refusal-analytics.md`. |
 | Follow-up requests (`--followup-store`) | Off | Real contact information a person submits themselves, plus their question only if they separately check a box on that one submission. See `docs/followup.md`. |
 
@@ -87,14 +87,15 @@ it needs to be for a compliance review, so it is stated here:
   the corpus on demand. It carries whatever the corpus carries and nothing
   else; its retention is the corpus's retention, which is entirely the
   operator's to define.
-- The **refusal-stats file**, if enabled, is a JSON object that grows by
-  incrementing counters — it does not grow in size with traffic the way a
-  log does, and there is nothing in it to purge that would change what it
+- The **refusal-stats file** (`cairn serve --refusal-stats PATH`), if
+  enabled, is a JSON object that grows by incrementing counters — it does
+  not grow in size with traffic the way a log does, and there is nothing in it to purge that would change what it
   reveals about an individual. An agency may still choose to reset it
   periodically as a matter of policy; `cairn` has no command that does this
   for you — deleting the file and letting `cairn serve` recreate it is
   the whole procedure.
-- The **follow-up store**, if enabled, is an append-only file of real
+- The **follow-up store** (`cairn serve --followup-store PATH`), if
+  enabled, is an append-only file of real
   contact information with **no automatic expiry, no automatic deletion,
   and no built-in retention schedule of any kind.** `docs/followup.md`
   frames removing a handled line as operational hygiene for staff working
@@ -110,9 +111,14 @@ it needs to be for a compliance review, so it is stated here:
   bundled demo corpus. It contains no data from a real deployment and is
   not something a live installation produces or updates on its own.
 
-- An **answer receipt** (`cairn ask --receipt`) is handed to the person who
-  asked and stored nowhere. The deployment keeps no copy, so there is
-  nothing here to retain, purge, or disclose. See below for what one proves.
+- An **answer receipt** (`cairn ask --receipt`) is printed and stored
+  nowhere. `cairn ask --receipt-out PATH` writes the same document to `PATH`
+  as JSON, and a receipt carries **the question verbatim** (see below for the
+  full field list), so a receipt file is the question in a file: retain it,
+  purge it and disclose it the way you would treat the question. Nothing
+  expires it and nothing deletes it, as for every other file here. `cairn
+  serve` has no receipt surface at all, so nothing a member of the public
+  asks over HTTP can produce one.
 
 If your agency's compliance process requires a documented retention
 schedule before a system can go live, `--followup-store` is the one piece

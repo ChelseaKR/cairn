@@ -202,9 +202,11 @@ becomes a version section like any other.
   configuration, the question, the language, the cited passage ids with hashes
   of their text, and a hash of the answer — and `cairn verify-receipt` re-asks
   and reports what it found. `--receipt-out PATH` writes the document; the
-  JSON surface carries it under `receipt`. Nothing is stored anywhere:
-  verification is recomputation, so the receipt goes to the person who asked
-  and the deployment keeps no record of who asked what.
+  JSON surface carries it under `receipt`. **The deployment stores nothing:**
+  verification is recomputation, `cairn serve` has no receipt surface, and no
+  record of who asked what is kept. A receipt written with `--receipt-out`
+  carries the question verbatim, so the file is the question in a file; see
+  the "Records retention" section of `docs/compliance.md`.
 
   **The five outcomes are distinct, and their order is the design.** When the
   corpus fingerprint has moved, the report is `corpus changed` and the answer
