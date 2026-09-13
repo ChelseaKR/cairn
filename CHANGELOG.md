@@ -317,6 +317,16 @@ becomes a version section like any other.
   the comment explaining the fix names both the action and the flag it
   forbids, and a check satisfied by its own explanation is not a check.
 
+  Both downloads retry. The first CI run of the fixed step died on
+  `curl: (35) Recv failure: Connection reset by peer` before it reached a
+  commit, which this workflow correctly reported as red — a check that could
+  not run is not a check that passed. Retrying the fetch is not a softening of
+  that rule: `curl -f` and `set -e` still stand, so a download that fails four
+  times still stops the job, and the scan itself is run once with
+  `--exit-code 1` and nothing appended. The same test now also holds this
+  file's oldest promise, that there is no `continue-on-error` and no
+  `|| true` anywhere in it, which until now was asserted only in a comment.
+
 - **A `reviewed_at` in the future satisfied the staleness window permanently.**
   `cairn lint --max-age-days N` computed `age = (as_of - reviewed).days` and
   warned only when `age > N`. A date that has not happened yet gives a negative

@@ -123,6 +123,23 @@ class TestTheConditionsTheScanDependsOn(unittest.TestCase):
             WORKFLOW.read_text(encoding="utf-8"),
         )
 
+    def test_the_retry_covers_the_download_and_not_the_verdict(self):
+        # The first CI run of the fixed step died on `curl: (35) Recv failure`
+        # before it reached a commit, so both fetches now retry. That is a
+        # retry of a download, not a softened gate, and the difference is worth
+        # a check: this file's own header promises "no `continue-on-error`, and
+        # no `|| true`", and until now nothing read that promise.
+        text = code()
+        self.assertIn("--retry", text, "the binary download no longer retries")
+        self.assertIn(
+            "/tmp/gitleaks git . --no-banner --redact --exit-code 1\n",
+            text,
+            "the scan must be the last word: one invocation, `--exit-code 1`, "
+            "nothing appended to it.",
+        )
+        self.assertNotIn("continue-on-error", text)
+        self.assertNotIn("|| true", text)
+
     def test_the_weekly_schedule_survives(self):
         # The schedule is the one event the old action already scanned in full.
         # It stays: a new detection rule against an unchanged tree is a finding

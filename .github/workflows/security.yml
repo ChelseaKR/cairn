@@ -81,8 +81,17 @@ jobs:
           GL=8.30.1
           BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GL}"
           ARCHIVE="gitleaks_${GL}_linux_x64.tar.gz"
-          curl -sSfL -o "/tmp/${ARCHIVE}" "${BASE}/${ARCHIVE}"
-          curl -sSfL -o /tmp/gitleaks_checksums.txt "${BASE}/gitleaks_${GL}_checksums.txt"
+          # `--retry` because the first run of this step lost the connection
+          # mid-download (curl exit 35) and turned the gate red without ever
+          # reaching a commit. Retrying a fetch is not the same as tolerating a
+          # failure: `-f` and `set -e` still stand, so a download that does not
+          # succeed after four attempts stops the job. The scan itself is never
+          # retried and never softened.
+          RETRY="--retry 3 --retry-all-errors --retry-delay 2"
+          # shellcheck disable=SC2086
+          curl -sSfL ${RETRY} -o "/tmp/${ARCHIVE}" "${BASE}/${ARCHIVE}"
+          # shellcheck disable=SC2086
+          curl -sSfL ${RETRY} -o /tmp/gitleaks_checksums.txt "${BASE}/gitleaks_${GL}_checksums.txt"
           (cd /tmp && grep "  ${ARCHIVE}$" gitleaks_checksums.txt | sha256sum --check --strict)
           tar -xzf "/tmp/${ARCHIVE}" -C /tmp gitleaks
           /tmp/gitleaks git . --no-banner --redact --exit-code 1
