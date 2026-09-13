@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
@@ -355,6 +356,255 @@ class TestThePageIsNotStale(PageHarness):
         import site_build
 
         self.assertEqual(site_build.main(["--check"]), 0)
+
+
+class Head(HTMLParser):
+    """The head, read as elements rather than as a string.
+
+    Every value the structured data claims is also stated in an ordinary tag,
+    so the check is an equality between the two. Reading them with a parser
+    rather than a regular expression is not fastidiousness: the portfolio audit
+    that asked for this markup scored a sibling project as carrying structured
+    data because the string `application/ld+json` appeared on its page, and the
+    single occurrence turned out to be the `accept` attribute of a file picker.
+    A count of a string scores an upload widget as a schema.org node, and
+    misses a real one written with unusual spacing. So this matches on the
+    element and its `type`, and nothing else.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.lang = ""
+        self.title = ""
+        self.canonical = ""
+        self.meta: dict[str, str] = {}
+        self.ld_blocks: list[str] = []
+        self._in_title = False
+        self._in_ld = False
+        self._buffer: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        at = {k.lower(): (v or "") for k, v in attrs}
+        if tag == "html":
+            self.lang = at.get("lang", "")
+        elif tag == "title":
+            self._in_title = True
+            self._buffer = []
+        elif tag == "meta":
+            key = at.get("name") or at.get("property")
+            if key:
+                self.meta[key] = at.get("content", "")
+        elif tag == "link" and at.get("rel") == "canonical":
+            self.canonical = at.get("href", "")
+        elif tag == "script" and at.get("type", "").strip() == "application/ld+json":
+            self._in_ld = True
+            self._buffer = []
+
+    def handle_endtag(self, tag):
+        if tag == "title" and self._in_title:
+            self.title = "".join(self._buffer)
+            self._in_title = False
+        elif tag == "script" and self._in_ld:
+            self.ld_blocks.append("".join(self._buffer))
+            self._in_ld = False
+
+    def handle_data(self, data):
+        if self._in_title or self._in_ld:
+            self._buffer.append(data)
+
+
+class TestThePageSaysWhatItIsAbout(unittest.TestCase):
+    """The machine-readable claim and the human-readable one are the same claim.
+
+    The page states what it is twice: once in tags a person's browser renders,
+    and once in a schema.org graph only a crawler reads. The second is the
+    half nobody looks at, which makes it the half that rots — a title changed
+    in the template and not in the node publishes two different answers to
+    "what is this page", and the wrong one is the one the search result shows.
+
+    So none of these tests assert a literal. Each one reads a value out of the
+    graph and holds it against the tag, the file or the packaging metadata that
+    the value is supposed to have come from. A node that stopped being derived
+    would fail here even if it still said something plausible, which is the
+    only failure worth catching: a node that is merely *wrong* is rare, and a
+    node that is quietly stale is the normal outcome.
+
+    Nothing here imports `site_build`, for the reason the module docstring
+    gives about the other parse-and-compare class: asking the generator what
+    the answer is cannot catch a generator that fabricates.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pages = sorted(PAGE.parent.rglob("*.html"))
+        cls.parsed: dict[Path, Head] = {}
+        for page in cls.pages:
+            head = Head()
+            head.feed(page.read_text(encoding="utf-8"))
+            cls.parsed[page] = head
+        cls.project = tomllib.loads(
+            (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        )["project"]
+
+    def graph(self, page: Path) -> dict[str, dict]:
+        """Every node of a page's single JSON-LD block, keyed by `@id`."""
+        blocks = self.parsed[page].ld_blocks
+        self.assertEqual(
+            len(blocks), 1, f"{page.name} carries {len(blocks)} ld+json blocks, expected 1"
+        )
+        payload = json.loads(blocks[0])
+        self.assertEqual(payload.get("@context"), "https://schema.org")
+        nodes = payload.get("@graph")
+        self.assertIsInstance(nodes, list)
+        return {node["@id"]: node for node in nodes}
+
+    def test_there_is_a_page_to_examine(self):
+        # The examinable set is every HTML file the pages workflow uploads. If
+        # a future page lands in `site/` the loop below covers it without being
+        # told; if the glob ever comes back empty, every other test in this
+        # class would pass having read nothing, which is the failure this
+        # repository's own audit notes call a gate that cannot fail.
+        self.assertNotEqual(self.pages, [], "site/ holds no HTML to examine")
+
+    def test_every_published_page_carries_a_node(self):
+        # The point of the gate: a page that should describe itself and does
+        # not is the defect, and an absent node is invisible in a browser.
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                self.assertNotEqual(
+                    self.parsed[page].ld_blocks,
+                    [],
+                    f"{page.name} carries no application/ld+json block",
+                )
+
+    def test_every_block_is_valid_json_in_the_schema_org_vocabulary(self):
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                self.graph(page)
+
+    def test_the_graph_describes_the_page_the_site_and_the_software(self):
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                types = {node["@type"] for node in self.graph(page).values()}
+                self.assertEqual(
+                    types,
+                    {"WebSite", "WebPage", "ImageObject", "SoftwareApplication"},
+                )
+
+    def test_no_node_points_at_an_id_the_graph_does_not_define(self):
+        # `"about": {"@id": ...}` naming a node that is not in the graph is a
+        # reference to nothing, and consumers drop it silently rather than
+        # complaining. It reads as a described page and is an empty one.
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                nodes = self.graph(page)
+                for node in nodes.values():
+                    for key, value in node.items():
+                        if isinstance(value, dict) and "@id" in value:
+                            self.assertIn(
+                                value["@id"],
+                                nodes,
+                                f"{node['@type']}.{key} points at an undefined @id",
+                            )
+
+    def test_no_property_is_empty(self):
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                for node in self.graph(page).values():
+                    for key, value in node.items():
+                        self.assertNotEqual(
+                            value, "", f"{node['@type']}.{key} is an empty string"
+                        )
+
+    def test_the_page_node_repeats_the_pages_own_head(self):
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                head = self.parsed[page]
+                webpage = next(
+                    n for n in self.graph(page).values() if n["@type"] == "WebPage"
+                )
+                self.assertEqual(webpage["name"], head.title)
+                self.assertEqual(webpage["description"], head.meta["description"])
+                self.assertEqual(webpage["url"], head.canonical)
+                self.assertEqual(webpage["inLanguage"], head.lang)
+
+    def test_the_site_node_repeats_the_pages_own_site_name(self):
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                head = self.parsed[page]
+                website = next(
+                    n for n in self.graph(page).values() if n["@type"] == "WebSite"
+                )
+                self.assertEqual(website["name"], head.meta["og:site_name"])
+                self.assertEqual(website["inLanguage"], head.lang)
+
+    def test_the_image_node_repeats_the_card_the_head_names(self):
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                head = self.parsed[page]
+                image = next(
+                    n for n in self.graph(page).values() if n["@type"] == "ImageObject"
+                )
+                self.assertEqual(image["url"], head.meta["og:image"])
+                self.assertEqual(image["caption"], head.meta["og:image:alt"])
+                self.assertEqual(str(image["width"]), head.meta["og:image:width"])
+                self.assertEqual(str(image["height"]), head.meta["og:image:height"])
+
+    def test_the_image_nodes_dimensions_are_the_committed_pngs_own(self):
+        # The other half of the same claim. The tags and the node can agree
+        # with each other and both be wrong about the file, which is what they
+        # were before the generator started reading it.
+        card = PAGE.parent / "og-card.png"
+        header = card.read_bytes()[:24]
+        self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+        expected = (
+            int.from_bytes(header[16:20], "big"),
+            int.from_bytes(header[20:24], "big"),
+        )
+        image = next(
+            n for n in self.graph(PAGE).values() if n["@type"] == "ImageObject"
+        )
+        self.assertEqual((image["width"], image["height"]), expected)
+
+    def test_the_software_node_repeats_the_packaging_metadata(self):
+        software = next(
+            n for n in self.graph(PAGE).values() if n["@type"] == "SoftwareApplication"
+        )
+        self.assertEqual(software["alternateName"], self.project["name"])
+        self.assertEqual(software["description"], self.project["description"])
+        self.assertEqual(software["sameAs"], self.project["urls"]["Repository"])
+
+    def test_the_page_and_the_packaging_agree_on_where_the_site_lives(self):
+        # Two files now state this project's address: `pyproject.toml`, for the
+        # PyPI page, and the generator, for the canonical. They were already
+        # two copies before any of this; the node makes it three, so they get
+        # held equal rather than left to drift.
+        self.assertEqual(
+            self.parsed[PAGE].canonical, self.project["urls"]["Homepage"]
+        )
+
+    def test_it_solicits_no_dataset_harvest(self):
+        # Deliberate and permanent, not an oversight to be filled in later.
+        #
+        # A `Dataset` node, or DCAT beside it, is not a description — it is an
+        # invitation. It exists so that dataset search engines and open-data
+        # catalogs harvest the thing it names and list it as a dataset of
+        # record, and a catalog listing is far easier to acquire than to
+        # withdraw. This project publishes recorded answers about an invented
+        # county, and whether any of this portfolio's derived corpora should
+        # solicit that indexing is an open question with an owner's name on it.
+        #
+        # Saying "this page is about a piece of software" asks for none of it.
+        # This test is here so that the difference stays a decision somebody
+        # makes rather than a line somebody adds.
+        forbidden = {"Dataset", "DataCatalog", "DataDownload", "DataFeed"}
+        for page in self.pages:
+            with self.subTest(page=page.name):
+                raw = "".join(self.parsed[page].ld_blocks)
+                for word in ("dcat:", "dct:", "void:", "distribution"):
+                    self.assertNotIn(word, raw, f"{word} is harvest vocabulary")
+                for node in self.graph(page).values():
+                    self.assertNotIn(node["@type"], forbidden)
 
 
 class TestTheDeployedPageIsTheCommittedPage(unittest.TestCase):
