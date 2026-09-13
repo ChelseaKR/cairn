@@ -102,7 +102,22 @@ jobs:
       - name: Check that the enforced ruleset is the committed one
         id: check
         env:
-          GH_TOKEN: ${{ github.token }}
+          # `bypass_actors` is omitted by GitHub from any caller that may not
+          # administer the repository, and `github.token` may not. That is why
+          # this step exits 4 -- "could not be judged" -- on every scheduled
+          # run, and has since 2026-08-31 (issue #112). The remedy is a
+          # credential that can read the field, not a softer comparison: the
+          # one job whose purpose is to notice an unenforced gate must never
+          # be able to pass without seeing who may skip it.
+          #
+          # So the token is a seam. Set the repository secret
+          # RULESET_READ_TOKEN to a fine-grained PAT scoped to THIS repository
+          # with `Administration: read` (read, not write -- this job never
+          # applies anything) and the comparison can run. Leave it unset and
+          # behaviour is exactly what it is today: `github.token`, exit 4, and
+          # a red run that says it could not see the field. Nothing here makes
+          # an unreadable ruleset look judged.
+          GH_TOKEN: ${{ secrets.RULESET_READ_TOKEN || github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
