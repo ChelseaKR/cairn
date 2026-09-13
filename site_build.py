@@ -279,10 +279,22 @@ def structured_data(card_width: int, card_height: int) -> str:
             },
         ],
     }
-    # `</script` inside a JSON string ends the element as far as an HTML parser
-    # is concerned, whatever JSON thinks. Escaping the three characters that
-    # can start markup keeps the block inert without changing what it decodes
-    # to, which is what every consumer of this actually reads.
+    return block_body(payload)
+
+
+def block_body(payload: object) -> str:
+    """Serialise `payload` as an element body that cannot end its own element.
+
+    `</script` inside a JSON string ends the element as far as an HTML parser
+    is concerned, whatever JSON thinks. Escaping the three characters that can
+    start markup keeps the block inert without changing what it decodes to,
+    which is what every consumer of this actually reads.
+
+    Split out of the caller so a test can hand it a value that needs escaping.
+    Nothing in this page's title, description or packaging metadata contains
+    any of the three today, so deleting the escaping below changes no byte of
+    the real output and no other check here would notice.
+    """
     return (
         json.dumps(payload, ensure_ascii=False, indent=2)
         .replace("<", "\\u003c")

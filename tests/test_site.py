@@ -583,6 +583,31 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
             self.parsed[PAGE].canonical, self.project["urls"]["Homepage"]
         )
 
+    def test_the_block_cannot_end_its_own_element(self):
+        # The escaping in `structured_data` has no negative control available
+        # from today's values: nothing in this page's title, description or
+        # packaging metadata contains `<`, `>` or `&`, so deleting the escaping
+        # chain changes no byte of the output and every other test here stays
+        # green. That is a guard with nothing holding it, and the day a
+        # description acquires an ampersand is not the day to find out.
+        #
+        # So this plants a value that needs escaping and asserts both halves:
+        # the rendered block can no longer close its own element, and it still
+        # decodes to exactly the text that went in.
+        import site_build
+
+        hostile = 'A sentence with </script><img src=x> and an & in it.'
+        rendered = site_build.structured_data(1200, 630).replace(
+            site_build.PAGE_DESCRIPTION, hostile
+        )
+        self.assertIn(hostile, rendered, "the substitution did not land")
+
+        escaped = site_build.block_body(hostile)
+        self.assertNotIn("</script", escaped)
+        self.assertNotIn("<", escaped)
+        self.assertNotIn(">", escaped)
+        self.assertEqual(json.loads(escaped), hostile)
+
     def test_it_solicits_no_dataset_harvest(self):
         # Deliberate and permanent, not an oversight to be filled in later.
         #
