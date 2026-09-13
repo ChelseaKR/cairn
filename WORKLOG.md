@@ -1400,3 +1400,51 @@ One line per implementation session: date, what was built, from what input.
   were there and fails this one by name at that passage.
   `cairn/query.py` is still untouched.
   `make verify`: ruff, mypy --strict, 867 tests, 93% branch coverage.
+
+- 2026-09-13 — Session 28 (AI implementation session). Input: roadmap Phase 12
+  ("upstream declarations the audit needs", status `blocked upstream`), this
+  repository's own state, and the public Plumbline repository read the way a
+  dependency's source and history are read before a pin is bumped. Nothing
+  pushed to Plumbline.
+
+  Phase 12 stopped being blocked on 2026-09-07, when Plumbline shipped the two
+  declarations the phase names. Bumped the pin `a258b2e` → `aec1fcc` by the
+  procedure `plumbline.pin`'s own header sets out, and recorded the answers
+  rather than writing "bumped": `src/` changed (36 files, 3,422 insertions);
+  the judge configuration hash moved `90bbcc16fd36` → `a1e9989f09a7`, because
+  number extraction now drops trailing decimal zeros and the judge config
+  gained a refusal-markers field; the baseline comparison was refused on both
+  the dataset and the judge hash, which is the case `audit_guard.py` exists
+  for. On the unchanged bundle every one of the fourteen suites came back at
+  the score it already had, so the bump moved no measurement of its own.
+
+  Then the evidence. `ck-027` declares `expected_response_lang`, and
+  `multilingual` went 0.9667 (30) → **1.0000 (31)** with the floor untouched.
+  `ck-027` and `ck-028` declare `target_voice`, and `groundedness` and
+  `citation_accuracy` went 0.9740 (22) → **1.0000 (23)**. `ck-028` — the
+  answered table-tool item authored and withdrawn in August — ships.
+
+  Three things found that the phase was not looking for. The pin bump's
+  stricter config loader refuses a `[suites.<id>]` table carrying a key the
+  harness does not read, and Cairn's `floor_reason`, `gap` and
+  `fix_belongs_in` were exactly that; they moved to `[cairn.suites.<id>]`, and
+  the guard now fails on one filed against a suite the config does not
+  configure. `sweep.py` counted `ck-028` a `wrong-refusal` at every threshold,
+  because a tool-answered question reaches no candidate set — it predates the
+  tool path and nothing had made the two meet; it is held out by name and
+  counted in the header now. And re-measuring `ck-028` without its declaration
+  at this pin gave a worse result than August's 0.9416: the computed counts are
+  read as figures the answer states and its sources lack, so `groundedness` is
+  a load-bearing FAIL at 0.9752 — above its floor and failing anyway.
+
+  What is enforced rather than described. `cairn record` refuses a bundle whose
+  declared `target_voice` is not in the recorded answer verbatim, or is the
+  whole of it; the dry-run preview reports the same drift as a difference
+  rather than raising. `audit_guard.py` prints both declarations and the suites
+  that scored under them beside the verdict, and fails on a declaration no
+  suite scored anything under — which `target_voice` on a refusal item would
+  be. Each of those ships with a test that fails on the planted defect, not
+  only one that passes.
+
+  Not done: `conversational_integrity` is still disabled, for the reason its
+  own gap declaration gives, and Phase 12 was never about it.

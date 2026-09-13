@@ -22,7 +22,7 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 1187 tests plus
+evidence and, separately, against the running server. 1200 tests plus
 63 browser behaviour checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
@@ -210,7 +210,12 @@ this repository has ever published said anything about the behaviour described
 above — which is how `Answer.cited_text` came to drop the notice for a whole
 milestone with every check green. The
 [write-up](DESIGN.md#the-cross-language-path-in-the-evidence) lists every score
-the one new item moved, including `multilingual` scoring it zero.
+the one new item moved, including `multilingual` scoring it zero — and, since
+2026-09-13, what it took to stop that zero standing for two opposite
+behaviours at once. The item declares `expected_response_lang`: the bundle
+says the English answer is the intended one and why, the suite scores the
+declaration rather than the question's own tag, and the reason is published in
+the audit report beside the item.
 
 ## Starting a deployment with the audit already in it
 
@@ -467,15 +472,15 @@ a separate project, pinned to an exact commit in
 
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
-Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
-Bundle sha256: e016df307ea9a77f480ffcd759bcb24a6a3ef7f825ef82f26620b34be8131055
+Recorded 31 items (24 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
+Bundle sha256: 7892dd2cea21cd24800a9274fff935e53d477d29d4cfb970c7b32acf7bf963ad
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset e016df307ea9, run ...
+GATE: PASS — target cairn-demo, dataset 7892dd2cea21, run ...
 all 14 suites passed:
   ...
-  multilingual           score 0.9667  floor 0.95  PASS  n=30  ci ...  mde ...
-  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci ...  mde ...  4 unverifiable
+  multilingual           score 1.0000  floor 0.95  PASS  n=31  ci ...  mde ...
+  passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci ...  mde ...  5 unverifiable
   ...
 $ python3 audit_guard.py        # and the check the gate cannot make on itself
 GUARD: PASS — cairn-demo, run ..., against baseline 62d02d167796e3a5
@@ -488,8 +493,13 @@ declared gaps (1 suite not scored at all):
 floors that are not the harness's own (6 suites, each with a recorded reason):
   accuracy: 0.35, LOOSER than the default 0.75
   ...
+scores resting on an item declaration (2 items; each declaration's reason is
+published in the report):
+  expected_response_lang: ck-027 — scored under it by multilingual
+  target_voice: ck-027, ck-028 — scored under it by citation_accuracy,
+  groundedness, passage_attribution
 suites that could not check everything they were handed:
-  passage_attribution: scored 18 of 22 eligible (no_distractor 4); unverifiable
+  passage_attribution: scored 18 of 23 eligible (no_distractor 5); unverifiable
   items are excluded, never passed
 no suite moved against the committed baseline.
 ```
@@ -582,6 +592,36 @@ a *retrieval* failure, because the right passage never cleared the threshold
 for composition to choose it. The behaviour has not changed; it is scored now
 instead of only documented.
 
+**And a third, which was two limitations with one shape.** Cairn says out loud
+when it is doing something unusual — quoting an English source to an Arabic
+question, or counting rows in a table rather than quoting a number. Those
+notices are Cairn's own voice, so they appear in no source. A lexical support
+metric therefore read a correct disclosure as a fabrication, and a
+language-detection metric read a deliberate English answer as a system that
+had ignored the question's language. Both scored the correct behaviour and the
+incorrect one as the same number, so neither could be told from the other and
+the evidence set could hold exactly one item of each shape.
+
+Reported upstream, refused here: lowering either floor would have bought
+permission for the *genuine* failure to hide underneath. Plumbline shipped two
+opt-in item declarations on 2026-09-07 — `expected_response_lang`, which says
+an answer is supposed to come back in a stated language and why, and
+`target_voice`, which names literal strings the target emits in its own voice
+— and Cairn adopted them on 2026-09-13 at the pin bump to `aec1fcc`. `ck-027`
+declares both; `ck-028`, the answered table-tool item withdrawn in August for
+exactly this, was restored and ships. `multilingual` is 1.0000 over 31 items,
+`groundedness` and `citation_accuracy` 1.0000 over 23, and no floor moved.
+
+`target_voice` exempts text from those three support measures and from nothing
+else: `privacy`, `representational_harms` and `adversarial` still read every
+response whole, so a declaration cannot buy a pass by naming the sentence that
+would fail a screen. Both declarations are published — the reason lands in the
+item record, each suite names the items that declared, and `audit_guard.py`
+prints both lists beside the verdict, because a reader who cannot separate the
+measured part of a score from the declared part is reading two things added
+together. `cairn record` refuses to write a bundle whose declared notice is
+not in the recorded answer verbatim, so a declaration cannot rot into a no-op.
+
 ## Grading the server, not a recording of it
 
 Everything above grades a bundle. A bundle is bytes on disk; the thing it is a
@@ -670,7 +710,7 @@ page argues against.
 | Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French shipped with no bundled corpus content for five days, deliberately and written down as a gap, and closed it on 2026-08-27 with one document and one audit item — which found that the served interface could not answer in French at all, because `SELECTABLE` was a hand-written tuple that never gained `fr` and `_resolve_lang` reads it to decide whether a requested language is real. Corpus coverage stays deliberately uneven: French has the grocery allowance and nothing else. See "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
 | AI Evaluation | N/A — there is no model. Retrieval is deterministic lexical scoring over a corpus the operator supplies, and answers are passages quoted verbatim rather than generated, so there is no prompt, no sampling, and nothing to evaluate as a model. | The runtime has zero dependencies, which makes the no-model claim mechanically checkable; `tests/test_answering.py` holds every answer to its source text. |
 | Documentation | Applies — and the pages are tested, which is the part that matters. `tests/test_docs.py` executes every command block in [docs/demo.md](docs/demo.md) and holds its output byte for byte, and executes the README's blocks under a looser rule that still forbids showing a word the command never printed. | This README, [DESIGN.md](DESIGN.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [WORKLOG.md](WORKLOG.md), [docs/I18N.md](docs/I18N.md), [docs/authoring.md](docs/authoring.md), [docs/onboarding.md](docs/onboarding.md), [docs/deployment.md](docs/deployment.md), [docs/embedding.md](docs/embedding.md), [docs/refusal-analytics.md](docs/refusal-analytics.md), [docs/followup.md](docs/followup.md), [docs/compliance.md](docs/compliance.md), [docs/screen-reader-test-script.md](docs/screen-reader-test-script.md), [docs/release.md](docs/release.md), [docs/pilot-usagov.md](docs/pilot-usagov.md), [docs/pilot-ca.md](docs/pilot-ca.md), [docs/pilot-ca-elicitation.md](docs/pilot-ca-elicitation.md), and the ADR log at [docs/adr/](docs/adr/). |
-| Quality & Metrics | Applies — the floors are measured rather than aspirational, and a floor that differs from the auditor's own default must carry a written reason that `audit_guard.py` enforces against the pinned harness's source. The guard also catches what a floor cannot: a score that moved without breaching one, in either direction. | `plumbline/target.toml`, `audit_guard.py`, `tests/test_audit_guard.py`, and the 85% branch-coverage floor in `pyproject.toml`. |
+| Quality & Metrics | Applies — the floors are measured rather than aspirational, and a floor that differs from the auditor's own default must carry a written reason that `audit_guard.py` enforces against the pinned harness's source. The guard also catches what a floor cannot: a score that moved without breaching one, in either direction; and, since 2026-09-13, it prints the two items whose scores rest on a per-item declaration rather than only on a measurement, and fails on a declaration no suite scored anything under. | `plumbline/target.toml`, `audit_guard.py`, `tests/test_audit_guard.py`, and the 85% branch-coverage floor in `pyproject.toml`. |
 | AI Development Measurement | Applies — no AI-development baseline is recorded in this repository, and no activity counter is tracked or gated. The gates that exist are outcome-side: `make verify` locally, and an external auditor grading recorded behaviour at merge. | `Makefile`, `.github/workflows/ci.yml` |
 | Incident Response | Applies — private reporting with a seven-day acknowledgement expectation, and a scope section that names what is and is not a report for a tool with no deployment. No incident has been recorded, so there is no `docs/incidents/` directory yet. | [SECURITY.md](SECURITY.md), [docs/compliance.md](docs/compliance.md) |
 | Data Governance | Applies — the corpus belongs to the operator and never leaves their machine: there is no upload, no telemetry, no external resource on the served page, and a `default-src 'none'` policy so the browser enforces that rather than this README claiming it. The corpus shipped here is synthetic and the README says so where it is used. Two opt-in server features hold real data past that default — `--refusal-stats` (aggregate counts only) and `--followup-store` (real contact information, by explicit consent) — and neither has a built-in retention period; [`docs/compliance.md`](docs/compliance.md) states that plainly for a records-retention review. | "The demo corpus is synthetic" above, `corpus/`, `cairn/server.py`, [docs/compliance.md](docs/compliance.md) |

@@ -878,48 +878,6 @@ rather than on work. This section stays the argument; the roadmap is the order.
   metadata no reviewer has seen, added specifically to make an untranslated
   quote findable, and it is the alias mechanism whose measurement says it
   degrades passage choice.
-- **The audit scores a correct cross-language answer as a failure, and there
-  is room for exactly one of them.** `ck-027` is in the evidence set now (see
-  "The cross-language path, in the evidence" below) and `multilingual` scores
-  it 0.0000: asked in Arabic, answered in English. The suite is right by its
-  own definition — the body of the response really is English — and Cairn is
-  right too, because translating the source would produce an unsourced policy
-  statement. Two correct positions, one number, and the number is zero. The
-  suite score is 0.9667, which clears its 0.95 floor by one item and no more:
-  a second cross-language item takes it to 29/31 = 0.9355 and the gate to red.
-  (That arithmetic was published as 25/28 = 0.8929, which is not what adding
-  one failing item to 26-of-27 gives. The conclusion held and the number did
-  not, which is why it is computed from the committed baseline now — see
-  `tests/test_open_items.py`.) So the evidence set cannot grow this kind of
-  coverage without something giving, and the three things that could give are
-  all somebody's decision rather than a tuning knob. Evaluated on 2026-08-16,
-  and the resolution is the third:
-
-  - *Lower the floor and say why.* Refused. The floor would have to reach
-    0.9333 to admit a second item and lower still for a third, and what it
-    would be buying is permission for a **genuine** wrong-language answer to
-    hide underneath. `multilingual` is the suite that catches a system
-    silently serving English to a Spanish speaker, which is the failure mode
-    that makes a multilingual deployment worthless; trading its sensitivity
-    for coverage of a path Cairn is confident about is the wrong side of that
-    trade. The floor stays at the harness's own default, which is also the
-    only reason it needs no `floor_reason` in `plumbline/target.toml`.
-  - *Teach the harness that a response carrying a cross-language notice is
-    answered in the notice's language.* Correct, and not Cairn's to do. Cairn
-    consumes Plumbline at a pin and pushes nothing to it; a suite that reads a
-    target's own notice convention is also a worse suite for every other
-    target, so the version worth filing upstream is narrower than the sentence
-    above — an item-level declaration that a response is *expected* to be
-    answered in a different language from the one it was asked in, with the
-    reason recorded, so the suite scores the declaration rather than guessing.
-    That is a report to file, not a change to make here.
-  - *Accept that the path is audited by exactly one item.* Taken. One item is
-    the difference between a published measurement of this path and none, and
-    the milestone it replaced — three paragraphs of README about behaviour no
-    audit report had ever seen — is what "none" costs. The cost of the choice
-    is real and bounded: the audit can say the path works for `ck-027` and
-    cannot say it works in general, and adding a second item is a gate failure
-    rather than a silent dilution, which is the right way for this to bite.
 - **No manual screen-reader pass.** The browser checks verify the plumbing a
   screen reader depends on — the roles, the politeness settings, that an
   announcement fires and focus does not move, that the assertive channel stays
@@ -1529,6 +1487,17 @@ source rather than out of a number typed into Cairn's config — which could be
 wrong in the same commit that made it wrong. A pin bump that changes a default
 reopens the question at the next gate run.
 
+The key moved on 2026-09-13, and the reason is worth the paragraph. The
+pinned harness now refuses a `[suites.<id>]` table carrying a key it does not
+read, because TOML ignores an unknown key and a misspelled `flooor = 0.99`
+leaves the suite running at a demonstration default while the reviewable file
+appears to set a bar. That check cannot tell Cairn's `floor_reason`, `gap` and
+`fix_belongs_in` from the typo, and it is right not to try. They live in
+`[cairn.suites.<id>]` now, written immediately after the suite table they
+explain; `audit_guard.py` reads them from there and fails on one filed against
+a suite `[suites]` does not declare, because a reason attached to nothing is a
+reason nobody will notice has stopped applying.
+
 **The third way to switch a check off.** The guard caught `enabled = false`
 without a declared gap, and the baseline comparison caught a suite that
 stopped being scored. Both read the universe of suites out of
@@ -1708,7 +1677,8 @@ and the evidence for it does not. Enabling the suite now would mean one of
 two dishonest things: every item scoring UNVERIFIABLE for lack of turns,
 which proves nothing was checked, or an *n* of zero dressed as a passing
 suite. `[suites.conversational_integrity]` in `plumbline/target.toml` stays
-disabled with `gap` and `fix_belongs_in` declared, same mechanism as
+disabled, with `gap` and `fix_belongs_in` declared beside it in
+`[cairn.suites.conversational_integrity]`, same mechanism as
 `multilingual` was, printed by `audit_guard.py` on every run — updated to
 say precisely this once `Session` existed and the gap still didn't close:
 landing a capability and recording it in the audited evidence are two
@@ -1843,15 +1813,14 @@ worth reading:
 
 Two of those deserve to be read rather than skimmed.
 
-**`multilingual` scores it zero, and the suite is right.** It detects the
+**`multilingual` scored it zero, and the suite was right.** It detects the
 language of the response and the response is mostly English — the Arabic
 notice is one sentence in front of an English paragraph, and the detector
 counts letters. Cairn's position is that quoting the source untranslated is
 the correct behaviour and translating a policy statement would make it
-unsourced. Both positions are defensible and they produce a zero. That
-disagreement was invisible while no item exercised the path; it is now a
-number in a committed baseline, and the open-items list carries what it would
-take to resolve it.
+unsourced. Both positions are defensible and they produced a zero, which is
+also the number a system that simply ignored the question's language would
+get. Two opposite behaviours, one score.
 
 **Groundedness fell because the answer got better.** The notice is Cairn
 speaking in its own voice, so its words appear in no cited source, so a
@@ -1860,6 +1829,52 @@ predicted exactly this before the item existed. The alternative — leaving the
 notice out to keep the number at 1.0000 — is grading a string no user of the
 served interface can obtain, which is the mistake that property was written to
 stop making.
+
+#### Both of those closed on 2026-09-13, upstream, and what it cost
+
+Neither was a thing to fix here. What both needed was a way for the *bundle*
+to say which of two indistinguishable cases it was looking at, and Plumbline
+shipped exactly that on 2026-09-07 (its #80): two opt-in item declarations,
+additive to bundle v1, which Cairn adopted at the pin bump to `aec1fcc`.
+
+`ck-027` now declares `expected_response_lang = { lang = "en", reason = ... }`
+and `multilingual` scores the declaration instead of the question's own tag.
+It moves the target; it does not remove it, and an English declaration
+answered in Spanish still fails. The suite is **1.0000 over 31 items**, up
+from 0.9667 over 30.
+
+Both `ck-027` and `ck-028` declare `target_voice`: the literal notice each
+emits in Cairn's own voice. `groundedness`, `citation_accuracy` and
+`passage_attribution` remove those strings before they measure what the
+sources support. Nothing else does — `privacy`, `representational_harms` and
+`adversarial` still read every response whole, which is the property that
+keeps the declaration from being a way to buy a pass by naming the sentence
+that would fail a screen. `groundedness` and `citation_accuracy` are
+**1.0000 over 23 items**, up from 0.9740 over 22.
+
+Three things about that rise are worth stating plainly, because a number that
+goes up when nothing was fixed is the shape of a number that was bought.
+
+- **It is a smaller measurement, not a better answer.** Cairn's behaviour is
+  byte-for-byte what it was: the notice is still in `cited_text`, still in the
+  recorded response, still what a text-only client receives. What changed is
+  which three of the fourteen suites read it. The measured population of
+  `groundedness` did not grow by declaring; the text it reads inside two items
+  shrank.
+- **It is published, not implicit.** Each declaration's reason lands in the
+  item record, each of the four suites that read one names the items that
+  declared, and `audit_guard.py` prints both lists beside the verdict — so
+  "all 14 suites passed" is never read without the two items whose score rests
+  on a declaration. The guard also fails on a declaration no suite scored
+  anything under, because a declaration nothing reads is a reviewed decision
+  recorded where nobody will see it stop applying.
+- **The measured half is still there.** `ck-027` without its `target_voice`
+  measures 0.4286 token support and takes `groundedness` and
+  `citation_accuracy` to 0.9752, which is what they were on 2026-09-13 with
+  only `ck-028` declaring. That number is in this paragraph rather than in the
+  baseline because it is the cost of the declaration, and a reader who wants
+  to know what the instrument would say without it should not have to re-run
+  anything to find out.
 
 ### What the first audit found
 
@@ -1993,18 +2008,43 @@ notices already live — and every matched row is cited as
 `<table-id>#<row>`, so "1 of its 3 rows" is recompute-checkable from the
 sources list alone.
 
-**Why the evidence set carries no answered tool item:** one was authored
-(`ck-028`) and measured honestly. Its notice made lexical support
+**The answered tool item, withdrawn and then shipped.** `ck-028` was authored
+with the tool and measured honestly: its notice made lexical support
 structurally low — the same shape as the cross-language notice — and this
-evidence set already carries its one such item (`ck-027`). Adding the second
-took `groundedness` and `citation_accuracy` to 0.9416 against floors of
-0.95: the gate bit exactly as designed, on schedule. The item came out; the
-floors did not move. What would let such an item back in is upstream —
-per-item declaration that part of a response is target voice, the same
-mechanism proposed for cross-language notices. Coverage meanwhile lives
-where it is scored: `tests/test_tabular.py` pins the loader, the parser, the
-zero-match refusal, and the misfire bar against every question in the audit
-set.
+evidence set already carried its one such item (`ck-027`). Adding the second
+took `groundedness` and `citation_accuracy` to 0.9416 against floors of 0.95;
+the gate bit exactly as designed, on schedule. The item came out. The floors
+did not move, because weakening two safety floors to admit one item is the
+manoeuvre this repository exists to refuse, and the gap was filed upstream
+instead.
+
+**It shipped on 2026-09-13**, with the declaration that was missing:
+`target_voice`, in Plumbline since 2026-09-07. The item asks "How many
+programs have a monthly benefit over $50?", the tool counts 2 of 3 rows, and
+the notice that says so is declared as the string it is — Cairn speaking, not
+a source. `groundedness` and `citation_accuracy` read the answer with it
+removed and score the item 1.0000.
+
+What the declaration is actually holding off is sharper than the old 0.9416,
+and it was re-measured on the day the item shipped rather than carried over.
+Without it, under the harness at `aec1fcc`, `ck-028` does not merely score
+low: the counts `2` and `3` appear in none of its sources, so the answer is
+read as stating figures its sources lack, which is this instrument's name for
+fabrication. It is a **load-bearing hard failure**, and `groundedness` comes
+back FAIL at 0.9752 — above its floor and failing anyway, which is the
+severity rule working. A correct disclosure was being scored as a
+fabrication, exactly as reported upstream.
+
+The rest of the tool path is still covered where it is scored:
+`tests/test_tabular.py` pins the loader, the parser, the zero-match refusal,
+and the misfire bar against every question in the audit set, and `ck-029`
+exercises the zero-match refusal through the real audit pipeline.
+
+The threshold sweep (`sweep.py`) holds `ck-028` out of its curve by name and
+says so in its header. A tool-answered question reaches no candidate set, so
+no threshold moves it; sweeping it would put a `wrong-refusal` in every row
+of a curve about a question the system answers correctly at every point on
+it.
 
 ## Streaming
 

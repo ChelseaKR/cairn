@@ -156,13 +156,13 @@ The Harbor GoPass gives eligible riders a reduced fare on all Harbor County
 buses and the harbor ferry.
 [transit-pass-en.1]</pre>
         <p class="sources">Cited: <code>transit-pass-en.1</code>, <code>transit-pass-en.3</code>, <code>transit-pass-en.2</code></p>
-        <p class="aside">Asked in Arabic. The only source Cairn has is the English transit document, so it says so in Arabic and then quotes the English exactly as published — translating a policy sentence would produce a number no source contains. Its own auditor scores that a failure: the <code>multilingual</code> suite asks whether a person who wrote in Arabic got Arabic back, and the body of this answer is English. 29 of 30 items pass it, and the one that does not is this one. Both positions are correct and the number is still zero; the reasoning, and why the floor was not lowered to make it go away, is in <a href="https://github.com/ChelseaKR/cairn/blob/main/DESIGN.md">DESIGN.md</a>.</p>
+        <p class="aside">Asked in Arabic. The only source Cairn has is the English transit document, so it says so in Arabic and then quotes the English exactly as published — translating a policy sentence would produce a number no source contains. Its own auditor scored that a failure for a milestone: the <code>multilingual</code> suite asks whether a person who wrote in Arabic got Arabic back, and the body of this answer is English, so the item scored 0.0000 — the same number a system that had simply ignored the question's language would get. The evidence bundle now declares that the English answer is the intended one, and why, and the suite scores the declaration instead. 31 of 31 items pass it. The floor was never lowered to get there, the declaration is published in the audit report beside this item, and the reasoning is in <a href="https://github.com/ChelseaKR/cairn/blob/main/DESIGN.md">DESIGN.md</a>.</p>
       </article>
 
   <h2>What the audit made of all 27</h2>
   <p>Scored by <a href="https://github.com/ChelseaKR/plumbline">Plumbline</a>, pinned
   to an exact commit, against dataset
-  <code data-evidence="dataset-id">e016df307ea9</code> — the SHA-256 of the
+  <code data-evidence="dataset-id">7892dd2cea21</code> — the SHA-256 of the
   bundle above, so this table cannot be about a different set of answers than the
   ones on this page.</p>
   <table>
@@ -182,9 +182,9 @@ buses and the harbor ferry.
           </tr>
           <tr data-evidence="suite" data-suite="accuracy">
             <th scope="row">accuracy</th>
-            <td data-field="score">0.4132</td>
+            <td data-field="score">0.4154</td>
             <td data-field="floor">0.35</td>
-            <td data-field="n">23</td>
+            <td data-field="n">24</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="adversarial">
@@ -196,16 +196,16 @@ buses and the harbor ferry.
           </tr>
           <tr data-evidence="suite" data-suite="citation_accuracy">
             <th scope="row">citation_accuracy</th>
-            <td data-field="score">0.9740</td>
+            <td data-field="score">1.0000</td>
             <td data-field="floor">0.95</td>
-            <td data-field="n">22</td>
+            <td data-field="n">23</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="citation_validity">
             <th scope="row">citation_validity</th>
             <td data-field="score">1.0000</td>
             <td data-field="floor">1.00</td>
-            <td data-field="n">22</td>
+            <td data-field="n">23</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="cross_language">
@@ -217,23 +217,23 @@ buses and the harbor ferry.
           </tr>
           <tr data-evidence="suite" data-suite="fairness">
             <th scope="row">fairness</th>
-            <td data-field="score">0.9220</td>
+            <td data-field="score">0.9269</td>
             <td data-field="floor">0.85</td>
-            <td data-field="n">30</td>
+            <td data-field="n">31</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="groundedness">
             <th scope="row">groundedness</th>
-            <td data-field="score">0.9740</td>
+            <td data-field="score">1.0000</td>
             <td data-field="floor">0.95</td>
-            <td data-field="n">22</td>
+            <td data-field="n">23</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="multilingual">
             <th scope="row">multilingual</th>
-            <td data-field="score">0.9667</td>
+            <td data-field="score">1.0000</td>
             <td data-field="floor">0.95</td>
-            <td data-field="n">30</td>
+            <td data-field="n">31</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="passage_attribution">
@@ -247,28 +247,28 @@ buses and the harbor ferry.
             <th scope="row">privacy</th>
             <td data-field="score">1.0000</td>
             <td data-field="floor">1.00</td>
-            <td data-field="n">30</td>
+            <td data-field="n">31</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="refusal">
             <th scope="row">refusal</th>
-            <td data-field="score">0.9667</td>
+            <td data-field="score">0.9677</td>
             <td data-field="floor">0.90</td>
-            <td data-field="n">30</td>
+            <td data-field="n">31</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="representational_harms">
             <th scope="row">representational_harms</th>
             <td data-field="score">1.0000</td>
             <td data-field="floor">1.00</td>
-            <td data-field="n">30</td>
+            <td data-field="n">31</td>
             <td data-field="verdict">PASS</td>
           </tr>
           <tr data-evidence="suite" data-suite="smoke">
             <th scope="row">smoke</th>
             <td data-field="score">1.0000</td>
             <td data-field="floor">1.00</td>
-            <td data-field="n">30</td>
+            <td data-field="n">31</td>
             <td data-field="verdict">PASS</td>
           </tr>
     </tbody>

@@ -52,7 +52,6 @@ ANCHORS = (
     "One known colloquial-recall failure",
     "One wrong-paragraph case",
     "Cross-language fallback needs shared words",
-    "The audit scores a correct cross-language answer as a failure",
     "No manual screen-reader pass",
     "No generative mode",
 )
@@ -78,6 +77,12 @@ def open_section() -> str:
     text = DESIGN.read_text(encoding="utf-8")
     body = text.split(SECTION, 1)[1]
     return body.split("\n## ", 1)[0]
+
+
+def questions() -> list[dict]:
+    return tomllib.loads(
+        (ROOT / "plumbline" / "questions.toml").read_text(encoding="utf-8")
+    )["item"]
 
 
 def multilingual_baseline() -> dict:
@@ -198,45 +203,39 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
         self.assertTrue(recorded.startswith(answer.notice))
         self.assertEqual(recorded, answer.cited_text)
 
-    def test_the_multilingual_suite_still_scores_it_zero(self):
-        # The open item above is a live measurement, not a worry. If the
-        # baseline ever records `multilingual` at 1.0000 again, either the
-        # harness learned to read a cross-language answer or the item left.
-        entry = multilingual_baseline()
-        self.assertLess(entry["score"], 1.0, "the open item above says it fails one item")
-        self.assertEqual(round(entry["score"] * entry["n"]), entry["n"] - 1)
+    def test_the_item_that_closed_is_gone_from_the_list_and_stays_closed(self):
+        """It read: "the audit scores a correct cross-language answer as a
+        failure, and there is room for exactly one of them". It was a live
+        measurement, and on 2026-09-13 it stopped being one — `ck-027`
+        declares `expected_response_lang` and `multilingual` scores the
+        declaration.
 
-    def test_the_headroom_the_item_publishes_is_the_baselines_arithmetic(self):
-        # The open item states what a *second* cross-language item would cost,
-        # and that sentence was wrong: 26 of 27 plus one more failing item is
-        # 26/28, and it was published as 25/28. Prose arithmetic about a
-        # measurement is arithmetic nothing recomputes, so this recomputes it —
-        # from the committed baseline, which is an artifact the sentence does
-        # not derive from and cannot bend to match.
-        entry = multilingual_baseline()
-        correct = round(entry["score"] * entry["n"])
-        predicted = correct / (entry["n"] + 1)
-        self.assertIn(
-            f"{correct}/{entry['n'] + 1} = {predicted:.4f}",
-            open_section(),
-            "the open item's arithmetic is not the baseline's",
+        An item that gets fixed and stays listed tells a reader the system is
+        worse than it is, so the bullet is gone. What replaces it is this: the
+        bullet may not come back while the measurement says it is closed, and
+        the measurement may not quietly reopen while the bullet is gone.
+        """
+        self.assertNotIn(
+            "room for exactly one of them", open_section(),
+            "the open item was closed on 2026-09-13; delete it or reopen it, "
+            "but do not leave a closed item listed",
         )
-        # And the claim that sentence exists to make: it takes the gate red.
+        entry = multilingual_baseline()
+        self.assertEqual(
+            entry["score"], 1.0,
+            "the closed item said the suite fails one item; if it does again, "
+            "either the declaration stopped being read or a real "
+            "wrong-language answer arrived, and both belong back on the list",
+        )
+        declared = [q["id"] for q in questions() if q.get("expected_response_lang")]
+        self.assertEqual(declared, [CROSS_LANGUAGE_ITEM])
+        # The ceiling the item described is what actually lifted: a second
+        # cross-language item no longer costs the suite anything, because it
+        # would declare too and be scored against what it declares.
         floor = tomllib.loads(
             (ROOT / "plumbline" / "target.toml").read_text(encoding="utf-8")
         )["suites"]["multilingual"]["floor"]
-        self.assertGreaterEqual(entry["score"], floor, "today it passes")
-        self.assertLess(predicted, floor, "and a second such item would not")
-
-    def test_the_resolution_of_the_three_ways_out_is_recorded(self):
-        # An open item that lists options and never says which one was taken
-        # reads, a milestone later, as an item nobody thought about. Each of
-        # the three carries its verdict in the text now, and the one that was
-        # taken has to be identifiable as taken.
-        section = open_section()
-        for verdict in ("Refused.", "not Cairn's to do.", "Taken."):
-            with self.subTest(verdict=verdict):
-                self.assertIn(verdict, section)
+        self.assertGreaterEqual(entry["score"], floor)
 
     def test_the_corrected_claim_is_the_one_the_design_makes(self):
         section = open_section()

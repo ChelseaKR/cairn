@@ -180,9 +180,32 @@ class TestAgainstTheDemoCorpus(unittest.TestCase):
     def test_every_other_item_is_correct_at_the_configured_threshold(self):
         t, k = self.cfg.threshold, self.cfg.max_passages
         wrong = sorted(
-            s.id for s in self.scored if sweep.outcome_at(s, t, k).startswith("wrong")
+            s.id
+            for s in sweep.threshold_swept(self.scored)
+            if sweep.outcome_at(s, t, k).startswith("wrong")
         )
         self.assertEqual(wrong, ["ck-015", "ck-022"])
+
+    def test_a_tool_answered_question_is_held_out_of_the_curve(self):
+        """ck-028 is answered from table rows, so it never reaches a candidate
+        set and no threshold moves it. The hold-out is not cosmetic: the
+        second half of this test is what the curve would say without it."""
+        by_id = {s.id: s for s in self.scored}
+        self.assertTrue(by_id["ck-028"].tool, "the engine answered it with a tool")
+        self.assertNotIn(
+            "ck-028", {s.id for s in sweep.threshold_swept(self.scored)}
+        )
+        # The planted defect, which is simply not holding it out: an `answer`
+        # question with no candidates is a wrong-refusal at every threshold,
+        # so the curve would report a refusal the system does not give and
+        # divide the answer rate by a denominator that includes it.
+        t, k = self.cfg.threshold, self.cfg.max_passages
+        self.assertEqual(by_id["ck-028"].candidates, ())
+        self.assertEqual(sweep.outcome_at(by_id["ck-028"], t, k), "wrong-refusal")
+        self.assertEqual(sweep.outcome_at(by_id["ck-028"], 0.0, k), "wrong-refusal")
+        held = sweep.sweep(sweep.threshold_swept(self.scored), [t], k)[0][1]
+        swept_in = sweep.sweep(self.scored, [t], k)[0][1]
+        self.assertGreater(held.answer_rate, swept_in.answer_rate)
 
     def test_the_curve_trades_answers_for_refusals_as_the_bar_rises(self):
         rows = sweep.sweep(self.scored, [0.05, 0.165, 0.40], self.cfg.max_passages)
@@ -217,6 +240,7 @@ class TestAgainstTheDemoCorpus(unittest.TestCase):
             )
         self.assertEqual(code, 0)
         text = out.getvalue()
+        self.assertIn("held out of the curve: ck-028", text)
         self.assertIn("0.165      0.913         0.045", text)
         self.assertIn("<- configured", text)
         self.assertIn("ck-022       answer  wrong-answer     wrong-passage", text)

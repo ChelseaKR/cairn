@@ -192,7 +192,8 @@ class TestDeclaredGaps(unittest.TestCase):
 
     def test_half_a_declaration_is_not_a_declaration(self):
         _, findings = declared_gaps(
-            {"suites": {"multilingual": {"enabled": False, "gap": "no Arabic profile"}}}
+            {"suites": {"multilingual": {"enabled": False}},
+             "cairn": {"suites": {"multilingual": {"gap": "no Arabic profile"}}}}
         )
         self.assertEqual(blocking(findings), ["multilingual"])
         self.assertIn("fix_belongs_in", findings[0].detail)
@@ -210,13 +211,17 @@ class TestDeclaredGaps(unittest.TestCase):
         gaps, findings = declared_gaps(
             {
                 "suites": {
-                    "multilingual": {
-                        "enabled": False,
-                        "gap": "no Arabic profile in the pinned harness",
-                        "fix_belongs_in": "plumbline lexicons.py",
-                    },
+                    "multilingual": {"enabled": False},
                     "smoke": {"enabled": True},
-                }
+                },
+                "cairn": {
+                    "suites": {
+                        "multilingual": {
+                            "gap": "no Arabic profile in the pinned harness",
+                            "fix_belongs_in": "plumbline lexicons.py",
+                        }
+                    }
+                },
             }
         )
         self.assertEqual([g["suite"] for g in gaps], ["multilingual"])
@@ -329,8 +334,10 @@ class TestTheCommittedArtifacts(unittest.TestCase):
         # the helper is proven live on a synthetic input before the real
         # config is handed to it.
         control, _ = declared_gaps(
-            {"suites": {"privacy": {"enabled": False, "gap": "unscored, see plumbline",
-                                    "fix_belongs_in": "plumbline"}}}
+            {"suites": {"privacy": {"enabled": False}},
+             "cairn": {"suites": {"privacy": {
+                 "gap": "unscored, see plumbline",
+                 "fix_belongs_in": "plumbline"}}}}
         )
         self.assertEqual([gap["suite"] for gap in control], ["privacy"])
 
@@ -388,8 +395,9 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
 
     def test_a_reason_makes_it_a_recorded_override(self):
         overrides, findings = audit_guard.floor_findings(
-            {"suites": {"accuracy": {"enabled": True, "floor": 0.35,
-                                     "floor_reason": "the metric is wrong for us"}}},
+            {"suites": {"accuracy": {"enabled": True, "floor": 0.35}},
+             "cairn": {"suites": {"accuracy": {
+                 "floor_reason": "the metric is wrong for us"}}}},
             self.DEFAULTS,
         )
         self.assertEqual(findings, [])
@@ -398,7 +406,8 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
 
     def test_whitespace_is_not_a_reason(self):
         _, findings = audit_guard.floor_findings(
-            {"suites": {"accuracy": {"enabled": True, "floor": 0.35, "floor_reason": "  "}}},
+            {"suites": {"accuracy": {"enabled": True, "floor": 0.35}},
+             "cairn": {"suites": {"accuracy": {"floor_reason": "  "}}}},
             self.DEFAULTS,
         )
         self.assertEqual(blocking(findings), ["accuracy"])
@@ -424,12 +433,16 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
                 "suites": {
                     "smoke": {"enabled": True},
                     "accuracy": {"enabled": True},
-                    "fairness": {
-                        "enabled": False,
-                        "gap": "unscored; the harness cannot express it yet",
-                        "fix_belongs_in": "plumbline",
-                    },
-                }
+                    "fairness": {"enabled": False},
+                },
+                "cairn": {
+                    "suites": {
+                        "fairness": {
+                            "gap": "unscored; the harness cannot express it yet",
+                            "fix_belongs_in": "plumbline",
+                        }
+                    }
+                },
             },
             self.DEFAULTS,
         )
@@ -440,10 +453,37 @@ class TestFloorsAndTheSuiteUniverse(unittest.TestCase):
         # somebody wrote `enabled = false`, using a sentence about a gap that
         # had already closed.
         _, findings = declared_gaps(
-            {"suites": {"multilingual": {"enabled": True, "gap": "closed in Aug",
-                                         "fix_belongs_in": "plumbline"}}}
+            {"suites": {"multilingual": {"enabled": True}},
+             "cairn": {"suites": {"multilingual": {
+                 "gap": "closed in Aug", "fix_belongs_in": "plumbline"}}}}
         )
         self.assertEqual(blocking(findings), ["multilingual"])
+
+    def test_a_reason_filed_against_a_suite_that_is_not_configured_is_a_finding(self):
+        """`[cairn.suites.<id>]` is a table the harness never reads, which is
+        why Cairn's own keys live there — and why nothing upstream will ever
+        notice one filed against a suite `[suites]` does not declare. A floor
+        reason for a suite nobody configured reads, to anyone grepping this
+        file, exactly like a live declaration.
+
+        Both halves: the same note passes when its suite is configured.
+        """
+        configured = {"suites": {"smoke": {"enabled": True}},
+                      "cairn": {"suites": {"smoke": {"floor_reason": "r"}}}}
+        self.assertEqual(audit_guard.orphan_notes(configured), [])
+        orphaned = {"suites": {"smoke": {"enabled": True}},
+                    "cairn": {"suites": {"privacy": {"floor_reason": "r"}}}}
+        findings = audit_guard.orphan_notes(orphaned)
+        self.assertEqual(blocking(findings), ["privacy"])
+        self.assertIn("[cairn.suites.privacy]", findings[0].detail)
+
+    def test_a_config_with_no_cairn_table_at_all_is_not_a_crash(self):
+        # `cairn_notes` is read on every suite of every run, including a
+        # target config that declares nothing of Cairn's own — a scaffolded
+        # deployment's, for one, which sets no floors and therefore needs no
+        # reasons.
+        self.assertEqual(audit_guard.cairn_notes({"suites": {}}, "smoke"), {})
+        self.assertEqual(audit_guard.orphan_notes({"suites": {}}), [])
 
     def test_an_empty_harness_is_an_error_not_an_empty_rulebook(self):
         with tempfile.TemporaryDirectory() as name:
@@ -503,11 +543,16 @@ class TestRunningIt(unittest.TestCase):
     nothing else."""
 
     def write(self, tmp: Path, report: dict, baseline: dict, target: str,
-              harness: dict[str, float] | None = None) -> None:
+              harness: dict[str, float] | None = None,
+              questions: str = "") -> None:
         (tmp / "audits" / "run").mkdir(parents=True)
         (tmp / "audits" / "run" / "report.json").write_text(json.dumps(report))
         (tmp / "baseline.json").write_text(json.dumps(baseline))
         (tmp / "target.toml").write_text(target, encoding="utf-8")
+        # The guard reads the authored question set for its item declarations,
+        # so running it needs one. Empty by default: these cases exercise the
+        # baseline comparison, and the declaration rule has its own tests.
+        (tmp / "questions.toml").write_text(questions, encoding="utf-8")
         # The guard reads default floors out of the pinned harness's source
         # rather than out of Cairn's own config, so running it needs a
         # harness. The core dev path has none on purpose, which is why this
@@ -537,6 +582,7 @@ class TestRunningIt(unittest.TestCase):
                 "--audits", str(tmp / "audits"),
                 "--baseline", str(tmp / "baseline.json"),
                 "--target", str(tmp / "target.toml"),
+                "--questions", str(tmp / "questions.toml"),
                 "--harness-src", str(tmp / "harness"),
                 *extra,
             ])
@@ -547,6 +593,33 @@ class TestRunningIt(unittest.TestCase):
             self.write(tmp, report_doc(suite("smoke", 1.0)),
                        baseline_doc(suite("smoke", 1.0)), "[suites.smoke]\nenabled = true\n")
             self.assertEqual(self.invoke(tmp), EXIT_OK)
+
+    def test_a_declaration_no_suite_read_stops_the_build(self):
+        """`target_voice` is read by three suites and ignored by the rest, so
+        a declaration can be authored, accepted, and do nothing — on a refusal
+        item, say, which no support suite scores. That is a reviewed decision
+        recorded where nobody will see it stop applying.
+
+        Both halves, on one question set: the same declaration passes when the
+        report says a suite scored under it and fails when nothing did.
+        """
+        declared = (
+            '[[item]]\nid = "x-1"\nlang = "en"\nbehavior = "refuse"\n'
+            'prompt = "how many?"\ntarget_voice = ["a notice"]\n'
+        )
+        scored = report_doc(suite("smoke", 1.0))
+        scored["suites"][0]["details"] = {"items_declaring_target_voice": ["x-1"]}
+        for questions, report, expected in (
+            (declared, scored, EXIT_OK),
+            (declared, report_doc(suite("smoke", 1.0)), EXIT_FINDINGS),
+        ):
+            with self.subTest(expected=expected):
+                with tempfile.TemporaryDirectory() as name:
+                    tmp = Path(name)
+                    self.write(tmp, report, baseline_doc(suite("smoke", 1.0)),
+                               "[suites.smoke]\nenabled = true\n",
+                               questions=questions)
+                    self.assertEqual(self.invoke(tmp), expected)
 
     def test_a_regression_exits_one(self):
         with tempfile.TemporaryDirectory() as name:
@@ -612,8 +685,10 @@ class TestRunningIt(unittest.TestCase):
             tmp = Path(name)
             self.write(
                 tmp, report_doc(suite("smoke", 0.5)), baseline_doc(suite("smoke", 1.0)),
-                "[suites.multilingual]\nenabled = false\ngap = \"g\"\n"
-                "fix_belongs_in = \"plumbline\"\n[suites.smoke]\nenabled = true\n",
+                "[suites.multilingual]\nenabled = false\n"
+                "[suites.smoke]\nenabled = true\n"
+                "[cairn.suites.multilingual]\ngap = \"g\"\n"
+                "fix_belongs_in = \"plumbline\"\n",
             )
             summary = tmp / "summary.md"
             code = self.invoke(tmp, "--summary-file", str(summary))

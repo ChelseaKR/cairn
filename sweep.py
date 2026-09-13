@@ -19,6 +19,18 @@ Nothing here re-implements scoring, ranking or composition: at threshold
 comparison), and the composed set is the first `max_passages` of them, which
 is what `cairn/answer.py` composes.
 
+**What this sweep is not asked about, stated.** A question the structured
+count tool answers never reaches retrieval: `cairn/engine.py` binds the whole
+query — counting phrase, measure column, comparator, number — or returns to
+retrieval untouched, and a bound one is answered from table rows with no
+candidate set and no threshold applied to anything. Sweeping it would put a
+`wrong-refusal` in the curve for every threshold, on a question the system
+answers correctly at all of them, and the answer rate printed underneath
+would be false. So a tool-answered question is held out by name and counted
+in the header, read from the engine's own `AskResult.tool` rather than by
+re-parsing the question here. There is no threshold at which it is a finding,
+which is the same reason it is not a pass being hidden.
+
 **The one approximation, stated.** The engine's language-scope fallback
 ("no same-language passage cleared the threshold, try the whole corpus") is
 decided at the *configured* threshold, and the candidates this sweep reads
@@ -96,6 +108,10 @@ class Scored:
     answering: frozenset[str]  # normalised passage ids
     candidates: tuple[tuple[str, float], ...]  # (normalised passage id, score), ranked
     cross_language: bool
+    # Answered by a structured tool rather than by retrieval, read from the
+    # engine's own decision. Such a question has no candidates and no
+    # threshold, so it is held out of the curve; see the module docstring.
+    tool: bool = False
     labels: dict[str, object] = field(default_factory=dict)
 
 
@@ -133,10 +149,23 @@ def score_questions(questions: list[dict], index, cfg) -> list[Scored]:
                 ),
                 candidates=candidates,
                 cross_language=any(a.scope == "corpus" for a in result.attempts),
+                tool=result.tool is not None,
                 labels=labels,
             )
         )
     return out
+
+
+def threshold_swept(scored: list[Scored]) -> list[Scored]:
+    """The questions a threshold can move, which is every question the engine
+    answered or refused on retrieved passages.
+
+    A tool-answered question is not one of them, and including it would not be
+    conservative: it would report a refusal the system does not give, at every
+    threshold, and divide the answer rate by a denominator holding a question
+    the curve says nothing about.
+    """
+    return [s for s in scored if not s.tool]
 
 
 def composed_at(scored: Scored, threshold: float, max_passages: int) -> tuple[str, ...]:
@@ -372,7 +401,15 @@ def main(argv: list[str] | None = None) -> int:
     # answer did not use.
     layers = {**load_layers(Path(cfg.corpus_path)), **engine_layers(index)}
 
+    by_tool = [s.id for s in scored if s.tool]
+    scored = threshold_swept(scored)
     answerable = sum(1 for s in scored if s.behavior == "answer")
+    if by_tool:
+        print(
+            f"{len(by_tool)} question(s) answered by a structured tool and held "
+            f"out of the curve: {', '.join(by_tool)}. They reach no candidate "
+            f"set, so no threshold moves them."
+        )
     print(
         f"{len(scored)} questions ({answerable} answer, {len(scored) - answerable} refuse), "
         f"{sum(1 for s in scored if s.cross_language)} swept over corpus-scope candidates, "

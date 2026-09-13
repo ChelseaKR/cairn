@@ -251,12 +251,15 @@ def render() -> str:
         f'        <p class="aside">Asked in Arabic. The only source Cairn has is the '
         f"English transit document, so it says so in Arabic and then quotes the English "
         f"exactly as published — translating a policy sentence would produce a number "
-        f"no source contains. Its own auditor scores that a failure: the "
-        f"<code>multilingual</code> suite asks whether a person who wrote in Arabic got "
-        f"Arabic back, and the body of this answer is English. "
-        f"{passed} of {multilingual['n']} items pass it, and the one that does not is "
-        f"this one. Both positions are correct and the number is still zero; the "
-        f"reasoning, and why the floor was not lowered to make it go away, is in "
+        f"no source contains. Its own auditor scored that a failure for a milestone: "
+        f"the <code>multilingual</code> suite asks whether a person who wrote in Arabic "
+        f"got Arabic back, and the body of this answer is English, so the item scored "
+        f"0.0000 — the same number a system that had simply ignored the question's "
+        f"language would get. The evidence bundle now declares that the English answer "
+        f"is the intended one, and why, and the suite scores the declaration instead. "
+        f"{passed} of {multilingual['n']} items pass it. The floor was never lowered to "
+        f"get there, the declaration is published in the audit report beside this item, "
+        f"and the reasoning is in "
         f'<a href="{REPO}/blob/main/DESIGN.md">DESIGN.md</a>.</p>\n'
     )
     cross = exchange(items[CROSS_LANGUAGE], responses[CROSS_LANGUAGE], note=cross_note)

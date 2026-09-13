@@ -22,7 +22,7 @@ from pathlib import Path
 from cairn.config import Config
 from cairn.engine import ask
 from cairn.index import build_index
-from cairn.record import RecordError, load_questions
+from cairn.record import RecordError, load_questions, target_voice_drift
 from cairn.tabular import render_row
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -225,3 +225,151 @@ class TestWhatTheSuiteCanAndCannotSeeHere(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheItemDeclarations(unittest.TestCase):
+    """The two opt-in declarations `cairn record` copies into the bundle, and
+    the one thing about them Cairn can check that the auditor cannot.
+
+    `expected_response_lang` and `target_voice` move what a suite measures
+    against. The harness validates their shape and refuses a malformed one;
+    what it cannot do is notice that a declared notice has stopped being the
+    notice the engine emits, because removal upstream is literal and a string
+    that matches nothing removes nothing, silently. So the recorder holds the
+    authored string to the recorded answer, and refuses rather than writing a
+    bundle in which the declaration has quietly become a no-op.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.questions = questions()
+        cls.index = build_index(DEMO)
+        cls.responses = {
+            json.loads(line)["id"]: json.loads(line)["response"]
+            for line in (BUNDLE / "responses.jsonl")
+            .read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+
+    def write(self, body: str) -> Path:
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        path = Path(holder.name) / "questions.toml"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_the_committed_declarations_are_in_the_committed_answers(self):
+        for question in self.questions:
+            for notice in question.get("target_voice", []):
+                with self.subTest(item=question["id"]):
+                    self.assertIn(notice, self.responses[question["id"]])
+
+    def test_every_declaration_reaches_the_bundle(self):
+        recorded = {item["id"]: item for item in items()}
+        for question in self.questions:
+            with self.subTest(item=question["id"]):
+                for field in ("expected_response_lang", "target_voice"):
+                    self.assertEqual(
+                        recorded[question["id"]].get(field),
+                        question.get(field) or None,
+                        f"{field} was authored and did not reach items.jsonl",
+                    )
+
+    def test_a_declared_notice_that_is_not_in_the_answer_stops_the_recording(self):
+        """The planted defect: reword the notice in `cairn/messages.py` — or
+        change what the tool counts — and the declaration goes on being
+        accepted by the harness while removing nothing at all. Recording is
+        where that has to stop, because after it the string is committed."""
+        drifted = [
+            dict(question, target_voice=["a notice this answer does not carry"])
+            if question.get("target_voice") else question
+            for question in self.questions
+        ]
+        self.assertTrue(any(q.get("target_voice") for q in drifted))
+        for question in drifted:
+            if not question.get("target_voice"):
+                continue
+            reason = target_voice_drift(question, self.responses[question["id"]])
+            self.assertIsNotNone(reason, question["id"])
+            self.assertIn("not in the answer", reason)
+        # And the control, on the same code path: the committed declarations
+        # drift-check clean, so the assertion above is not passing on an
+        # always-true helper.
+        for question in self.questions:
+            self.assertIsNone(
+                target_voice_drift(question, self.responses[question["id"]]),
+                question["id"],
+            )
+
+    def test_an_answer_that_is_only_a_notice_is_refused(self):
+        # The harness's own trap: support for an empty string is
+        # arithmetically total, so a response that is nothing but its declared
+        # notice would score a perfect 1.00 for saying nothing.
+        reason = target_voice_drift(
+            {"id": "x-1", "target_voice": ["the whole answer"]}, "the whole answer"
+        )
+        self.assertIsNotNone(reason)
+        self.assertIn("only a notice is not an answer", reason)
+
+    def test_record_refuses_a_declaration_of_the_language_it_was_asked_in(self):
+        path = self.write(
+            '[[item]]\nid = "x-1"\nlang = "ar"\nbehavior = "answer"\n'
+            'prompt = "q"\nanswering_sources = ["a.1"]\n'
+            'expected_response_lang = { lang = "ar", reason = "because" }\n'
+        )
+        with self.assertRaises(RecordError) as caught:
+            load_questions(path)
+        self.assertIn("declares nothing", str(caught.exception))
+
+    def test_record_refuses_a_declaration_with_no_reason(self):
+        path = self.write(
+            '[[item]]\nid = "x-1"\nlang = "ar"\nbehavior = "answer"\n'
+            'prompt = "q"\nanswering_sources = ["a.1"]\n'
+            'expected_response_lang = { lang = "en", reason = "  " }\n'
+        )
+        with self.assertRaises(RecordError) as caught:
+            load_questions(path)
+        self.assertIn("no reason", str(caught.exception))
+
+    def test_record_refuses_a_declaration_with_a_key_nothing_reads(self):
+        path = self.write(
+            '[[item]]\nid = "x-1"\nlang = "ar"\nbehavior = "answer"\n'
+            'prompt = "q"\nanswering_sources = ["a.1"]\n'
+            'expected_response_lang = { lang = "en", reason = "r", note = "n" }\n'
+        )
+        with self.assertRaises(RecordError) as caught:
+            load_questions(path)
+        self.assertIn("nothing reads", str(caught.exception))
+
+    def test_record_refuses_a_declaration_that_is_not_a_table(self):
+        path = self.write(
+            '[[item]]\nid = "x-1"\nlang = "ar"\nbehavior = "answer"\n'
+            'prompt = "q"\nanswering_sources = ["a.1"]\n'
+            'expected_response_lang = "en"\n'
+        )
+        with self.assertRaises(RecordError) as caught:
+            load_questions(path)
+        self.assertIn("not a table", str(caught.exception))
+
+    def test_record_refuses_a_target_voice_that_is_not_a_list_of_strings(self):
+        path = self.write(
+            '[[item]]\nid = "x-1"\nlang = "en"\nbehavior = "answer"\n'
+            'prompt = "q"\nanswering_sources = ["a.1"]\ntarget_voice = [3]\n'
+        )
+        with self.assertRaises(RecordError) as caught:
+            load_questions(path)
+        self.assertIn("list of literal strings", str(caught.exception))
+
+    def test_record_refuses_an_empty_target_voice_string(self):
+        path = self.write(
+            '[[item]]\nid = "x-1"\nlang = "en"\nbehavior = "answer"\n'
+            'prompt = "q"\nanswering_sources = ["a.1"]\ntarget_voice = ["  "]\n'
+        )
+        with self.assertRaises(RecordError) as caught:
+            load_questions(path)
+        self.assertIn("Excluding nothing is not an exclusion", str(caught.exception))
+
+    def test_the_committed_question_set_still_loads(self):
+        # The control for all five refusals above: they are refusals of
+        # malformed input, not of the shape this repository actually ships.
+        self.assertTrue(load_questions(QUESTIONS))

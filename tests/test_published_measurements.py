@@ -365,9 +365,14 @@ class TestTheFloorReasonsQuoteTheCommittedBaseline(PublishedFigures):
     def test_every_measured_value_in_a_floor_reason_is_the_committed_score(self):
         committed = baseline()
         target = tomllib.loads(TARGET.read_text(encoding="utf-8"))
+        # The reasons moved out of `[suites.<id>]` and into
+        # `[cairn.suites.<id>]` on 2026-09-13, when the pinned harness began
+        # refusing a suite table carrying a key it does not read. Read from
+        # one place here, so the next move is one edit rather than four.
+        reasons = target.get("cairn", {}).get("suites", {})
         seen = 0
-        for suite, cfg in sorted(target["suites"].items()):
-            reason = cfg.get("floor_reason")
+        for suite in sorted(target["suites"]):
+            reason = reasons.get(suite, {}).get("floor_reason")
             if not reason:
                 continue
             self.assertIn(suite, committed, f"{suite} is not in the baseline")
@@ -391,8 +396,9 @@ class TestTheFloorReasonsQuoteTheCommittedBaseline(PublishedFigures):
         # nothing above can check.
         committed = baseline()
         target = tomllib.loads(TARGET.read_text(encoding="utf-8"))
-        for suite, cfg in sorted(target["suites"].items()):
-            if cfg.get("floor_reason"):
+        reasons = target.get("cairn", {}).get("suites", {})
+        for suite in sorted(target["suites"]):
+            if reasons.get(suite, {}).get("floor_reason"):
                 self.assertIn(suite, committed)
 
 

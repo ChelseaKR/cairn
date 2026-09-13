@@ -52,12 +52,18 @@ nothing holding it to being true.
 | `parse_count_query` builds a list nothing reads, under a docstring describing a rule that is not implemented | `cairn/tabular.py` | [#67](https://github.com/ChelseaKR/cairn/issues/67) (phase 3) |
 | A JSON body that parses but is not an object kills the handler thread | `cairn/server.py` | [#68](https://github.com/ChelseaKR/cairn/issues/68) (phase 4) |
 | The follow-up store's docstring claimed a timestamp it has never written | `cairn/followup.py` | fixed; the record shape held by a test (phase 8) |
+| Cairn's own keys sat in `[suites.<id>]`, where a stricter upstream loader cannot tell them from a misspelled `floor` | `plumbline/target.toml` | moved to `[cairn.suites.<id>]`; an orphaned one is a blocking finding (phase 12) |
+| The threshold sweep counted a tool-answered question as a refusal at every threshold | `sweep.py` | held out by name, read from the engine's own `AskResult.tool` (phase 12) |
 
 Three of those were found by a test that already existed and fired at the
 right moment: the served-French bug by `tests/test_live.py`, the complexity
 count by the inventory guard phase 2 had just added, and the evidence-bundle
 drift by `tests/test_docs.py`. The rest were found by writing something new
-and watching what it hit.
+and watching what it hit. Two were found by an *upstream* check that did not
+exist when the thing it catches was written: the pinned harness refusing a
+configuration key it does not read, and the same harness reading a computed
+count as a figure the answer states and its sources lack. Both are the
+interlock doing the job it is for, from the far side.
 
 The two still open as issues rather than fixes are open on purpose. Both are
 behaviour changes on paths whose current shape was arrived at by measurement,
@@ -381,21 +387,67 @@ task.
 
 ## Phase 12: upstream declarations the audit needs
 
-**Status: blocked upstream, and this is a report to file, not work to do here.**
+**Status: built.** The two declarations shipped in Plumbline on 2026-09-07
+(its #80) and were adopted here on 2026-09-13, with the pin bumped from
+`a258b2e` to `aec1fcc`.
 
-Two audit limitations have the same shape and the same fix, and the fix is in
-Plumbline rather than here: an item-level declaration that a response is
-*expected* to be in a different language from the question, and the same
-mechanism for a response that is partly the target's own voice. Without the
-first, `multilingual` scores a correct cross-language answer 0.0000 and the
-evidence set has a one-item ceiling. Without the second, an answered table-tool
-item cannot ship, because the notice is Cairn speaking and a lexical support
-metric marks it unsupported.
+It was blocked, and being blocked was the whole of the work for a milestone:
+two audit limitations with the same shape and the same fix, and the fix in
+Plumbline rather than here. Cairn consumes Plumbline at a pin and pushes
+nothing to it, so filing the report was in scope and making the change was
+not.
 
-**What would unblock it:** the declaration existing in Plumbline. Cairn
-consumes Plumbline at a pin and pushes nothing to it, which `DESIGN.md` states
-as a boundary in three places. Filing the report is in scope; making the change
-here is not.
+**What the declarations are.** `expected_response_lang` — `{ lang, reason }`,
+both required — says an answer is *supposed* to come back in a language other
+than the one the question was written in. `multilingual` then scores the
+declaration instead of the question's own tag. `target_voice` names literal
+strings the target emits in its own voice; `groundedness`,
+`citation_accuracy` and `passage_attribution` remove them before measuring
+what the sources support, and nothing else does — `privacy`,
+`representational_harms` and `adversarial` still read every response whole, so
+a declaration cannot buy a pass by naming the sentence that would fail a
+screen.
+
+**What they closed here.**
+
+- `ck-027`, the cross-language item, was scored 0.0000 by `multilingual` —
+  the same number a system that ignored the question's language would get, so
+  the score could not tell two opposite behaviours apart, and a second such
+  item would have taken the suite below its floor. It declares now. The suite
+  is 1.0000 over 31 items, up from 0.9667 over 30, and the floor did not move.
+- `ck-028`, the answered table-tool item, was authored in August and withdrawn
+  the same day: its computed count appears in the notice and in no source, so
+  a lexical support metric read a correct disclosure as a fabrication. Under
+  the harness at `aec1fcc` and without the declaration it is not merely a low
+  score but a load-bearing hard failure, and `groundedness` comes back FAIL at
+  0.9752. It declares now, and ships. `groundedness` and `citation_accuracy`
+  are 1.0000 over 23 items, up from 0.9740 over 22.
+
+**What the phase found that it was not looking for.** The same pin bump
+brought a stricter config loader: a `[suites.<id>]` table carrying a key the
+harness does not read is now a configuration error, because TOML ignores a
+misspelled `flooor = 0.99` and the suite then runs at a demonstration default
+the reviewable file appears to override. Cairn's own `floor_reason`, `gap` and
+`fix_belongs_in` keys lived in exactly those tables, and to that check they
+were indistinguishable from the typo. They moved to `[cairn.suites.<id>]`,
+`audit_guard.py` reads them from there, and it now fails on one filed against
+a suite the config does not configure.
+
+The threshold sweep was wrong about `ck-028` in a way nothing would have
+caught: a tool-answered question reaches no candidate set, so `sweep.py`
+counted it a `wrong-refusal` at every threshold and divided the answer rate by
+a denominator including it. It is held out by name and counted in the header
+now, read from the engine's own `AskResult.tool`.
+
+**What is new here and enforced.** `cairn record` refuses to write a bundle
+whose declared `target_voice` string is not in the recorded answer verbatim,
+or is the whole of it. Removal upstream is literal, so a declaration that
+matches nothing removes nothing and says so to nobody: the day the count
+changes or somebody rewords `table_count_notice`, recording fails and names
+the string. `audit_guard.py` prints both declarations beside the verdict — a
+reader who cannot separate the measured part of a score from the declared part
+is reading two things added together — and fails on a declaration no suite
+scored anything under.
 
 ## Deliberately not on this roadmap
 

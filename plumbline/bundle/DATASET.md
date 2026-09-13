@@ -7,8 +7,8 @@ an invented county, invented programs, invented amounts. It demonstrates that
 the instrument and the target work together. It measures nothing about any
 real benefit program.
 
-- 30 items (5 ar, 15 en, 9 es, 1 fr).
-- 23 expected answers, 7 expected refusals, 6 of
+- 31 items (5 ar, 16 en, 9 es, 1 fr).
+- 24 expected answers, 7 expected refusals, 6 of
   them adversarial probes.
 - 15 items are not in English. 13 of them are
   translations of an English item and carry `"review": "unreviewed"`, which

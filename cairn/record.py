@@ -88,11 +88,101 @@ AUTHORED_FIELDS = (
     # thing that lets the audit distinguish "answered from the right document"
     # from "answered from the right paragraph of it".
     "answering_sources",
+    # The two opt-in declarations the pinned harness gained on 2026-09-07, and
+    # the reason both are authored here rather than observed from the answer.
+    #
+    # `expected_response_lang` says an answer is *supposed* to come back in a
+    # language other than the one the question was written in, and why. Only a
+    # person who has read the corpus can say that: `multilingual` scores the
+    # declaration instead of the question's own tag, so a recorder that wrote
+    # one from what the engine happened to reply would be letting the target
+    # set its own target.
+    #
+    # `target_voice` names literal strings the answer emits in Cairn's own
+    # voice — a cross-language notice, the count tool's preamble — which
+    # `groundedness`, `citation_accuracy` and `passage_attribution` remove
+    # before measuring what the sources support. That one is *more* dangerous
+    # to observe: deriving it from `Answer.notice` would mean the engine could
+    # exempt any sentence from a support measure by putting it in the notice,
+    # which is the pass-buying move the harness's own ADR 0005 names. So it is
+    # authored, and `target_voice_drift` below holds the authored string to the
+    # recorded response rather than trusting either end.
+    "expected_response_lang",
+    "target_voice",
 )
+
+
+# Everything `expected_response_lang` may say, and the harness refuses the
+# bundle over any other spelling. Checked here so the refusal arrives while a
+# person is still editing the question set, rather than one command later
+# against a bundle already written to disk.
+EXPECTED_RESPONSE_LANG_KEYS = ("lang", "reason")
 
 
 class RecordError(ValueError):
     """The question set is malformed, or the bundle cannot be written."""
+
+
+def _check_expected_response_lang(file: Path, question: dict[str, Any]) -> None:
+    """The cross-language declaration: an object, both keys, neither blank,
+    and not the language the question was already asked in.
+
+    Every rule here is the pinned harness's, restated rather than imported —
+    the recorder does not depend on the auditor, which is the whole point of
+    writing the bundle format directly. The reason to restate them is that the
+    harness refuses a *written* bundle, and a question set that cannot be
+    recorded should say so before it is recorded.
+    """
+    declared = question.get("expected_response_lang")
+    if declared is None:
+        return
+    if not isinstance(declared, dict):
+        raise RecordError(
+            f"{file}: item {question['id']} sets expected_response_lang to "
+            f"something that is not a table; it takes a lang and a reason."
+        )
+    unknown = sorted(set(declared) - set(EXPECTED_RESPONSE_LANG_KEYS))
+    if unknown:
+        raise RecordError(
+            f"{file}: item {question['id']} sets expected_response_lang keys "
+            f"nothing reads: {', '.join(unknown)}."
+        )
+    for key in EXPECTED_RESPONSE_LANG_KEYS:
+        value = declared.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise RecordError(
+                f"{file}: item {question['id']} declares an "
+                f"expected_response_lang with no {key}. A declaration that "
+                f"moves what a suite measures against is published in the "
+                f"audit report, and a reader has to be able to weigh it."
+            )
+    if declared["lang"] == question["lang"]:
+        raise RecordError(
+            f"{file}: item {question['id']} declares expected_response_lang "
+            f"{declared['lang']!r}, which is the language it was asked in. "
+            f"That declares nothing and reads like a reviewed decision about "
+            f"a cross-language answer. Remove it."
+        )
+
+
+def _check_target_voice_declaration(file: Path, question: dict[str, Any]) -> None:
+    """`target_voice` is a list of literal, non-blank strings."""
+    declared = question.get("target_voice")
+    if declared is None:
+        return
+    if not isinstance(declared, list) or not all(
+        isinstance(s, str) for s in declared
+    ):
+        raise RecordError(
+            f"{file}: item {question['id']} sets target_voice to something "
+            f"other than a list of literal strings the answer emits in "
+            f"Cairn's own voice."
+        )
+    if any(not s.strip() for s in declared):
+        raise RecordError(
+            f"{file}: item {question['id']} declares an empty target_voice "
+            f"string. Excluding nothing is not an exclusion."
+        )
 
 
 @dataclass(frozen=True)
@@ -142,6 +232,8 @@ def load_questions(path: str | Path) -> list[dict[str, Any]]:
                 f"answering_sources. Nothing answers a question that should "
                 f"not be answered."
             )
+        _check_expected_response_lang(file, question)
+        _check_target_voice_declaration(file, question)
     return questions
 
 
@@ -307,6 +399,53 @@ def _answering_layer(result: Any) -> str | None:
     return layers.pop() if len(layers) == 1 else None
 
 
+def target_voice_drift(question: dict[str, Any], response: str) -> str | None:
+    """Why this item's `target_voice` no longer describes its answer, or None.
+
+    The check the pinned harness cannot make, and the reason the declaration
+    is safe to author. Removal upstream is literal: a declared string that no
+    longer appears removes nothing and is silently a no-op, so the day
+    somebody rewords `table_count_notice` in `cairn/messages.py` the exemption
+    stops applying and `groundedness` falls for a reason no report names. And
+    an over-broad declaration — a string that happens to span a quoted cell —
+    would hide part of the answer from the support measure, which is the
+    pass-buying move in the other direction.
+
+    Both are recording errors rather than audit findings, so `record()` refuses
+    to write a bundle holding one. It is a *reason* rather than a raise because
+    the dry-run preview (`cairn.record_diff`) has to be able to show exactly
+    this: "the change you are previewing takes the declared notice out of the
+    answer" is the most useful thing a preview could say about it, and a
+    preview that crashed instead would leave the only way to see it being to
+    write the bundle.
+
+    The second half of the check is the harness's own trap: a response that is
+    *nothing but* its notice measures, after removal, as the empty string, and
+    support for an empty string is arithmetically total.
+    """
+    declared = question.get("target_voice") or []
+    if not declared:
+        return None
+    for notice in declared:
+        if notice not in response:
+            return (
+                f"declares target_voice text that is not in the answer: "
+                f"{notice!r}. The auditor removes these literally, so a "
+                f"declaration that matches nothing removes nothing and says "
+                f"so to no one."
+            )
+    remaining = response
+    for notice in declared:
+        remaining = remaining.replace(notice, " ")
+    if not remaining.strip():
+        return (
+            "declares every word of its own answer as target_voice, so "
+            "nothing is left to measure support against. An answer that is "
+            "only a notice is not an answer."
+        )
+    return None
+
+
 def build_items_and_responses(
     index: Index,
     cfg: Config,
@@ -383,6 +522,18 @@ def record(
     items, responses = build_items_and_responses(
         index, cfg, questions, jurisdiction=jurisdiction
     )
+    # Refused here rather than inside the builder, so `cairn record --dry-run`
+    # can report the same drift as a previewed difference instead of crashing
+    # on it. Nothing is written until every declaration still describes the
+    # answer it was written about.
+    by_id = {response["id"]: response["response"] for response in responses}
+    for question in questions:
+        reason = target_voice_drift(question, by_id[question["id"]])
+        if reason is not None:
+            raise RecordError(
+                f"{questions_path}: item {question['id']} {reason} Re-read the "
+                f"answer this question now produces and write what it says."
+            )
 
     sources = [
         {

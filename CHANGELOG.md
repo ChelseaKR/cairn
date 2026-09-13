@@ -22,6 +22,65 @@ becomes a version section like any other.
 
 #### Added
 
+- **Two item declarations the audit needed, adopted at a pin bump to
+  `aec1fcc`.** Roadmap Phase 12 was `blocked upstream` for a milestone: two
+  audit limitations with one shape, and the fix in Plumbline rather than here.
+  Cairn consumes Plumbline at a pin and pushes nothing to it, so filing the
+  report was the whole of the work available. Plumbline shipped the
+  declarations on 2026-09-07 (its #80); this adopts them.
+
+  `expected_response_lang = { lang, reason }` says an answer is *supposed* to
+  come back in a language other than the one the question was written in.
+  `ck-027` — an Arabic question answered from the English-only transit
+  document, quoted verbatim under an Arabic notice — scored `multilingual`
+  0.0000, which is also what a system that had simply ignored the question's
+  language would score. Two opposite behaviours, one number. **`multilingual`
+  1.0000 over 31 items, from 0.9667 over 30**, with the floor untouched at the
+  harness's own default. The declaration moves the target, not the bar: an
+  item declaring English and answered in Spanish still fails.
+
+  `target_voice` names literal strings the answer emits in Cairn's own voice.
+  `groundedness`, `citation_accuracy` and `passage_attribution` remove them
+  before measuring what the sources support; `privacy`,
+  `representational_harms` and `adversarial` still read every response whole,
+  so a declaration cannot buy a pass by naming the sentence that would fail a
+  screen. `ck-027` and `ck-028` declare. **`groundedness` and
+  `citation_accuracy` 1.0000 over 23 items, from 0.9740 over 22.** That rise
+  is a smaller measurement rather than a better answer, and DESIGN.md says so
+  in those words: Cairn's output is byte-for-byte what it was, and the
+  undeclared measurement (0.9752, with `ck-027`'s own support at 0.4286) is
+  published beside it.
+
+- **`ck-028`, the answered table-tool item, restored.** It was authored in
+  August and withdrawn the same day: the count the tool computes is spoken in
+  the notice and appears in no source, so `groundedness` and
+  `citation_accuracy` fell to 0.9416 against floors of 0.95. The floors did
+  not move then and have not now. Re-measured at this pin without the
+  declaration, it is worse than the old number said — the counts `2` and `3`
+  are read as figures the answer states and its sources lack, which is a
+  **load-bearing hard failure**, and `groundedness` comes back FAIL at 0.9752,
+  above its floor and failing anyway. With the declaration it scores 1.0000.
+
+- **`cairn record` refuses a declaration that has stopped describing the
+  answer.** Removal upstream is literal, so a `target_voice` string that no
+  longer appears removes nothing, silently, and the support measure it was
+  exempting falls for a reason no report names. Every declared string has to
+  be in the recorded answer verbatim, and must not be the whole of it — a
+  response that is nothing but its notice measures, after removal, as the
+  empty string, and support for an empty string is arithmetically total. The
+  dry-run preview reports the same drift as a difference instead of raising,
+  because that is the most useful thing a preview can say about it.
+
+- **`audit_guard.py` prints what the scores rest on, and fails on a
+  declaration nothing read.** Both declarations are listed beside the verdict
+  with the suites that scored under them, because a reader who cannot separate
+  the measured part of a score from the declared part is reading two things
+  added together. And a declaration is opt-in *and* read by only some suites,
+  so it can be authored, accepted by the harness, and do nothing at all —
+  `target_voice` on a refusal item, which no support suite scores. That is a
+  reviewed decision recorded where nobody will see it stop applying, so it is
+  a blocking finding.
+
 - **`cairn init`: a deployment scaffolded with both audit interlocks in it.**
   An agency adopting Cairn installed the package and got the engine. It did
   not get the part of this project that is not a demo — two independent
@@ -280,7 +339,44 @@ becomes a version section like any other.
   check still reads exactly two of the seven — so the sentence above stops
   being published the day it stops being true.
 
+#### Changed
+
+- **The pinned auditor moves from `a258b2e` to `aec1fcc`**, 45 commits, and
+  reviewed the way `plumbline.pin`'s header prescribes. Did `src/` change?
+  Yes — 36 files, 3,422 insertions. Does the judge configuration hash move?
+  Yes, `90bbcc16fd36` to `a1e9989f09a7`: the judge's number extraction now
+  drops trailing decimal zeros, so `$125.00` and `$125` are one number, and
+  the config gained an `extra_refusal_markers` field Cairn does not set. The
+  harness declined to subtract the new scores from the old, which is correct
+  of it and is the case `audit_guard.py` exists to cover. Then the gate: on
+  the bundle as it stood, every one of the fourteen suites came back at the
+  score it had before, so the bump provably moved no measurement of its own.
+  What moved after it is the evidence, and that is above.
+
+- **Cairn's own keys in `plumbline/target.toml` moved to
+  `[cairn.suites.<id>]`.** The same pin bump brought a stricter config loader:
+  a `[suites.<id>]` table carrying a key the harness does not read is now a
+  configuration error, because TOML ignores a misspelled `flooor = 0.99` and
+  the suite then runs at a demonstration default the reviewable file appears
+  to override. `floor_reason`, `gap` and `fix_belongs_in` lived in exactly
+  those tables and were, to that check, indistinguishable from the typo —
+  which means the old arrangement was only ever working because the check did
+  not exist. Each note is written immediately after the suite table it
+  explains; `audit_guard.py` reads them from one place and fails on one filed
+  against a suite `[suites]` does not declare.
+
 #### Fixed
+
+- **The threshold sweep counted a tool-answered question as a refusal at every
+  threshold.** `sweep.py` models the curve from a question's retrieval
+  candidates, and a question the structured count tool answers has none: it
+  never reaches retrieval. So `ck-028` came out `wrong-refusal` /
+  `vocabulary-gap` at 0.05 and at 0.40 alike, on a question the system answers
+  correctly at both, and the published answer rate was divided by a
+  denominator holding it. Held out by name now, counted in the header, and
+  read from the engine's own `AskResult.tool` rather than by re-parsing the
+  question. Found by restoring `ck-028`; the sweep predates the tool path and
+  nothing had made the two meet.
 
 - **A `reviewed_at` in the future satisfied the staleness window permanently.**
   `cairn lint --max-age-days N` computed `age = (as_of - reviewed).days` and

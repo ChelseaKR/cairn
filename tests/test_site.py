@@ -213,10 +213,15 @@ class TestThePageQuotesTheEvidence(PageHarness):
         self.assertGreaterEqual(len(shown), 12)
 
     def test_the_multilingual_sentence_is_the_baseline_s_arithmetic(self):
+        # The sentence used to say one item fails, which was true until
+        # 2026-09-13: `ck-027` now declares `expected_response_lang` and the
+        # suite scores the declaration. What is held here is the arithmetic,
+        # not a particular count — the page must print the committed
+        # baseline's own numbers, whichever way they go.
         entry = next(s for s in self.baseline["suites"] if s["suite"] == "multilingual")
         passed = round(entry["score"] * entry["n"])
-        self.assertEqual(passed, entry["n"] - 1, "the open item says exactly one fails")
         self.assertIn(f"{passed} of {entry['n']} items pass it", self.source)
+        self.assertIn("scores the declaration instead", self.source)
 
     def test_the_page_says_the_corpus_is_invented(self):
         # The refusals quote a fictional phone number and the answers quote

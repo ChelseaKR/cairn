@@ -29,6 +29,8 @@ the report the gate just wrote, and fails on:
   what is missing and where the fix belongs;
 - any suite whose floor is not the pinned harness's own default and which does
   not say why;
+- any `[cairn.suites.<id>]` declaration filed against a suite the config does
+  not configure;
 - a run that compared against no baseline, or against a different one.
 
 **Why a floor needs a reason, and why the reason is checked here.** Each suite
@@ -122,6 +124,7 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_AUDITS = "plumbline/audits"
 DEFAULT_BASELINE = "plumbline/baseline.json"
 DEFAULT_TARGET = "plumbline/target.toml"
+DEFAULT_QUESTIONS = "plumbline/questions.toml"
 DEFAULT_PIN = "plumbline.pin"
 DEFAULT_CACHE_ROOT = ".plumbline-cache"
 
@@ -147,13 +150,80 @@ REGENERATE = (
     "behaviour and the wrong step to be stuck on."
 )
 
-# Keys Cairn requires on a disabled suite. The harness never reads a disabled
-# suite's table, so these are Cairn's own and cost the harness nothing.
+# Keys Cairn requires on a disabled suite.
 GAP_KEYS = ("gap", "fix_belongs_in")
 
-# Cairn's own key again: the harness ignores it, and it is required on any
-# suite whose floor is not the harness's default for that suite.
+# Cairn's own key again: required on any suite whose floor is not the pinned
+# harness's default for that suite.
 FLOOR_REASON_KEY = "floor_reason"
+
+# Where those three keys live in `plumbline/target.toml`, and why they are not
+# where they used to be.
+#
+# They sat inside the `[suites.<id>]` tables until the pin bump of 2026-09-13,
+# on the reasoning that the harness never read them and they therefore cost it
+# nothing. The pinned harness now refuses any `[suites.<id>]` table carrying a
+# key it does not read, and its reason is better than the old one: TOML
+# silently ignores an unknown key, so `flooor = 0.99` leaves the suite running
+# at the harness's demonstration default while the reviewable file appears to
+# set a bar. To that check, Cairn's three keys and that typo are the same
+# thing — which means the old arrangement was only ever working because the
+# check did not exist.
+#
+# So they moved to a table the harness does not read at all. Everything below
+# reads them through `cairn_notes`, which is also the one place that knows the
+# spelling: a rename breaks one function rather than four call sites, and a
+# reason filed against a suite `[suites]` does not declare is a finding of its
+# own (`orphan_notes`) rather than a sentence nobody will notice has stopped
+# applying.
+CAIRN_TABLE = "cairn"
+CAIRN_SUITES_KEY = "suites"
+
+
+def cairn_notes(target: dict, suite_id: str) -> dict:
+    """Cairn's own declarations for one suite: `[cairn.suites.<id>]`.
+
+    Returns an empty mapping for a suite that declares nothing, so every
+    caller can ask without checking first.
+    """
+    table = target.get(CAIRN_TABLE, {})
+    if not isinstance(table, dict):
+        return {}
+    suites = table.get(CAIRN_SUITES_KEY, {})
+    if not isinstance(suites, dict):
+        return {}
+    notes = suites.get(suite_id, {})
+    return notes if isinstance(notes, dict) else {}
+
+
+def orphan_notes(target: dict) -> list[Finding]:
+    """A `[cairn.suites.<id>]` naming a suite `[suites]` never declares.
+
+    The harness cannot see this table, so nothing upstream will ever complain
+    about it, and a floor reason or a gap declaration filed against a suite
+    that is not configured is worse than absent: it reads, to anyone grepping
+    the file, exactly like a live declaration.
+    """
+    table = target.get(CAIRN_TABLE, {})
+    declared = set(target.get("suites", {}))
+    notes = table.get(CAIRN_SUITES_KEY, {}) if isinstance(table, dict) else {}
+    if not isinstance(notes, dict):
+        return []
+    return [
+        Finding(
+            blocking=True,
+            subject=suite_id,
+            detail=(
+                f"has a [cairn.{CAIRN_SUITES_KEY}.{suite_id}] table and no "
+                f"[suites.{suite_id}] table. The harness never reads the "
+                f"former, so a floor reason or a gap declaration filed there "
+                f"against a suite this config does not configure is a sentence "
+                f"that will never stop being true and never be checked again."
+            ),
+            label="ORPHAN",
+        )
+        for suite_id in sorted(set(notes) - declared)
+    ]
 
 
 class GuardError(Exception):
@@ -195,6 +265,91 @@ def load_target(path: Path) -> dict:
         raise GuardError(f"no target configuration at {path}") from exc
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise GuardError(f"unreadable target configuration at {path}: {exc}") from exc
+
+
+# The two opt-in item declarations the pinned harness reads, mapped to the key
+# each suite publishes them under. Both move what a suite measures against, so
+# both are printed beside the verdict: a reader who cannot separate the
+# measured part of a score from the declared part is reading two things added
+# together.
+DECLARATION_FIELDS = {
+    "expected_response_lang": "items_declaring_expected_response_lang",
+    "target_voice": "items_declaring_target_voice",
+}
+
+
+def authored_declarations(path: Path) -> dict[str, list[str]]:
+    """Declaration field -> the item ids declaring it in the question set."""
+    try:
+        with open(path, "rb") as handle:
+            questions = tomllib.load(handle).get("item", [])
+    except FileNotFoundError as exc:
+        raise GuardError(f"no question set at {path}") from exc
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise GuardError(f"unreadable question set at {path}: {exc}") from exc
+    return {
+        field: [q["id"] for q in questions if q.get(field)]
+        for field in DECLARATION_FIELDS
+    }
+
+
+def published_declarations(report: dict) -> dict[str, dict[str, list[str]]]:
+    """Declaration field -> suite id -> the item ids that suite scored under it.
+
+    Read out of the report rather than assumed from the question set, because
+    the question is precisely whether the declaration reached a measurement.
+    """
+    found: dict[str, dict[str, list[str]]] = {field: {} for field in DECLARATION_FIELDS}
+    for suite in report.get("suites", []):
+        details = suite.get("details") or {}
+        for field, key in DECLARATION_FIELDS.items():
+            ids = details.get(key)
+            if ids:
+                found[field][suite["suite"]] = list(ids)
+    return found
+
+
+def declaration_findings(
+    authored: dict[str, list[str]], published: dict[str, dict[str, list[str]]]
+) -> list[Finding]:
+    """An authored declaration that no suite scored anything under.
+
+    Both declarations are opt-in, and both are only read by some suites:
+    `expected_response_lang` by `multilingual`, `target_voice` by the three
+    that measure lexical support. So a declaration can be written, accepted by
+    the harness, and do nothing at all — `target_voice` on a refusal item,
+    which `groundedness` does not score, is the easy way to get one. That is
+    the defect shape this repository keeps finding: a sentence in a reviewable
+    file that reads like a reviewed decision and that nothing holds to being
+    one. A declaration is published in the audit report or it is not a
+    declaration.
+
+    The reverse direction needs no check: a suite cannot publish a declaration
+    the question set did not author, because `cairn record` is the only thing
+    that writes the bundle and it copies the field across verbatim.
+    """
+    findings = []
+    for field, ids in sorted(authored.items()):
+        scored = {item for suite_ids in published[field].values() for item in suite_ids}
+        for item_id in sorted(set(ids) - scored):
+            findings.append(
+                Finding(
+                    blocking=True,
+                    subject=item_id,
+                    detail=(
+                        f"declares {field} in the question set and no suite in "
+                        f"this run scored it under one. The declaration was "
+                        f"either accepted and read by nothing — {field} is "
+                        f"read by some suites and not others — or it stopped "
+                        f"being read upstream. Either way it is a reviewed "
+                        f"decision recorded where nobody will see it stop "
+                        f"applying. Remove it, or move it to an item a suite "
+                        f"that reads it actually scores."
+                    ),
+                    label="UNREAD",
+                )
+            )
+    return findings
 
 
 def pinned_harness_src(pin_path: Path, cache_root: Path) -> Path:
@@ -381,7 +536,7 @@ def floor_findings(
                 )
             )
             continue
-        reason = str(spec.get(FLOOR_REASON_KEY, "")).strip()
+        reason = str(cairn_notes(target, suite_id).get(FLOOR_REASON_KEY, "")).strip()
         if abs(float(floor) - default) <= TOLERANCE:
             if reason:
                 findings.append(
@@ -406,7 +561,8 @@ def floor_findings(
                     detail=(
                         f"floor {float(floor):.2f} is {direction} the pinned "
                         f"harness's default of {default:.2f}, with no "
-                        f"{FLOOR_REASON_KEY} in [suites.{suite_id}]. A floor is how "
+                        f"{FLOOR_REASON_KEY} in [cairn.suites.{suite_id}]. A floor "
+                        f"is how "
                         f"strict this gate is; moving one without saying why is "
                         f"indistinguishable from moving it to make a failure pass. "
                         f"Write the reason, or restore {default:.2f}."
@@ -464,7 +620,8 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
             # the requirement on the way past, with a sentence written for a
             # gap that closed. `multilingual` carried exactly that from the
             # milestone in which it was disabled.
-            left = [key for key in GAP_KEYS if str(spec.get(key, "")).strip()]
+            notes = cairn_notes(target, suite_id)
+            left = [key for key in GAP_KEYS if str(notes.get(key, "")).strip()]
             if left:
                 findings.append(
                     Finding(
@@ -483,7 +640,8 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
                     )
                 )
             continue
-        missing = [key for key in GAP_KEYS if not str(spec.get(key, "")).strip()]
+        notes = cairn_notes(target, suite_id)
+        missing = [key for key in GAP_KEYS if not str(notes.get(key, "")).strip()]
         if missing:
             findings.append(
                 Finding(
@@ -492,14 +650,15 @@ def declared_gaps(target: dict) -> tuple[list[dict], list[Finding]]:
                     detail=(
                         f"disabled with no {' and no '.join(missing)} declared. A "
                         f"suite that is off is a claim nobody is checking; say in "
-                        f"[suites.{suite_id}] what is missing (gap) and where the "
+                        f"[cairn.suites.{suite_id}] what is missing (gap) and "
+                        f"where the "
                         f"fix belongs (fix_belongs_in)."
                     ),
                     label="UNDECLARED",
                 )
             )
             continue
-        gaps.append({"suite": suite_id, **{key: spec[key] for key in GAP_KEYS}})
+        gaps.append({"suite": suite_id, **{key: notes[key] for key in GAP_KEYS}})
     return gaps, findings
 
 
@@ -745,6 +904,33 @@ def _override_lines(overrides: list[dict]) -> list[str]:
     return lines
 
 
+def _declaration_lines(published: dict[str, dict[str, list[str]]]) -> list[str]:
+    """The item declarations this run's scores rest on, present or absent.
+
+    Said out loud when there are none, for the same reason the coverage line
+    and the floor list are: "nothing was declared" and "this script stopped
+    reading the declarations out of the report" print identically otherwise,
+    and only one of them is a claim.
+    """
+    rows = [(field, suites) for field, suites in sorted(published.items()) if suites]
+    if not rows:
+        return ["no score in this run rests on an item declaration."]
+    items = {item for _, suites in rows
+             for ids in suites.values() for item in ids}
+    plural = "" if len(items) == 1 else "s"
+    lines = [
+        f"scores resting on an item declaration ({len(items)} item{plural}; each "
+        f"declaration's reason is published in the report):"
+    ]
+    for field, suites in rows:
+        declared = sorted({item for ids in suites.values() for item in ids})
+        lines.append(
+            f"  {field}: {', '.join(declared)} — scored under it by "
+            f"{', '.join(sorted(suites))}"
+        )
+    return lines
+
+
 def _finding_lines(findings: list[Finding]) -> list[str]:
     """Every finding, blocking or not, one to a line.
 
@@ -781,6 +967,7 @@ def render_terminal(
             lines.append("  this check makes it anyway; see audit_guard.py for why.")
     lines += _gap_lines(gaps)
     lines += _override_lines(overrides)
+    lines += _declaration_lines(published_declarations(report))
     partial = uncovered(report)
     if partial:
         lines.append("suites that could not check everything they were handed:")
@@ -804,6 +991,24 @@ def render_terminal(
         )
     lines.append(f"report: {report_path}")
     lines.append(f"GUARD: {verdict}")
+    return lines
+
+
+def _declaration_rows(published: dict[str, dict[str, list[str]]]) -> list[str]:
+    """The declaration table for the markdown summary, or the sentence that
+    says there is nothing in it — never an absence, for the reason every other
+    block here says the empty case out loud."""
+    rows = [(field, suites) for field, suites in sorted(published.items()) if suites]
+    if not rows:
+        return ["No score in this run rests on an item declaration.", ""]
+    lines = ["| Declaration | Items | Suites scoring under it |", "|---|---|---|"]
+    for field, suites in rows:
+        ids = sorted({item for group in suites.values() for item in group})
+        lines.append(
+            f"| `{field}` | {', '.join(f'`{i}`' for i in ids)} | "
+            f"{', '.join(f'`{s}`' for s in sorted(suites))} |"
+        )
+    lines.append("")
     return lines
 
 
@@ -839,6 +1044,7 @@ def render_markdown(
         lines.append("")
     else:
         lines += ["Every floor is the pinned harness's own default.", ""]
+    lines += _declaration_rows(published_declarations(report))
     partial = uncovered(report)
     if partial:
         lines += ["Suites that could not check everything they were handed:", ""]
@@ -872,6 +1078,9 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"the committed bar (default: {DEFAULT_BASELINE})")
     parser.add_argument("--target", default=DEFAULT_TARGET,
                         help=f"the audit target config (default: {DEFAULT_TARGET})")
+    parser.add_argument("--questions", default=DEFAULT_QUESTIONS,
+                        help=(f"the authored question set, read for its item "
+                              f"declarations (default: {DEFAULT_QUESTIONS})"))
     parser.add_argument("--pin", default=DEFAULT_PIN,
                         help=f"the harness pin, read for its ref (default: {DEFAULT_PIN})")
     parser.add_argument("--cache", default=DEFAULT_CACHE_ROOT,
@@ -895,7 +1104,12 @@ def main(argv: list[str] | None = None) -> int:
         defaults = harness_defaults(src)
         overrides, floor_faults = floor_findings(target, defaults)
         gaps, findings = assess(report, baseline, target)
-        findings = unmentioned_suites(target, defaults) + floor_faults + findings
+        declared = declaration_findings(
+            authored_declarations(Path(args.questions)),
+            published_declarations(report),
+        )
+        findings = (unmentioned_suites(target, defaults) + orphan_notes(target)
+                    + declared + floor_faults + findings)
     except GuardError as exc:
         print(f"GUARD: COULD NOT RUN — {exc}", file=sys.stderr)
         print("GUARD: a check that could not run is not a check that passed.",

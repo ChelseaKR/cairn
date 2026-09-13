@@ -19,7 +19,12 @@ from typing import Any
 
 from cairn.config import Config
 from cairn.index import Index
-from cairn.record import DEFAULT_QUESTIONS, build_items_and_responses, load_questions
+from cairn.record import (
+    DEFAULT_QUESTIONS,
+    build_items_and_responses,
+    load_questions,
+    target_voice_drift,
+)
 
 
 @dataclass(frozen=True)
@@ -59,12 +64,28 @@ def diff_against_bundle(
 
     old_ids, new_ids = set(old_responses), set(new_responses_by_id)
     diffs: list[ItemDiff] = []
-    for item_id in sorted(new_ids - old_ids):
-        diffs.append(ItemDiff(item_id, "added", "not in the committed bundle"))
     for item_id in sorted(old_ids - new_ids):
         diffs.append(
             ItemDiff(item_id, "removed", "no longer produced by this question set")
         )
+    # An item's authored `target_voice` has to still be in the answer, and
+    # `record()` refuses to write a bundle where it is not. Previewed here
+    # rather than raised, because "this change takes the declared notice out
+    # of the answer" is the single most useful thing this preview can say
+    # about such a change, and a preview that crashed on it would leave
+    # writing the bundle as the only way to find out.
+    drift = {
+        question["id"]: target_voice_drift(
+            question, new_responses_by_id[question["id"]]["response"]
+        )
+        for question in questions
+    }
+    for item_id in sorted(new_ids - old_ids):
+        detail = "not in the committed bundle"
+        drifted = drift.get(item_id)
+        if drifted is not None:
+            detail = f"{detail}; {drifted}"
+        diffs.append(ItemDiff(item_id, "added", detail))
     for item_id in sorted(old_ids & new_ids):
         old_text = old_responses[item_id]["response"]
         new_text = new_responses_by_id[item_id]["response"]
@@ -75,6 +96,9 @@ def diff_against_bundle(
             changes.append("response text differs")
         if old_sources != new_sources:
             changes.append(f"accepted sources differ: {old_sources} -> {new_sources}")
+        drifted = drift[item_id]
+        if drifted is not None:
+            changes.append(drifted)
         if changes:
             diffs.append(ItemDiff(item_id, "changed", "; ".join(changes)))
     return tuple(diffs)
