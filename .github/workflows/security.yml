@@ -18,7 +18,10 @@
 #
 # Every action is pinned to a commit rather than a tag, because a tag can be
 # moved and a green run today that quietly means something else tomorrow is not
-# a record of anything.
+# a record of anything. The one scanner that is a downloaded binary rather than
+# an action is pinned to an exact release and checked against the checksum file
+# published beside it, which is the same argument in the form that artefact
+# allows.
 
 name: security
 
@@ -43,19 +46,42 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      # gitleaks-action lists the pull request's commits to scope its scan.
-      # Without this it gets a 403 from the pulls API and dies before scanning.
-      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # A secret is committed once and removed in the next commit; a
-          # shallow clone is exactly the scan that would miss it.
+          # shallow clone is exactly the scan that would miss it. Necessary,
+          # and on its own not sufficient: this decides how much history is put
+          # on disk, and the step below decides how much of it is read.
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Until 2026-09-13 this step was `gitleaks/gitleaks-action`, which picks
+      # its range from the triggering event rather than scanning what is on
+      # disk. On a push carrying one commit -- which is every squash merge into
+      # `main` -- it runs `gitleaks detect --log-opts=-1`, exactly one commit;
+      # on a pull request it reads the pull request's own commits. Only the
+      # weekly `schedule` above dropped `--log-opts` and walked all 157. So a
+      # job displaying the words "full history" read the full history once a
+      # week and a diff on every other event, and the `fetch-depth: 0` above
+      # never changed that: it governs what is fetched, not what is read.
+      #
+      # The pinned binary below is invoked as `gitleaks git .` with no
+      # `--log-opts`, so it walks every commit reachable from HEAD on every
+      # event and the range no longer depends on how the run was triggered.
+      # `tests/test_secret_scan_reads_history.py` holds that invocation, and
+      # reads this file with its comments stripped so the names it forbids
+      # cannot be satisfied by this paragraph.
+      - name: gitleaks over every commit reachable from HEAD
+        run: |
+          set -euo pipefail
+          GL=8.30.1
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GL}"
+          ARCHIVE="gitleaks_${GL}_linux_x64.tar.gz"
+          curl -sSfL -o "/tmp/${ARCHIVE}" "${BASE}/${ARCHIVE}"
+          curl -sSfL -o /tmp/gitleaks_checksums.txt "${BASE}/gitleaks_${GL}_checksums.txt"
+          (cd /tmp && grep "  ${ARCHIVE}$" gitleaks_checksums.txt | sha256sum --check --strict)
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp gitleaks
+          /tmp/gitleaks git . --no-banner --redact --exit-code 1
 
   sast:
     name: sast (semgrep)
