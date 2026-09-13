@@ -24,6 +24,15 @@ classifiers = [
 # works offline from a clean checkout (see DESIGN.md, "Core stance").
 dependencies = []
 
+# The links PyPI shows beside the package. Without them the project page
+# carries no route to the source, the documentation or the issue tracker,
+# which is the only page a reader arriving from `pip` ever sees.
+[project.urls]
+Homepage = "https://chelseakr.github.io/cairn/"
+Repository = "https://github.com/ChelseaKR/cairn"
+Issues = "https://github.com/ChelseaKR/cairn/issues"
+Changelog = "https://github.com/ChelseaKR/cairn/blob/main/CHANGELOG.md"
+
 # The runtime stays empty. These are the development toolchain, floored rather
 # than left open: an unpinned linter is a gate whose rules change under you, and
 # "ruff passed" stops meaning anything specific.
