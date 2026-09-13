@@ -282,6 +282,51 @@ becomes a version section like any other.
 
 #### Fixed
 
+- **The job called `secret-scan (gitleaks, full history)` read the full history
+  once a week and one commit the rest of the time.** It was
+  `gitleaks/gitleaks-action`, which does not scan what is on disk: it takes a
+  commit range from the event that triggered the run. On a push carrying a
+  single commit — which is every squash merge into `main` — it runs
+  `gitleaks detect --log-opts=-1`, exactly one of `main`'s 157 commits; on a
+  pull request it reads the pull request's own commits. Only the weekly
+  `schedule` dropped `--log-opts` and walked the history the name advertises.
+  So a credential committed and deleted in the next commit was invisible to
+  the check on the pull request that carried it and to the push that merged
+  it, and stayed invisible until the following Monday.
+
+  `fetch-depth: 0` was already on the checkout and did not prevent this. It
+  decides how much history `actions/checkout` puts on disk, not how much of it
+  the scanner is asked to read; a checkout deep enough to scan and an
+  invocation that declines to is exactly what this workflow had. The step is
+  now a pinned gitleaks release, verified against the checksum file published
+  beside it and invoked as `gitleaks git .` with no range. Given no range
+  gitleaks runs `git log -p -U0 --full-history --all`, so it reads every commit
+  on every ref the checkout put on disk — measured at 213 on the first run of
+  the fixed step, against the one the old one read. The weekly schedule stays, the
+  job id and its display name are unchanged, and the `pull-requests: read`
+  permission that existed only so the action could list a pull request's
+  commits is gone.
+
+  Measured on a throwaway clone with its remote removed: a random,
+  real-shaped AWS key planted in one commit and deleted in the next left the
+  old invocation exiting 0 over a tree byte-identical to the baseline, while
+  the new one exited non-zero. `gitleaks git .` over the real 157 commits is
+  clean, so the honest check is not a red one.
+  `tests/test_secret_scan_reads_history.py` holds the invocation rather than
+  the checkout depth, and reads the workflow with its comments stripped —
+  the comment explaining the fix names both the action and the flag it
+  forbids, and a check satisfied by its own explanation is not a check.
+
+  Both downloads retry. The first CI run of the fixed step died on
+  `curl: (35) Recv failure: Connection reset by peer` before it reached a
+  commit, which this workflow correctly reported as red — a check that could
+  not run is not a check that passed. Retrying the fetch is not a softening of
+  that rule: `curl -f` and `set -e` still stand, so a download that fails four
+  times still stops the job, and the scan itself is run once with
+  `--exit-code 1` and nothing appended. The same test now also holds this
+  file's oldest promise, that there is no `continue-on-error` and no
+  `|| true` anywhere in it, which until now was asserted only in a comment.
+
 - **A `reviewed_at` in the future satisfied the staleness window permanently.**
   `cairn lint --max-age-days N` computed `age = (as_of - reviewed).days` and
   warned only when `age > N`. A date that has not happened yet gives a negative
