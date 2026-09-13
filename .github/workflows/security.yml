@@ -66,12 +66,16 @@ jobs:
       # never changed that: it governs what is fetched, not what is read.
       #
       # The pinned binary below is invoked as `gitleaks git .` with no
-      # `--log-opts`, so it walks every commit reachable from HEAD on every
-      # event and the range no longer depends on how the run was triggered.
+      # `--log-opts`. Given no range, gitleaks runs
+      # `git log -p -U0 --full-history --all`, so it reads every commit on
+      # every ref the checkout put on disk -- a superset of `main` -- and what
+      # it reads no longer depends on how the run was triggered. Measured on
+      # the first run of this step: 213 commits scanned, against the one commit
+      # the old invocation read on a squash merge.
       # `tests/test_secret_scan_reads_history.py` holds that invocation, and
       # reads this file with its comments stripped so the names it forbids
       # cannot be satisfied by this paragraph.
-      - name: gitleaks over every commit reachable from HEAD
+      - name: gitleaks over the whole history, no range
         run: |
           set -euo pipefail
           GL=8.30.1

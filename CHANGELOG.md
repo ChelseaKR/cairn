@@ -299,8 +299,10 @@ becomes a version section like any other.
   the scanner is asked to read; a checkout deep enough to scan and an
   invocation that declines to is exactly what this workflow had. The step is
   now a pinned gitleaks release, verified against the checksum file published
-  beside it and invoked as `gitleaks git .` with no range, which walks every
-  commit reachable from HEAD on every event. The weekly schedule stays, the
+  beside it and invoked as `gitleaks git .` with no range. Given no range
+  gitleaks runs `git log -p -U0 --full-history --all`, so it reads every commit
+  on every ref the checkout put on disk — measured at 213 on the first run of
+  the fixed step, against the one the old one read. The weekly schedule stays, the
   job id and its display name are unchanged, and the `pull-requests: read`
   permission that existed only so the action could list a pull request's
   commits is gone.

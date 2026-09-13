@@ -25,6 +25,13 @@ an invocation that declines to is exactly the state this workflow was in, so
 the assertions below are about the *invocation*. The `fetch-depth: 0`
 assertion is kept, as the necessary precondition it actually is.
 
+Given no `--log-opts`, gitleaks runs `git log -p -U0 --full-history --all`,
+which is every commit on every ref the checkout wrote to disk rather than just
+the ancestry of HEAD. Measured: on a two-ref repository whose HEAD reaches one
+commit, `gitleaks git .` reports two commits scanned; on the first CI run of
+the fixed step it reported 213. That is a superset of `main`'s 157, which is
+the direction an honest secret scan should err in.
+
 Measured on a throwaway clone of this repository, remote removed: a random,
 real-shaped AWS key planted in one commit and deleted in the next left
 `gitleaks git . --log-opts=-1` exiting 0 over a tree whose contents were
@@ -57,13 +64,13 @@ def code() -> str:
 
 
 class TestTheScannerIsNotHandedARange(unittest.TestCase):
-    def test_the_scan_walks_every_commit_reachable_from_head(self):
+    def test_the_scan_is_given_no_range_at_all(self):
         self.assertIn(
             "gitleaks git . --no-banner --redact --exit-code 1",
             code(),
             "the secret scan no longer runs `gitleaks git .`. Whatever replaces it "
-            "must still walk every commit reachable from HEAD on every event, not a "
-            "range chosen from the thing that triggered the run.",
+            "must still read the whole history on every event, not a range chosen "
+            "from the thing that triggered the run.",
         )
 
     def test_no_commit_range_is_passed(self):
@@ -92,7 +99,7 @@ class TestTheConditionsTheScanDependsOn(unittest.TestCase):
             code(),
             r"(?m)^\s*fetch-depth:\s*0\s*$",
             "`fetch-depth: 0` is gone from the secret-scan checkout, so `gitleaks "
-            "git .` would walk only the commit actions/checkout fetched. This is the "
+            "git .` would read only what actions/checkout fetched. This is the "
             "precondition for a history scan; the invocation is what makes it one.",
         )
 
