@@ -14,7 +14,7 @@ site" is not "can your site's own script call this API directly."
 ## Option 1: iframe the page as-is
 
 The simplest integration: put the whole served page — chat form, transcript,
-accessibility behaviour and all — inside an `<iframe>` on an existing page.
+accessibility behavior and all — inside an `<iframe>` on an existing page.
 Nothing to build; the interface is already there.
 
 ```console
@@ -107,5 +107,5 @@ Nothing here changes what Cairn answers, what it logs (nothing about a
 question, ever — see the `cairn/server.py` module docstring), or the
 "grounded or silent" contract described in `README.md`. `--allow-embed` and
 `--cors-origin` are access controls on top of the same server, the same
-engine, and the same refusal behaviour — an agency's own site gets exactly
+engine, and the same refusal behavior — an agency's own site gets exactly
 the answers (and exactly the refusals) the standalone page would have given.

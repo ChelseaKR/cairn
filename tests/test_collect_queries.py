@@ -129,7 +129,7 @@ class TestStackExchange(unittest.TestCase):
 
 
 class TestRender(unittest.TestCase):
-    def test_candidates_file_is_toml_that_record_refuses_until_labelled(self):
+    def test_candidates_file_is_toml_that_record_refuses_until_labeled(self):
         items = collect_queries.select_msmarco(QUERIES, per_topic=1, seed=1)
         text = collect_queries.render(items, header=collect_queries.HEADER)
         parsed = tomllib.loads(text)["item"]
@@ -140,7 +140,7 @@ class TestRender(unittest.TestCase):
             path = Path(tmp) / "candidates.toml"
             path.write_text(text, encoding="utf-8")
             with self.assertRaises(RecordError):
-                load_questions(path)  # unlabelled candidates are not evidence
+                load_questions(path)  # unlabeled candidates are not evidence
 
     def test_quotes_and_backslashes_survive(self):
         items = [

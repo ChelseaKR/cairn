@@ -38,7 +38,7 @@ on:
 permissions:
   contents: read
 
-# One deploy at a time, and a superseded one is cancelled rather than racing
+# One deploy at a time, and a superseded one is canceled rather than racing
 # the newer one to the same URL.
 concurrency:
   group: pages

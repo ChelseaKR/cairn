@@ -25,8 +25,8 @@ loader built -- so this cannot recurse and cannot be perturbed by how it was
 invoked.
 
 **The browser figures are deliberately not written here.** "63 browser
-behaviour checks" is pinned in `tests/browser/a11y.mjs`, which holds itself to
-the number at run time, and the README also shows `63/63 behaviour checks
+behavior checks" is pinned in `tests/browser/a11y.mjs`, which holds itself to
+the number at run time, and the README also shows `63/63 behavior checks
 passed` as console output from a real run. Rewriting that second line from a
 constant would be inventing output that no browser produced, which is the
 exact defect this repository exists to refuse. Those two move together, by

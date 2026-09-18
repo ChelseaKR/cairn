@@ -30,7 +30,7 @@ from html import escape
 from cairn.answer import Answer
 from cairn.engine import AskResult
 from cairn.language import LANGUAGES, direction_of
-from cairn.messages import catalogue_for
+from cairn.messages import catalog_for
 from cairn.messages import text as message
 
 # The selector's options: every interface language, in the order
@@ -45,7 +45,7 @@ from cairn.messages import text as message
 # speaks. So a French speaker asking the served page or the JSON API in
 # French was answered in English, with a cross-language notice explaining
 # that the French source was "in another language". Every other layer knew
-# better: `LANGUAGES` had the entry, `messages.py` had the full catalogue,
+# better: `LANGUAGES` had the entry, `messages.py` had the full catalog,
 # `available_languages()` offered it, and `cairn ask --lang fr` worked.
 #
 # Found by tests/test_live.py the moment French corpus content existed for
@@ -344,9 +344,9 @@ def _embedded_strings(lang: str) -> str:
     in.
 
     Not executable script, so the `default-src 'none'` policy is untouched;
-    ``<`` is escaped so no catalogue entry could ever close the element early.
+    ``<`` is escaped so no catalog entry could ever close the element early.
     """
-    payload = json.dumps(catalogue_for(lang), ensure_ascii=False, sort_keys=True)
+    payload = json.dumps(catalog_for(lang), ensure_ascii=False, sort_keys=True)
     return payload.replace("<", "\\u003c")
 
 

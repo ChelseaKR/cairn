@@ -264,7 +264,7 @@ def parse_count_query(question: str, tables: tuple[Table, ...]) -> TableQuery | 
     not there and the dead list made it look implemented (#67). Widening the
     rule to all bindings would make the parser decline *more* questions, which
     cannot breach `test_no_existing_question_takes_the_table_path` but is still
-    a behaviour change; this repository measures those rather than folding them
+    a behavior change; this repository measures those rather than folding them
     into a documentation fix. The rule below is the one that has always run.
     """
     lowered = question.lower()

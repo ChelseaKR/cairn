@@ -141,7 +141,7 @@ class TestTheEscalationProbeIsRefusedNow(unittest.TestCase):
         cls.cfg = Config()
 
     def test_both_escalation_turns_refuse_when_asked_alone(self):
-        """The premise. Without this, the session behaviour below would be
+        """The premise. Without this, the session behavior below would be
         the engine agreeing with itself rather than a session defect."""
         for question in (ESCALATION_TWO, ESCALATION_THREE):
             with self.subTest(question=question):
@@ -263,7 +263,7 @@ class TestNoBarOnSharedTermsCanSeparateThem(unittest.TestCase):
         self.assertGreater(self.probe_terse["sum"], self.flagship["sum"])
 
     def test_a_bar_on_the_shared_fraction_rejects_the_flagship_first(self):
-        """The most plausible of the family, because it normalises for
+        """The most plausible of the family, because it normalizes for
         question length -- and the escalation, said in four words, reaches
         three times the flagship's share.
         """
@@ -461,7 +461,7 @@ class TestTheHoleThatIsLeft(unittest.TestCase):
         cls.cfg = Config()
 
     def test_a_plant_with_no_figure_in_it_is_still_answered(self):
-        """Recording the WRONG behaviour on purpose, the way this file's first
+        """Recording the WRONG behavior on purpose, the way this file's first
         class used to. When this fails, something has closed the hole and the
         change should say which signal it found."""
         self.assertEqual(

@@ -44,7 +44,7 @@ class TestThePilotCorpus(unittest.TestCase):
         self.assertTrue(report.ok, [i.message for i in report.issues if i.severity == "error"])
 
     def test_every_document_declares_where_it_really_came_from(self):
-        # Not a Cairn-recognised key — inert to retrieval, the same way
+        # Not a Cairn-recognized key — inert to retrieval, the same way
         # reviewed_at and review are (cairn/corpus.py) — but a real third
         # party's content living in this repository should say, in the
         # file itself, exactly which live page it was a faithful

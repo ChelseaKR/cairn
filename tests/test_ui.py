@@ -2,7 +2,7 @@
 
 These are the checks that can be made from the markup and the stylesheet
 alone: structure, semantics, language and direction, the contract of the two
-live regions, and the contrast of every colour pair in both presentations.
+live regions, and the contrast of every color pair in both presentations.
 The behaviors that only exist in a running browser — tab order, focus
 visibility, announcements actually firing, the assertive channel staying quiet
 on success — are driven against real Chromium in ``tests/browser/``.
@@ -30,7 +30,7 @@ from cairn.config import Config
 from cairn.corpus import load_corpus
 from cairn.index import build_index
 from cairn.language import direction_of
-from cairn.messages import CATALOGUE
+from cairn.messages import CATALOG
 from cairn.server import CSP, STATIC, build_handler
 from cairn.ui import page
 from cairn.ui.contrast import PAIRS, palette
@@ -87,8 +87,8 @@ class Page(HTMLParser):
         return None
 
 
-def relative_luminance(colour):
-    channels = [int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+def relative_luminance(color):
+    channels = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
     linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
     return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 
@@ -190,19 +190,19 @@ class TestDocumentStructure(ServerHarness):
         self.assertEqual(page.by_id("status")["role"], "status")
         self.assertRegex(markup, r'id="errors"[^>]*></div>', "no error is present on load")
 
-    def test_the_input_is_labelled_and_the_key_behaviour_is_written_down(self):
+    def test_the_input_is_labeled_and_the_key_behavior_is_written_down(self):
         page = self.page()
         self.assertEqual(page.find("label", **{"for": "question"})["for"], "question")
         textarea = page.by_id("question")
         self.assertEqual(textarea["aria-describedby"], "question-hint")
-        hint = CATALOGUE["en"]["input_hint"]
+        hint = CATALOG["en"]["input_hint"]
         self.assertIn("Enter", hint)
         self.assertIn("Shift", hint)
         self.assertIn(hint, self.get()[1])
 
     def test_the_send_control_states_its_action(self):
         markup = self.get()[1]
-        self.assertIn(f">{CATALOGUE['en']['send_button']}</button>", markup)
+        self.assertIn(f">{CATALOG['en']['send_button']}</button>", markup)
         self.assertNotIn(">Go</button>", markup)
 
     def test_the_selector_offers_every_language_the_interface_speaks(self):
@@ -221,9 +221,9 @@ class TestDocumentStructure(ServerHarness):
         self.assertEqual(SELECTABLE, tuple(LANGUAGES))
         for code in SELECTABLE:
             with self.subTest(lang=code):
-                self.assertIn(code, CATALOGUE, "a selectable language must speak")
+                self.assertIn(code, CATALOG, "a selectable language must speak")
 
-    def test_the_language_selector_is_labelled_and_marks_each_option(self):
+    def test_the_language_selector_is_labeled_and_marks_each_option(self):
         page = self.page()
         self.assertEqual(page.find("label", **{"for": "lang"})["for"], "lang")
         options = [a for t, a in page.elements if t == "option"]
@@ -244,7 +244,7 @@ class TestDisclosure(ServerHarness):
                     "disclosure_limits",
                     "disclosure_synthetic",
                 ):
-                    self.assertIn(CATALOGUE[lang][key], markup)
+                    self.assertIn(CATALOG[lang][key], markup)
 
     def test_it_cannot_be_dismissed(self):
         markup = self.get()[1]
@@ -290,11 +290,11 @@ class TestTheInterfaceHasItsVoiceBeforeItFetchesAnything(ServerHarness):
             with self.subTest(lang=lang):
                 table = self.embedded(f"/?lang={lang}")
                 for key in self.SPOKEN:
-                    self.assertEqual(table.get(key), CATALOGUE[lang][key])
+                    self.assertEqual(table.get(key), CATALOG[lang][key])
 
     def test_the_arabic_page_carries_arabic_and_not_a_fallback(self):
         table = self.embedded("/?lang=ar")
-        self.assertNotEqual(table["status_refused"], CATALOGUE["en"]["status_refused"])
+        self.assertNotEqual(table["status_refused"], CATALOG["en"]["status_refused"])
 
     def test_it_is_data_not_executable_script(self):
         # `default-src 'none'` forbids fetching script; a JSON block is not
@@ -305,7 +305,7 @@ class TestTheInterfaceHasItsVoiceBeforeItFetchesAnything(ServerHarness):
             self.get()[0].headers["Content-Security-Policy"], CSP
         )
 
-    def test_no_catalogue_entry_could_close_the_element_early(self):
+    def test_no_catalog_entry_could_close_the_element_early(self):
         for lang in SELECTABLE:
             with self.subTest(lang=lang):
                 block = self.get(f"/?lang={lang}")[1].split('id="ui-strings">', 1)[1]
@@ -324,7 +324,7 @@ class TestTheInterfaceHasItsVoiceBeforeItFetchesAnything(ServerHarness):
         self.assertIn("ui-strings", head, "the script must have its voice before it speaks")
         self.assertNotIn(
             "strings = null", script,
-            "an unloaded catalogue announces the empty string, which announces nothing",
+            "an unloaded catalog announces the empty string, which announces nothing",
         )
 
 
@@ -602,7 +602,7 @@ class TestQuotedCorpusText(unittest.TestCase):
         # The population first. `findall` returns [] when nothing is
         # emphasized at all, and "no heading kept its marker" is then true
         # because no heading was rendered — a `_quoted_block` that stopped
-        # recognising headings entirely would pass this.
+        # recognizing headings entirely would pass this.
         self.assertEqual(
             len(emphasized),
             sum(1 for _, expected in self.CASES if "<strong>" in expected),
@@ -699,7 +699,7 @@ class TestRightToLeftRendering(ServerHarness):
         self.assertIn('class="answer" lang="ar" dir="rtl"', markup)
 
     def test_an_english_quote_in_an_arabic_page_keeps_its_own_language(self):
-        # The bug this exists to catch: labelling the quote with the language
+        # The bug this exists to catch: labeling the quote with the language
         # of the conversation, so a screen reader reads English in an Arabic
         # voice and the browser lays it out backwards.
         markup = self.post_form(
@@ -744,19 +744,19 @@ class TestStylesheet(unittest.TestCase):
         self.assertTrue(palette("light"))
         self.assertNotEqual(palette("light"), palette("dark"))
 
-    def test_no_pair_is_graded_as_dark_while_still_holding_a_light_colour(self):
+    def test_no_pair_is_graded_as_dark_while_still_holding_a_light_color(self):
         # The dark palette is the light one with the dark block's overrides
         # applied on top, so a token with no override silently keeps its light
-        # value — and the contrast check below then grades a light colour and
+        # value — and the contrast check below then grades a light color and
         # reports it as dark. That check cannot notice: the light pair already
         # passes, which is why it is in the stylesheet. The pair above cannot
         # notice either, because one missing override out of twelve still
         # leaves the two palettes unequal.
         #
         # Add `--warning-bg` to `:root` and to PAIRS, forget the dark block,
-        # and "every colour pair passes contrast in both presentations" is
+        # and "every color pair passes contrast in both presentations" is
         # true of eleven pairs and vacuous for the twelfth. So require what
-        # this stylesheet already does: every colour a pair uses is re-themed.
+        # this stylesheet already does: every color a pair uses is re-themed.
         light, dark = palette("light"), palette("dark")
         used = {token for _, fg, bg, _ in PAIRS for token in (fg, bg)}
         unchanged = sorted(t for t in used if light[t] == dark.get(t))
@@ -766,26 +766,26 @@ class TestStylesheet(unittest.TestCase):
             "contrast check is grading their light values",
         )
 
-    def test_every_colour_the_stylesheet_declares_is_graded(self):
+    def test_every_color_the_stylesheet_declares_is_graded(self):
         # The population, from the stylesheet rather than from PAIRS. The
         # contrast check below iterates PAIRS, so a pair that fails can be
-        # made to pass by deleting it: it leaves the loop, the colours stay in
+        # made to pass by deleting it: it leaves the loop, the colors stay in
         # the page, and the companion check above derives its universe from
         # PAIRS too and so loses sight of it as well. The stylesheet is the
-        # thing that decides which colours the interface uses, so it is the
+        # thing that decides which colors the interface uses, so it is the
         # thing that decides what has to be graded.
         declared = set(palette("light"))
         graded = {token for _, fg, bg, _ in PAIRS for token in (fg, bg)}
-        self.assertTrue(declared, "the stylesheet declares no colours")
+        self.assertTrue(declared, "the stylesheet declares no colors")
         self.assertEqual(
             sorted(declared - graded), [],
-            "these colours are in the stylesheet and in no graded pair",
+            "these colors are in the stylesheet and in no graded pair",
         )
 
-    def test_every_colour_pair_passes_contrast_in_both_presentations(self):
+    def test_every_color_pair_passes_contrast_in_both_presentations(self):
         # The same list of pairs an evidence bundle's interface snapshot
         # declares, so the auditor and this suite cannot disagree about which
-        # colours the page uses. The check above is what stops that list from
+        # colors the page uses. The check above is what stops that list from
         # shrinking away from the stylesheet.
         minimum = {"normal": 4.5, "large": 3.0}
         for scheme in ("light", "dark"):

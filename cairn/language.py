@@ -70,8 +70,8 @@ def normalize_code(code: str) -> str:
     string comparison against a corpus document's declared language. So
     ``lang: en-GB`` was English for layout and a separate language for
     retrieval, and an English question answered from that document was
-    labelled cross-language and told the reader the source was "written in
-    another language (en-GB)". Corpus loading normalises through here, so
+    labeled cross-language and told the reader the source was "written in
+    another language (en-GB)". Corpus loading normalizes through here, so
     there is one answer to what language a document is in.
     """
     return code.split("-", 1)[0].casefold()

@@ -297,7 +297,7 @@ class Index:
         layered and the layer you asked for happens to hold no pages". The
         second is ordinary — a county whose own pages are not published yet
         still answers from the state layer under a notice — and the first is
-        a request that cannot be honoured at all.
+        a request that cannot be honored at all.
         """
         return tuple(sorted({p.jurisdiction for p in self.passages if p.jurisdiction}))
 

@@ -324,7 +324,7 @@ class TestTheComparison(ComparisonHarness):
     sys.platform == "win32",
     "plumbline-live.sh is invoked as ./plumbline-live.sh, relying on the "
     "OS to read its #!/usr/bin/env bash shebang and dispatch to bash — a "
-    "POSIX exec behaviour Windows does not have outside a shell. This is a "
+    "POSIX exec behavior Windows does not have outside a shell. This is a "
     "gap in what this platform can prove about the fail-closed claim, "
     "stated rather than hidden: it is proved on Linux and macOS, the same "
     "gap tests/test_interlock.py's TestItFailsClosed states for the gate.",

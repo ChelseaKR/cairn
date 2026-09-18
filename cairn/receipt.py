@@ -63,11 +63,11 @@ RECEIPT_VERSION = 2
 # `Config` fields that say *where* files are, not *what the system does*.
 #
 # Held as a deny-list rather than an allow-list, and that is the whole point:
-# a new `Config` field is behavioural until somebody deliberately adds it
+# a new `Config` field is behavioral until somebody deliberately adds it
 # here, so a knob added next year is covered by every receipt written before
 # anyone thought about receipts. An allow-list would have exactly the opposite
 # failure — the new knob silently outside the digest, and a deployment that
-# had changed its behaviour verifying MATCH.
+# had changed its behavior verifying MATCH.
 #
 # `config_report._RATIONALE` already draws this line in the same place, in its
 # own words: "`corpus_path` and `index_path` are locations, not tuned values".
@@ -101,7 +101,7 @@ def _canonical(payload: dict[str, Any]) -> str:
 
 
 def config_digest(cfg: Config) -> str:
-    """A digest over every behavioural field of ``cfg``.
+    """A digest over every behavioral field of ``cfg``.
 
     Values go through ``repr`` rather than JSON so that ``0.165`` and
     ``"0.165"`` cannot collide, and so a field holding a type JSON has no

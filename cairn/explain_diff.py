@@ -72,7 +72,7 @@ def compare(
     # configurations against the same question, and asking each side about a
     # different place would make every difference it reports unreadable. A
     # side whose config sets a *different* `[jurisdiction] default` still
-    # honours it, because `None` here means "whatever each config says".
+    # honors it, because `None` here means "whatever each config says".
     return Comparison(
         question=question,
         a=_side(question, index_a, cfg_a, lang, jurisdiction),

@@ -6,7 +6,7 @@ synthetic: true
 ---
 The Harbor Winter Utility Credit lowers the cost of heating a home during the
 coldest months. The credit is applied straight to your utility account by the
-power company, so there is no cheque to cash and no money passes through you.
+power company, so there is no check to cash and no money passes through you.
 
 ## What the credit is worth
 

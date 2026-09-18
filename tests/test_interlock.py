@@ -167,7 +167,7 @@ class TestTheAuditorIsNotADependency(unittest.TestCase):
     sys.platform == "win32",
     "plumbline-gate.sh is invoked as ./plumbline-gate.sh, relying on the "
     "OS to read its #!/usr/bin/env bash shebang and dispatch to bash — a "
-    "POSIX exec behaviour Windows does not have outside a shell. This is a "
+    "POSIX exec behavior Windows does not have outside a shell. This is a "
     "gap in what this platform can prove about the fail-closed claim, "
     "stated rather than hidden: it is proved on Linux and macOS.",
 )
@@ -327,7 +327,7 @@ class TestTheEvidenceIsIntact(unittest.TestCase):
         self.assertTrue(cited, "the evidence should contain citations")
         self.assertLessEqual(cited, sources, "a response cites a source that does not exist")
 
-    def test_the_interface_snapshot_declares_its_colours(self):
+    def test_the_interface_snapshot_declares_its_colors(self):
         snapshot = (BUNDLE / "interface.html").read_text(encoding="utf-8")
         self.assertIn('id="plumbline-contrast"', snapshot)
         block = snapshot.split('id="plumbline-contrast">', 1)[1].split("</script>", 1)[0]

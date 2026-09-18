@@ -93,18 +93,18 @@ class Scored:
 
     id: str
     behavior: str
-    answering: frozenset[str]  # normalised passage ids
-    candidates: tuple[tuple[str, float], ...]  # (normalised passage id, score), ranked
+    answering: frozenset[str]  # normalized passage ids
+    candidates: tuple[tuple[str, float], ...]  # (normalized passage id, score), ranked
     cross_language: bool
     labels: dict[str, object] = field(default_factory=dict)
 
 
-def normalise(passage_id: str) -> str:
+def normalize(passage_id: str) -> str:
     return citation_marker(passage_id)
 
 
 def engine_layers(index) -> dict[str, str]:
-    """`{doc_id: jurisdiction}` for every labelled passage in the index.
+    """`{doc_id: jurisdiction}` for every labeled passage in the index.
 
     The engine's own answer to the question `layers.json` was invented to
     answer, and it is a better one: `layers.json` records which *directory* a
@@ -121,7 +121,7 @@ def score_questions(questions: list[dict], index, cfg) -> list[Scored]:
         result = ask(question["prompt"], index, cfg, lang=question["lang"])
         trace = result.answer.trace
         candidates = tuple(
-            (normalise(c.passage.passage_id), c.score) for c in trace.candidates
+            (normalize(c.passage.passage_id), c.score) for c in trace.candidates
         )
         labels = {k: v for k, v in question.items() if k not in RECORDER_FIELDS}
         out.append(
@@ -129,7 +129,7 @@ def score_questions(questions: list[dict], index, cfg) -> list[Scored]:
                 id=question["id"],
                 behavior=question["behavior"],
                 answering=frozenset(
-                    normalise(s) for s in question.get("answering_sources", [])
+                    normalize(s) for s in question.get("answering_sources", [])
                 ),
                 candidates=candidates,
                 cross_language=any(a.scope == "corpus" for a in result.attempts),
@@ -243,7 +243,7 @@ def shared_layers(layers: dict[str, str]) -> set[str]:
 
     Two sources, because there are two kinds of label in circulation. A
     corpus assembled by `assemble_corpus.py` before documents carried their
-    own jurisdiction is labelled with layer *directory* names, of which
+    own jurisdiction is labeled with layer *directory* names, of which
     `federal` and `california` are the pilot's shared pair; those are named
     here because nothing about the string "california" says it is wider than
     the string "sonoma".

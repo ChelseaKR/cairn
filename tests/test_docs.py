@@ -212,7 +212,7 @@ class TestTheAuditFiguresInTheDocuments(unittest.TestCase):
         self.assertGreaterEqual(seen, 2, "no document shows a dataset id any more")
 
     def test_the_published_test_count_is_the_count(self):
-        # "307 tests plus 63 browser behaviour checks" is a claim about
+        # "307 tests plus 63 browser behavior checks" is a claim about
         # coverage, sitting in the second paragraph of the README, and nothing
         # held it. It was updated by hand each time somebody remembered, which
         # means a commit that deletes forty tests can leave the sentence
@@ -234,8 +234,8 @@ class TestTheAuditFiguresInTheDocuments(unittest.TestCase):
         script = (ROOT / "tests" / "browser" / "a11y.mjs").read_text(encoding="utf-8")
         pinned = re.search(r"const EXPECTED_CHECKS = (\d+);", script)
         self.assertIsNotNone(pinned, "a11y.mjs no longer pins how many checks it runs")
-        self.assertEqual(int(pinned.group(1)), self.published_count("browser behaviour checks"))
-        self.assertIn(f"{pinned.group(1)}/{pinned.group(1)} behaviour checks passed",
+        self.assertEqual(int(pinned.group(1)), self.published_count("browser behavior checks"))
+        self.assertIn(f"{pinned.group(1)}/{pinned.group(1)} behavior checks passed",
                       (ROOT / "README.md").read_text(encoding="utf-8"))
 
     def test_the_writer_that_publishes_the_count_agrees_with_the_check(self):

@@ -218,7 +218,7 @@ all five stack pull requests.
   and "just pick part 0" are the same answer. Reintroducing the exact #46 bug
   (`unmatched=traces[0].unmatched`, `ignored=traces[0].ignored`) leaves the
   suite green. Only `query_terms` has parts disjoint enough to distinguish
-  them. The commit recognised this hazard and built a fixture guard for
+  them. The commit recognized this hazard and built a fixture guard for
   `matched` only.
 
 - **A new field can still be added silently; only an unrecorded one cannot.**
@@ -256,7 +256,7 @@ all five stack pull requests.
 
 - **`test_the_published_line_is_the_line_that_is_written` does not test
   bytes.** Its docstring says `Not "the fields match" but "the bytes match"`.
-  It `json.loads` the written line and re-serialises it with the test's own
+  It `json.loads` the written line and re-serializes it with the test's own
   `sort_keys=True` before comparing. Changing `record()` to
   `sort_keys=False` leaves all 33 tests green. Key order is the very defect
   this pull request exists to fix, and the guard is blind to it on the code
@@ -402,7 +402,7 @@ request at a time and watching it go green.
      `session_id`;
    - compare the **raw written line** against the published example in
      `test_the_published_line_is_the_line_that_is_written`, since key order is
-     the defect being fixed and the current re-serialisation normalises it away;
+     the defect being fixed and the current re-serialization normalizes it away;
    - correct "fails three tests and names the field" in the commit message,
      `WORKLOG.md` and `docs/roadmap.md` — it fails four, and not that one;
    - correct the premise "every field on `RetrievalTrace` and `Candidate`

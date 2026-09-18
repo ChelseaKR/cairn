@@ -71,7 +71,7 @@ One line per implementation session: date, what was built, from what input.
   printed a note that nothing made anyone action, and while it went unactioned
   the recorded bar sat below what the system did — the exact decay the guard
   exists to catch, coming through the door the guard left open. Both directions
-  block now, labelled differently, and neither adopts a number by itself.
+  block now, labeled differently, and neither adopts a number by itself.
 
   Third, the pin bumped twice — to `1b92472` and then to `a565b21`, upstream's
   head at the time of reading — and the interlock held both times: gate green,
@@ -161,14 +161,14 @@ One line per implementation session: date, what was built, from what input.
   screen-reader pass and generative mode remain declared gaps.
 
   Pin: `a565b21` → `d45ca40` → `f4b285e`, both bumps read as dependency
-  upgrades and both behaviour-neutral here. 255 tests plus 49 browser checks;
+  upgrades and both behavior-neutral here. 255 tests plus 49 browser checks;
   14 suites, none disabled.
 
 - 2026-08-16 — Session 6 (AI review session, clean-room implementation side).
   Logged at the time as an unnumbered "Review pass", on the reasoning that two
   entries above were both "Session 4" and any number here would either repeat
   the collision or imply a session 5 that never happened. The second half of
-  that was wrong — session 5 did happen, it was mislabelled — so the collision
+  that was wrong — session 5 did happen, it was mislabeled — so the collision
   was fixed at its source on 2026-08-15 and this entry has the number it
   earned. The original wording is in the commit that added it, `4bf8376`.
 
@@ -207,9 +207,9 @@ One line per implementation session: date, what was built, from what input.
   like the walkthrough, under a rule loose enough for wrapped and elided
   prose — every word shown must be a word the command printed, in order —
   which is what caught two of the claims above. And the contrast suite graded
-  a colour pair in both presentations without anything requiring the dark
-  presentation to define its own colours: an unoverridden token silently keeps
-  its light value, and the light pair passes by construction. Every colour the
+  a color pair in both presentations without anything requiring the dark
+  presentation to define its own colors: an unoverridden token silently keeps
+  its light value, and the light pair passes by construction. Every color the
   pairs use must now be re-themed.
 
   **Four browser checks asserted `true`.** Each was backed by a preceding
@@ -301,7 +301,7 @@ One line per implementation session: date, what was built, from what input.
   number itself because two entries above it both said "Session 4" and a
   number here would either repeat that or imply a session 5 that never
   happened. The second half was wrong: session 5 did happen and was
-  mislabelled. The 2026-08-16 entry is Session 5 with its original label
+  mislabeled. The 2026-08-16 entry is Session 5 with its original label
   recorded in it, session 6 has the number it earned, and nothing is erased —
   the original wording of both is in the commits that wrote them.
 
@@ -363,7 +363,7 @@ One line per implementation session: date, what was built, from what input.
 
   **`ck-027` is in the evidence set.** Twenty-six recorded answers, none of
   them cross-language, so no audit report this repository had ever published
-  said anything about the behaviour the README spends three paragraphs on —
+  said anything about the behavior the README spends three paragraphs on —
   and that is how `Answer.cited_text` came to drop the notice for a whole
   milestone with every check green. It is `ما هي بطاقة GoPass؟`, answered from
   the English-only transit document under an Arabic notice. The dataset hash
@@ -393,7 +393,7 @@ One line per implementation session: date, what was built, from what input.
   and the test were both already there. Recorded here because a remediation
   list that is wrong about what is broken is worth saying out loud.
 
-  **Bounds at the edge, generalised.** Session 7 fixed `Config(max_passages=0)`
+  **Bounds at the edge, generalized.** Session 7 fixed `Config(max_passages=0)`
   by moving the bound onto the type and noted that the shape would recur.
   It did, four times. `compose()` takes `max_passages` directly and had no
   bound of its own, so the promise was one import away from being false again.
@@ -402,7 +402,7 @@ One line per implementation session: date, what was built, from what input.
   sources — the same defect with the config layer removed; it validates
   itself now, in both directions, including that a refusal carries no notice.
   `Config.default_lang` was unvalidated while both edges around it were
-  guarded: `[language] default = "fr"` produced a grounded answer labelled
+  guarded: `[language] default = "fr"` produced a grounded answer labeled
   `lang: "fr"` carrying an English cross-language notice, and with `"he"` an
   RTL layout around an English body. And `Index.stats_for` fabricated empty
   statistics for a language it had never heard of, which gives every term an
@@ -412,11 +412,11 @@ One line per implementation session: date, what was built, from what input.
 
   **Two corpus fields that could make a grounded answer lie.** A doc id was
   unvalidated against the citation grammar it has to satisfy, so
-  `2024-winter-credit` or an Arabic-script id emits markers nothing recognises
+  `2024-winter-credit` or an Arabic-script id emits markers nothing recognizes
   as citations — every grounded answer from that document grades as uncited —
   and `a#b` and `a.b` are different documents that emit the same marker. And
   `lang: en-GB` was English for layout and a separate language for retrieval,
-  because `direction_of` normalised subtags and retrieval compared the string
+  because `direction_of` normalized subtags and retrieval compared the string
   exactly: one front-matter typo, a permanently false "the only source I have
   for this is written in another language (en-GB)" on every answer from it.
 
@@ -742,7 +742,7 @@ One line per implementation session: date, what was built, from what input.
   `corpus_paths` names and tried to parse the new CSV as a malformed
   markdown document; filtered to `.md`, matching `load_corpus`'s own filter.
   And the served page's embedded strings blob changed shape the moment
-  `table_count_notice` joined the catalogue, so `plumbline/bundle/interface.html`
+  `table_count_notice` joined the catalog, so `plumbline/bundle/interface.html`
   needed re-recording — caught by `tests/test_live.py`, not guessed.
 
   The bundle changed for real this time, unlike the two opt-in-and-silent
@@ -1084,7 +1084,7 @@ One line per implementation session: date, what was built, from what input.
   million MS MARCO queries to the pilot's programs — about 12,000 match,
   79 naming California — and draws a seeded sample, plus top-voted Stack
   Exchange questions with the attribution CC BY-SA requires. 564
-  candidates committed, verbatim, unlabelled, refused by `cairn record`
+  candidates committed, verbatim, unlabeled, refused by `cairn record`
   until a person labels them. What it costs is written in the doc:
   nationwide, 2016–2018, nobody's county. The elicitation page is marked
   optional and kept. Also this session, earlier: PR #47 merged, 0.3.0
@@ -1108,7 +1108,7 @@ One line per implementation session: date, what was built, from what input.
   putting the disclosure in `Answer.notice`, the one channel every
   surface already reads, and by making the class mechanical:
   `tests/test_disclosure.py` reads the disclosures out of the message
-  catalogue and the surfaces out of the modules that ship them and
+  catalog and the surfaces out of the modules that ship them and
   checks the cross product, so a fourth instance fails a test instead of
   waiting for a reader. Proved each new guard can fail, against real
   reverted code rather than by assertion: session.py at `origin/main`
@@ -1120,11 +1120,11 @@ One line per implementation session: date, what was built, from what input.
   not the borrowed terms: the first draft offered a reader "per, recei,
   allow", two of which are not words. Also `docs/roadmap.md`, ordering
   what is left into twelve phases with a status each, including four
-  blocked on a person, a licence, a signing key, or an upstream project
+  blocked on a person, a license, a signing key, or an upstream project
   — written down as blocked rather than left to look like work nobody
   got to. `make verify`: ruff, mypy, 796 tests, 92% branch coverage.
   `./plumbline-gate.sh`: GATE PASS, all 14 suites at their previous
-  scores, dataset moved to 9d86048ced72 because a new catalogue key
+  scores, dataset moved to 9d86048ced72 because a new catalog key
   changes the page the bundle snapshots — the same consequence
   `table_count_notice` had in session 12. `audit_guard.py`: GUARD PASS,
   no suite moved. The baseline's dataset id is therefore one run stale
@@ -1179,7 +1179,7 @@ One line per implementation session: date, what was built, from what input.
   restriction, so `scoped` and `excluded` are one part's rather than the
   sum. Proved the guard against all three: a new `RetrievalTrace` field
   the merge never sees, #46's bug reintroduced, and #49's two bugs
-  reintroduced (11 failures). No behaviour change; `split_intents` is
+  reintroduced (11 failures). No behavior change; `split_intents` is
   untouched. `make verify`: ruff, mypy --strict, 807 tests, 92% branch
   coverage.
 
@@ -1240,7 +1240,7 @@ One line per implementation session: date, what was built, from what input.
   "closed on paper, not for real" move the project refuses. So nothing
   was enabled and nothing was recorded. What was built is the finding:
   pinned in tests/test_session.py with assertions that record the wrong
-  behaviour on purpose, the way ck-015 and ck-022 are pinned; written up
+  behavior on purpose, the way ck-015 and ck-022 are pinned; written up
   in DESIGN.md under Sessions with the three-turn table; and
   plumbline/target.toml's gap declaration rewritten, because it said the
   gap was missing plumbing and the truth is larger than that. Filed as
@@ -1262,7 +1262,7 @@ One line per implementation session: date, what was built, from what input.
   Every one by extracting a cohesive block into a named helper, nothing
   collapsed into a dict lookup and nothing hidden from mccabe behind a
   comprehension, because the point is a function a reviewer can read and
-  not a number. Behaviour identical throughout; for `audit_guard.py`
+  not a number. Behavior identical throughout; for `audit_guard.py`
   that was checked the strong way rather than asserted, by diffing its
   whole terminal report against a real gate report either side of the
   change and getting no bytes back. Two seams worth naming:
@@ -1298,7 +1298,7 @@ One line per implementation session: date, what was built, from what input.
   `_retry_with_context` got exactly the two helpers #43 named and
   nothing else; every constant, factor, tie-break and guard condition is
   byte-identical, and each of the three rejected-design comments moved
-  with the code it explains. Behaviour held to more than the suite:
+  with the code it explains. Behavior held to more than the suite:
   `audit_guard.py`'s whole terminal report, the HTML extractor over all
   132 pages in `source_pages/`, and 480 multi-turn sequences across
   three languages (138 of them taking the context-retry path) each run
@@ -1343,7 +1343,7 @@ One line per implementation session: date, what was built, from what input.
 
 - 2026-08-28 — Session 27 (AI implementation session). Input: a triage of
   the open pull requests reporting that #70's headline fix is zero lines
-  of code and that its key test re-serialises with `sort_keys=True`,
+  of code and that its key test re-serializes with `sort_keys=True`,
   making it blind to the exact defect it exists to fix. Both verified
   here by mutation before anything was changed, rather than read off the
   triage. `cairn/followup.py`'s diff against `main` is a docstring and

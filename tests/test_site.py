@@ -297,7 +297,7 @@ class TestThePageNamesItsOwnAddress(PageHarness):
         self.assertEqual(title.group(1), og_title.group(1))
 
     def test_the_share_card_names_an_image(self):
-        # Without `og:image` a shared link renders as a grey box with no
+        # Without `og:image` a shared link renders as a gray box with no
         # picture, which is not a broken page and so never shows up in any
         # check that loads the page. The tag is the only place the absence is
         # visible from inside a checkout.

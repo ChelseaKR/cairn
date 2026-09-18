@@ -144,7 +144,7 @@ REGENERATE = (
     "        --out plumbline/baseline.json\n"
     "`audit` rather than the gate, because the gate loads the baseline you are\n"
     "about to replace and will refuse if it cannot — which is the right\n"
-    "behaviour and the wrong step to be stuck on."
+    "behavior and the wrong step to be stuck on."
 )
 
 # Keys Cairn requires on a disabled suite. The harness never reads a disabled

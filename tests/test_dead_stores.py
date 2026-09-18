@@ -4,7 +4,7 @@ Found as #67: ``cairn/tabular.py``'s ``parse_count_query`` appended to a
 ``bindings`` list on every matching column and never looked at it again. The
 list was not merely dead — the function's docstring described an *ambiguity
 rule over those bindings* that the code did not implement, so a reader
-checking the behaviour against the prose would have concluded the check was
+checking the behavior against the prose would have concluded the check was
 there. A dead store next to prose describing what it is for is worse than a
 dead store, because it makes the prose look confirmed.
 

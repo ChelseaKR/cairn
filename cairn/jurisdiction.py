@@ -5,7 +5,7 @@ pages, plus state pages, plus that county's own — the shape
 ``assemble_corpus.py`` builds and ``layers.json`` records. Until now the
 engine did not know that. A Sonoma resident asking about office hours could
 be answered from a Siskiyou page and nothing anywhere would say so; the
-pilot's sweep labelled it ``jurisdiction-mismatch`` afterwards, from a file
+pilot's sweep labeled it ``jurisdiction-mismatch`` afterwards, from a file
 the engine never reads.
 
 A jurisdiction code names the area a document's text applies to::

@@ -32,7 +32,7 @@ Four sources, in descending order of how much weight they carry:
 2. **The README's Standards Conformance table.** Three of its rows are gaps
    stated as gaps. A phase that closes one of them changes a row from an
    admission to a result.
-3. **The open issues.** Twelve of them, most labelled `good first issue`,
+3. **The open issues.** Twelve of them, most labeled `good first issue`,
    several with the fix already reasoned out in the issue body.
 4. **Defects found while doing the work.** This turned out to be the largest
    source by some distance, which is itself the finding. See below.
@@ -60,7 +60,7 @@ drift by `tests/test_docs.py`. The rest were found by writing something new
 and watching what it hit.
 
 The two still open as issues rather than fixes are open on purpose. Both are
-behaviour changes on paths whose current shape was arrived at by measurement,
+behavior changes on paths whose current shape was arrived at by measurement,
 and this repository's rule is that those get their own change and their own
 evidence rather than riding along in a refactor.
 
@@ -78,7 +78,7 @@ the served JSON, and printed nothing about it anywhere a person reads.
 Each was found by somebody reading the code. `DESIGN.md` says of the first one:
 "It was fixed by reading the code. The next one will not be." Phase 1 is that
 sentence made mechanical. `tests/test_disclosure.py` enumerates the disclosures
-out of the message catalogue and the surfaces out of the modules that ship
+out of the message catalog and the surfaces out of the modules that ship
 them, and checks the cross product, so a fourth instance fails a test instead
 of waiting for a reader.
 
@@ -127,7 +127,7 @@ last two were not in the published count until Phase 2 recomputed it.
 
 Twelve over the limit, seven out, five left. Every one closed by extracting a
 cohesive block into a named helper: nothing collapsed into a dict lookup,
-nothing hidden from mccabe behind a comprehension. Behaviour is identical, and
+nothing hidden from mccabe behind a comprehension. Behavior is identical, and
 for `audit_guard.py` that was checked the strong way rather than asserted --
 its whole terminal report, run against a real gate report, is byte-for-byte
 what it was before.
@@ -158,7 +158,7 @@ and every measurement comment moved with the code it explains.
 `C90` is in `select` now, which is what phases 3 and 4 were for. The rule is on
 or off for the whole tree, so neither phase alone could do it.
 
-Behaviour was held to more than the suite. `audit_guard.py`'s terminal report,
+Behavior was held to more than the suite. `audit_guard.py`'s terminal report,
 the HTML extractor over all 132 pages in `source_pages/`, and 480 multi-turn
 session sequences across three languages were each run through both the old
 and new code and compared byte-for-byte.
@@ -202,7 +202,7 @@ has. And the served interface could not answer in French at all:
 API answered the same question in English. Third hand-kept list this arc has
 found stale, after the complexity inventory and the mypy count.
 
-`fr` has a full `LANGUAGES` entry, a complete message catalogue, and passes
+`fr` has a full `LANGUAGES` entry, a complete message catalog, and passes
 every interface-language test, and there is no French corpus content at all, so
 the multilingual suite has no French evidence to score. `docs/I18N.md` names
 this precisely. The work is authoring one synthetic French document under
@@ -298,9 +298,9 @@ This was found by mutating the subject and running the suite, not by reading
 the tests again — reading is what produced the paragraph.
 
 - *"the bytes against the published example"* — there was no byte comparison.
-  The test parsed the written line and re-serialised it with its own
+  The test parsed the written line and re-serialized it with its own
   `sort_keys=True` before searching `docs/followup.md` for it, so key order
-  was normalised away on the way in. Key order was half of what this phase
+  was normalized away on the way in. Key order was half of what this phase
   fixed. Setting `record()`'s `sort_keys=False` made `docs/followup.md` false
   about the bytes an agency's store holds, and left every test in
   `tests/test_followup.py` green.
@@ -365,10 +365,10 @@ repository's working rule is that an agent does not push."
 
 ## Phase 11: the California pilot's county layer
 
-**Status: blocked on licences and a decision.**
+**Status: blocked on licenses and a decision.**
 
 `WORKLOG.md` session 17 records what happened: Los Angeles County reserves all
-rights and grants no licence, Fresno County prohibits re-use and mirroring
+rights and grants no license, Fresno County prohibits re-use and mirroring
 without written permission in those words, and Siskiyou's host refuses every
 non-browser connection so its terms cannot be read. The county layer is the
 layer that makes the pilot a deployment statement, and it cannot be committed

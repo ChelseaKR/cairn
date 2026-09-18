@@ -42,7 +42,7 @@ each claim is checked; this page draws from it rather than repeating it.
   movable tag.
 - **A defined vulnerability-reporting channel with a stated response
   window.** `SECURITY.md` names a private reporting path and a seven-day
-  acknowledgement expectation, and states plainly what is and is not in
+  acknowledgment expectation, and states plainly what is and is not in
   scope for a report — including project-specific failure modes (an
   ungrounded answer presented as grounded, corpus content leaked through a
   refusal) alongside the usual list.
@@ -181,7 +181,7 @@ the script is not a substitute for the session itself.
 
 Cairn is maintained by one person, unpaid, as a reference implementation —
 not by a vendor with a support contract, an SLA, or an incident-response
-team. `SECURITY.md` states a seven-day acknowledgement expectation for a
+team. `SECURITY.md` states a seven-day acknowledgment expectation for a
 vulnerability report and asks that expectations be sized accordingly. This
 matters for a procurement risk register the same way any other
 single-maintainer open-source dependency does: an agency adopting Cairn is
