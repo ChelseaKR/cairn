@@ -25,7 +25,7 @@ is a test that knows the whole set of things Cairn says in its own voice and
 the whole set of places a person can read them, and checks the cross product -
 which is this file.
 
-**The catalogue is the source of truth, not a list kept here.** A message key
+**The catalog is the source of truth, not a list kept here.** A message key
 carrying ``_notice`` in its name is Cairn speaking about the answer below it.
 The name is the whole rule, which is why ``cross_language_notice_partial``
 counts: a variant wording of a disclosure is still a disclosure.
@@ -57,7 +57,7 @@ from cairn.config import Config
 from cairn.engine import AskResult, ask
 from cairn.index import build_index
 from cairn.language import POP_DIRECTIONAL_ISOLATE, endonym_of
-from cairn.messages import CATALOGUE, DEFAULT_LANG
+from cairn.messages import CATALOG, DEFAULT_LANG
 from cairn.session import Session
 from cairn.stream import format_sse
 from cairn.ui.page import turn_markup
@@ -125,7 +125,7 @@ class Scenario:
     """One way an answer comes to carry a notice, and what it must say.
 
     ``key`` is the message key the scenario exercises, and it is what the
-    completeness test matches against the catalogue. ``build`` returns the
+    completeness test matches against the catalog. ``build`` returns the
     question and the result, because two of the four surfaces need the
     question as well as the answer to render anything.
 
@@ -244,13 +244,13 @@ class TestEveryNoticeReachesEveryReader(DisclosureHarness):
     def test_the_notice_is_in_the_language_of_the_answer(self):
         """A disclosure in a language the reader did not ask in is not one.
 
-        Checked by identity against the catalogue rather than by script, so a
+        Checked by identity against the catalog rather than by script, so a
         notice assembled out of two languages' strings fails here too.
         """
         for scenario in SCENARIOS:
             question, result = scenario.build(self.index)
             lang = result.answer.lang
-            template = CATALOGUE[lang][scenario.key]
+            template = CATALOG[lang][scenario.key]
             skeleton = template.split("{")[0]
             with self.subTest(scenario=scenario.name, lang=lang):
                 self.assertIn(skeleton, result.answer.notice)
@@ -264,7 +264,7 @@ class TestTheScenarioTableIsComplete(DisclosureHarness):
     """
 
     def test_every_notice_key_has_a_scenario(self):
-        spoken = {key for key in CATALOGUE[DEFAULT_LANG] if "_notice" in key}
+        spoken = {key for key in CATALOG[DEFAULT_LANG] if "_notice" in key}
         covered = {scenario.key for scenario in SCENARIOS}
         self.assertEqual(
             spoken,
@@ -275,14 +275,14 @@ class TestTheScenarioTableIsComplete(DisclosureHarness):
         )
 
     def test_every_language_can_speak_every_notice(self):
-        """The parity test in tests/test_multilingual.py covers the catalogue
+        """The parity test in tests/test_multilingual.py covers the catalog
         as a whole; this states the same thing about the notices specifically,
         so a notice added in English alone fails in the file that is about
         notices reaching people."""
-        spoken = {key for key in CATALOGUE[DEFAULT_LANG] if "_notice" in key}
-        for lang, catalogue in CATALOGUE.items():
+        spoken = {key for key in CATALOG[DEFAULT_LANG] if "_notice" in key}
+        for lang, catalog in CATALOG.items():
             with self.subTest(lang=lang):
-                self.assertTrue(spoken.issubset(catalogue))
+                self.assertTrue(spoken.issubset(catalog))
 
 
 class TestACrossingIsNeverSilent(DisclosureHarness):
@@ -340,7 +340,7 @@ class TestACrossingIsNeverSilent(DisclosureHarness):
             if result.cross_language or result.answer.notice is None:
                 continue
             with self.subTest(question=question, lang=lang):
-                for code in CATALOGUE:
+                for code in CATALOG:
                     if code == result.answer.lang:
                         continue
                     self.assertNotIn(endonym_of(code), result.answer.notice)
@@ -413,7 +413,7 @@ class TestAResolvedFollowUpIsNeverSilent(DisclosureHarness):
         session.ask(GROCERY, self.index, Config())
         turn = session.ask("when do applications close", self.index, Config())
         self.assertFalse(turn.resolved_with_context)
-        skeleton = CATALOGUE["en"]["context_notice"].split("{")[0]
+        skeleton = CATALOG["en"]["context_notice"].split("{")[0]
         self.assertNotIn(skeleton, turn.answer.cited_text)
 
     def test_the_disclosure_does_not_disturb_the_quoted_text(self):
@@ -462,7 +462,7 @@ class TestTheResultTypesCarryNoUndisclosedSignal(DisclosureHarness):
     own answer, and the question "does a reader need to be told" has to be
     asked when it is added rather than after somebody notices.
 
-    Modelled on `tests/test_config_report.py`, which holds
+    Modeled on `tests/test_config_report.py`, which holds
     `diff_from_defaults` to `fields(Config)` for the same reason: a hand-kept
     list of what matters silently omits whatever was added last.
     """

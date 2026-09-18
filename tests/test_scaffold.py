@@ -252,7 +252,7 @@ class TestWhatItRefuses(ScaffoldHarness):
     def test_one_existing_file_is_enough_to_refuse(self):
         """Partial output is worse than none: a half-scaffolded directory
         looks finished, and the file it did not overwrite is the one somebody
-        had already customised."""
+        had already customized."""
         directory = Path(self.enterContext(tempfile.TemporaryDirectory())) / "d"
         directory.mkdir()
         (directory / "README.md").write_text("mine", encoding="utf-8")

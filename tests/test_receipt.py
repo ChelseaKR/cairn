@@ -169,7 +169,7 @@ class TestReceiptShape(unittest.TestCase):
 
 
 class TestConfigDigest(unittest.TestCase):
-    def test_a_behavioural_change_moves_the_digest(self):
+    def test_a_behavioral_change_moves_the_digest(self):
         self.assertNotEqual(config_digest(Config()), config_digest(Config(threshold=0.4)))
         self.assertNotEqual(
             config_digest(Config()), config_digest(Config(tables_enabled=False))
@@ -184,7 +184,7 @@ class TestConfigDigest(unittest.TestCase):
         )
 
     def test_only_the_two_location_fields_are_excluded(self):
-        """Pin the deny-list, so a behavioural field cannot join it unnoticed.
+        """Pin the deny-list, so a behavioral field cannot join it unnoticed.
 
         The list is a deny-list rather than an allow-list precisely so a new
         `Config` field is covered by default. This test is the other half:

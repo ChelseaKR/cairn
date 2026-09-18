@@ -7,7 +7,7 @@ the numbers exist. What *is* here already: the design, the tooling, the
 first 131 pages scaffolded across five layers, one finding about county
 terms that arrived before a single page was fetched and was resolved by
 surveying all 58 counties, and observations from two smoke runs over
-unreviewed scaffolds — labelled as such, and not to be quoted as results.
+unreviewed scaffolds — labeled as such, and not to be quoted as results.
 
 ## What this pilot is for
 
@@ -37,7 +37,7 @@ recorded and graded as a separate target); and a deployment.
 | Layer | Source | Size target | Why |
 |---|---|---|---|
 | `federal` | The program owners — SSA, Medicare, IRS, USCIS, VA, Federal Student Aid, FNS — not usa.gov's umbrella pages | ~130 pages | Public domain by statute; and the owners publish the numbers usa.gov defers |
-| `california` | CDSS, DHCS, DMV, EDD, Covered California, FTB, the courts' self-help centre, the Secretary of State | ~170 pages | Where the dollar amounts, deadlines and fee schedules live; Spanish editions throughout; paired program by program with the federal layer |
+| `california` | CDSS, DHCS, DMV, EDD, Covered California, FTB, the courts' self-help center, the Secretary of State | ~170 pages | Where the dollar amounts, deadlines and fee schedules live; Spanish editions throughout; paired program by program with the federal layer |
 | one county each: `san-mateo`, `sonoma`, `siskiyou` | County HSA/HSD/HHSA, housing, registrar, vital records, animal services | ~25 pages each | Office locations, hours, General Assistance (county-only), CAPI, IHSS — the layer where "contact your local office" bottoms out |
 
 Programs are chosen in **pairs** so the same program exists at two or three
@@ -169,7 +169,7 @@ that are written down rather than waved at.
 Three sources, tagged, kept separate in analysis:
 
 - **Search queries (primary).** MS MARCO is about a million real,
-  anonymised Bing queries released by Microsoft for non-commercial
+  anonymized Bing queries released by Microsoft for non-commercial
   research. Filtered by the vocabulary of the pilot's programs — "food
   stamps", "medi-cal", "drivers license", "green card", in the words people
   type — about 12,000 match, and `collect_queries.py` draws a stratified,
@@ -179,11 +179,11 @@ Three sources, tagged, kept separate in analysis:
   "what is the income guideline for wic", "ages to collect social security
   benefits". What it costs: the queries are **nationwide** (a query about
   Michigan's tax refund is a *refusal* case for a California corpus, and
-  `names_other_state` flags those so the labeller sees it), **dated**
+  `names_other_state` flags those so the labeler sees it), **dated**
   (2016–2018; a query naming a year is naming that year), and **attributable
   to nobody's county** — so the `county` label means "the corpus this
   question is asked of", not "where the asker lives", and every question is
-  asked of all three. `location_dependent` is still labelled from the
+  asked of all three. `location_dependent` is still labeled from the
   question itself ("where do I apply" is; "what is the income limit" is
   not).
 - **Stack Exchange (secondary).** Top-voted questions on
@@ -216,9 +216,9 @@ splits on: `source` (above), `jurisdiction` (`federal` | `california` |
 `location_dependent` (whether the correct answer changes by county: an
 office address yes, a CalFresh income limit no).
 
-Labelling happens **before** any corpus is asked anything. A question
-relabelled after watching the engine refuse it is the experiment grading
-itself. A second labeller covers a 20% overlap and the agreement is
+Labeling happens **before** any corpus is asked anything. A question
+relabeled after watching the engine refuse it is the experiment grading
+itself. A second labeler covers a 20% overlap and the agreement is
 reported.
 
 ## The runs
@@ -262,7 +262,7 @@ the project's own bar for any change — build it, measure it, then decide:
    `max_passages = 1`).
 2. `max_passages = 2` — `docs/pilot-usagov.md`, Finding 2; with paired
    documents this often composes federal + state together, and whether that
-   reads as one answer or two half-answers is a labeller's call on a sample.
+   reads as one answer or two half-answers is a labeler's call on a sample.
 3. `dense_weight` at 0.10 / 0.15 / 0.25 — DESIGN.md's hybrid table was
    measured on 40 passages.
 4. `split_intents = true`.
@@ -288,7 +288,7 @@ can honestly hand them.
 Reported overall, and split by `source`, `jurisdiction`, `county`,
 `location_dependent` and language. Three splits are the pilot's own:
 
-- **Jurisdiction routing** (per-county corpus): of questions labelled
+- **Jurisdiction routing** (per-county corpus): of questions labeled
   `california` or `county`, how many were answered from a higher layer —
   grounded, cited, correct as far as it goes, and without the number or
   the address.
@@ -301,7 +301,7 @@ Reported overall, and split by `source`, `jurisdiction`, `county`,
 ### The engine knows about layers now
 
 Until 2026-09-07 the engine did not know a jurisdiction existed. It answered
-from the whole assembled corpus, and `sweep.py` labelled a wrong answer
+from the whole assembled corpus, and `sweep.py` labeled a wrong answer
 `jurisdiction-mismatch` or `wrong-county` *after the fact*, by reading the
 `layers.json` that assembly wrote. The measurement was honest and the system
 was not: the Siskiyou page that answered a Sonoma question was quoted with
@@ -412,7 +412,7 @@ federal or state page and the answer is a county address.
   Division". Each is a three- or four-word breadcrumb on a page without a
   `<main>` landmark. The furniture rule was widened once (three words, no
   digit, no sentence punctuation) and then left alone: the extractor is at
-  the point where the next rule would be a judgement, and judgements are
+  the point where the next rule would be a judgment, and judgments are
   what review is.
 - **And the dog.** "How do I license my dog?" against Sonoma's corpus
   answers from Sonoma County Animal Services' licensing page. The question
@@ -420,12 +420,12 @@ federal or state page and the answer is a county address.
   README is a real county question with a real answer, which is the
   county layer doing exactly what it is for.
 
-None of these is a number. The numbers come after review and labelling.
+None of these is a number. The numbers come after review and labeling.
 
 ## The decision gate, pre-registered
 
 Written 2026-08-23, before any measurement. Edit the numbers only in a
-commit dated before the first sweep over labelled questions; after that,
+commit dated before the first sweep over labeled questions; after that,
 they stand.
 
 At **wrong-answer rate ≤ 5%** on the elicited and forum sets, per-county
@@ -441,7 +441,7 @@ corpus, arm 1:
 
 Two more numbers, reported beside the rate:
 
-- **Jurisdiction precision ≥ 80%** on `california`- and `county`-labelled
+- **Jurisdiction precision ≥ 80%** on `california`- and `county`-labeled
   questions. Below that, the core cannot be deployed at a county without
   either scoping the corpus to one layer or a ranking change, and that is a
   decision for the write-up, not the sweep.
@@ -456,7 +456,7 @@ Two more numbers, reported beside the rate:
 | URL lists, terms check, fetch, extractor, browser saves | 24 | Done for the draft lists: 58-county terms survey, counties re-chosen; 136 URLs listed, 132 fetched or browser-saved (43 federal, 35 California, 17 San Mateo, 17 Sonoma, 20 Siskiyou), 131 scaffolded. Four URLs 404 and come off the lists. Growing the lists toward the targets (~130 / ~170 / ~25 each) is the remaining work |
 | Corpus review (~370 docs) | 40 | 0 |
 | Questions (search queries, Stack Exchange, FAQ) | 16 | 564 candidates collected and committed; agency FAQ set not yet drawn |
-| Labelling (+20% double-label) | 30 | 0 |
+| Labeling (+20% double-label) | 30 | 0 |
 | Tooling (fetch, assemble, sweep, probes converter) | 9 | Done, tested |
 | Runs (3 per-county + combined, 6 arms) | 18 | 0 |
 | Write-up | 14 | This page |
@@ -464,7 +464,7 @@ Two more numbers, reported beside the rate:
 Arabic: deferred on 2026-08-23. LA County DPSS publishes CalFresh and
 CalWORKs material in Arabic, which would have been the first real Arabic
 corpus content this project has had; Los Angeles is out on terms, and no
-Arabic labeller is lined up. San Mateo and Sonoma publish in Spanish and
+Arabic labeler is lined up. San Mateo and Sonoma publish in Spanish and
 (San Mateo) Chinese and Tagalog, none of which is an interface language
 beyond Spanish.
 

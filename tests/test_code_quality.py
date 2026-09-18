@@ -83,7 +83,7 @@ def _reported() -> dict[tuple[str, str], int]:
         location, _, message = line.partition(": C901 ")
         # ruff prints native separators, so the same file is `cairn/lint.py`
         # on POSIX and `cairn\\lint.py` on Windows. The inventory is written
-        # one way, so normalise here rather than recording two spellings of
+        # one way, so normalize here rather than recording two spellings of
         # every entry; without this the test fails on Windows CI only, which
         # is a test that reports a defect the tree does not have.
         path = location.split(":")[0].replace("\\", "/")

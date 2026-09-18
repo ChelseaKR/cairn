@@ -36,7 +36,7 @@
 # `test_nobody_can_bypass_it` read the file, and the file was right.
 #
 # So the count is now a comparison, in ruleset_conformance.py — a module
-# rather than more `jq`, so the judgement is testable offline against
+# rather than more `jq`, so the judgment is testable offline against
 # fixtures including that exact drift, and so the thing that fetches and the
 # thing that judges stay separable (the same split plumbline-gate.sh and
 # audit_guard.py already use).
@@ -114,7 +114,7 @@ jobs:
           # RULESET_READ_TOKEN to a fine-grained PAT scoped to THIS repository
           # with `Administration: read` (read, not write -- this job never
           # applies anything) and the comparison can run. Leave it unset and
-          # behaviour is exactly what it is today: `github.token`, exit 4, and
+          # behavior is exactly what it is today: `github.token`, exit 4, and
           # a red run that says it could not see the field. Nothing here makes
           # an unreadable ruleset look judged.
           GH_TOKEN: ${{ secrets.RULESET_READ_TOKEN || github.token }}
@@ -123,7 +123,7 @@ jobs:
           set -euo pipefail
           # The list endpoint does not expand `rules` or `bypass_actors`, so
           # each ruleset is fetched by id. A comparison against a summary
-          # would be a comparison of the fields that happen to be summarised,
+          # would be a comparison of the fields that happen to be summarized,
           # which is how the previous version of this step ended up counting.
           #
           # No `|| true` on the API calls. "The question could not be asked"

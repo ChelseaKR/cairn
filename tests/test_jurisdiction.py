@@ -6,8 +6,8 @@ nothing says so. Everything here is that sentence taken apart —
 :class:`TestTheWrongCountyNeverAnswers` is the sentence itself, and the rest
 holds the pieces it stands on.
 
-The fixture corpus is ``tests/layered.py``: four labelled layers, a sibling
-county to be the wrong answer, and one deliberately unlabelled document.
+The fixture corpus is ``tests/layered.py``: four labeled layers, a sibling
+county to be the wrong answer, and one deliberately unlabeled document.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from cairn.engine import EngineError, ask, resolve_jurisdiction
 from cairn.explain import diagnose, refusal_reason, render, trace_payload
 from cairn.index import INDEX_FORMAT_VERSION, build_index, read_index, write_index
 from cairn.jurisdiction import CODE, SEPARATOR, JurisdictionError, covers, ladder, validate
-from cairn.messages import CATALOGUE
+from cairn.messages import CATALOG
 from cairn.receipt import RECEIPT_VERSION, Receipt, ReceiptError, receipt_for
 from cairn.record import build_items_and_responses
 from cairn.retrieve import retrieve
@@ -261,23 +261,23 @@ class TestRetrievalScopesToOneLayer(LayeredHarness):
         self.assertEqual(trace.jurisdiction, SONOMA)
         self.assertEqual(trace.scoped + trace.excluded, self.index.passage_count)
 
-    def test_an_unlabelled_passage_is_out_of_scope_and_counted_apart(self):
+    def test_an_unlabeled_passage_is_out_of_scope_and_counted_apart(self):
         """A document that never said where it applies has not said it
         applies here — and "excluded because it is another county's" and
-        "excluded because nobody labelled it" are different findings for an
+        "excluded because nobody labeled it" are different findings for an
         operator, so they are two numbers."""
         trace = retrieve(
             TRANSPORT, self.index, threshold=0.165, candidates=8, jurisdiction=SONOMA
         )
         self.assertEqual(trace.candidates, ())
-        unlabelled = sum(1 for p in self.index.passages if p.jurisdiction is None)
-        self.assertEqual(trace.unlabelled, unlabelled)
-        self.assertGreater(unlabelled, 0, "the fixture must hold an unlabelled document")
+        unlabeled = sum(1 for p in self.index.passages if p.jurisdiction is None)
+        self.assertEqual(trace.unlabeled, unlabeled)
+        self.assertGreater(unlabeled, 0, "the fixture must hold an unlabeled document")
 
     def test_without_a_jurisdiction_nothing_is_excluded_for_one(self):
         trace = retrieve(TRANSPORT, self.index, threshold=0.165, candidates=8)
         self.assertIsNone(trace.jurisdiction)
-        self.assertEqual(trace.unlabelled, 0)
+        self.assertEqual(trace.unlabeled, 0)
         self.assertTrue(trace.candidates)
 
 
@@ -342,7 +342,7 @@ class TestWideningOutward(LayeredHarness):
         self.assertTrue(result.cross_jurisdiction)
         self.assertIn("us-ca-sonoma", result.answer.notice)
         self.assertIn(
-            CATALOGUE["en"]["cross_jurisdiction_notice"].split("{")[0],
+            CATALOG["en"]["cross_jurisdiction_notice"].split("{")[0],
             result.answer.notice,
         )
 
@@ -385,7 +385,7 @@ class TestWideningOutward(LayeredHarness):
         for key in ("cross_jurisdiction_notice", "cross_language_notice"):
             with self.subTest(key=key):
                 self.assertIn(
-                    CATALOGUE["es"][key].split("{")[0], result.answer.notice
+                    CATALOG["es"][key].split("{")[0], result.answer.notice
                 )
 
     def test_the_jurisdiction_half_is_said_first(self):
@@ -397,12 +397,12 @@ class TestWideningOutward(LayeredHarness):
         )
         notice = result.answer.notice
         self.assertLess(
-            notice.index(CATALOGUE["es"]["cross_jurisdiction_notice"].split("{")[0]),
-            notice.index(CATALOGUE["es"]["cross_language_notice"].split("{")[0]),
+            notice.index(CATALOG["es"]["cross_jurisdiction_notice"].split("{")[0]),
+            notice.index(CATALOG["es"]["cross_language_notice"].split("{")[0]),
         )
 
 
-class TestARequestThatCannotBeHonoured(LayeredHarness):
+class TestARequestThatCannotBeHonored(LayeredHarness):
     def test_a_corpus_with_no_layers_refuses_the_request(self):
         """Not ignored. Ignoring it answers from pages that never said where
         they apply and presents the result as the layer that was asked for."""
@@ -514,6 +514,24 @@ class TestExplainShowsTheLayerDecision(LayeredHarness):
         payload = trace_payload(ask(HOURS, build_index(DEMO), Config()).answer.trace)
         self.assertIsNone(payload["jurisdiction"])
         self.assertEqual(payload["unlabelled"], 0)
+
+    def test_the_british_spellings_survive_where_they_were_published(self):
+        """`unlabelled` is a published JSON key, and `unlabelled`, `CATALOGUE`
+        and `catalogue_for` are names the released package exported. The code
+        moved to American spelling; these keep existing consumers working."""
+        import cairn.messages as messages
+        from cairn.retrieve import RetrievalTrace
+
+        trace = RetrievalTrace(query="q", threshold=0.0, candidates=(), unlabeled=3)
+        self.assertEqual(trace_payload(trace)["unlabelled"], 3)
+        self.assertNotIn("unlabeled", trace_payload(trace))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(trace.unlabelled, 3)
+        with self.assertWarns(DeprecationWarning):
+            self.assertIs(messages.CATALOGUE, messages.CATALOG)
+        with self.assertWarns(DeprecationWarning):
+            self.assertIs(messages.catalogue_for, messages.catalog_for)
+        self.assertFalse(hasattr(messages, "CATALOGUE_TYPO"))
 
 
 # --------------------------------------------------------------------------
@@ -657,9 +675,9 @@ class TestTheServedSelector(LayeredHarness):
         self.assertIn('<option value="us-ca-yolo" selected>', page)
 
     def test_every_language_can_label_it(self):
-        for lang in CATALOGUE:
+        for lang in CATALOG:
             with self.subTest(lang=lang):
-                self.assertIn("jurisdiction_label", CATALOGUE[lang])
+                self.assertIn("jurisdiction_label", CATALOG[lang])
 
 
 # --------------------------------------------------------------------------
@@ -697,7 +715,7 @@ class TestTheFixtureCanFail(LayeredHarness):
 
         names = {f.name for f in fields(RetrievalTrace)}
         self.assertIn("jurisdiction", names)
-        self.assertIn("unlabelled", names)
+        self.assertIn("unlabeled", names)
 
 
 if __name__ == "__main__":

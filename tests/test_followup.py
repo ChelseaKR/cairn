@@ -71,8 +71,8 @@ class TestTheStoredRecordIsExactlyWhatIsPublished(unittest.TestCase):
 
     - `test_the_published_line_is_the_line_that_is_written` said `Not "the
       fields match" but "the bytes match"` and compared neither. It parsed the
-      written line and re-serialised it with the *test's own* `sort_keys=True`
-      before comparing, which normalises away key order — and key order was
+      written line and re-serialized it with the *test's own* `sort_keys=True`
+      before comparing, which normalizes away key order — and key order was
       exactly the drift the commit that added it existed to fix, since
       `docs/followup.md` had published the keys in a different order from the
       one `record()` writes. Changing `record()` to `sort_keys=False` left
@@ -127,7 +127,7 @@ class TestTheStoredRecordIsExactlyWhatIsPublished(unittest.TestCase):
         """Not "the fields match" but the bytes match — the written line
         itself, searched for verbatim in the example `docs/followup.md` shows
         an operator. A key added, renamed or reordered on either side fails
-        here, and there is no re-serialisation left to hide it."""
+        here, and there is no re-serialization left to hide it."""
         published = (
             Path(__file__).resolve().parent.parent / "docs" / "followup.md"
         ).read_text(encoding="utf-8")

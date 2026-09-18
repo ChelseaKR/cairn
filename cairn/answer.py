@@ -5,7 +5,7 @@ verbatim, in rank order. Every fact in an answer — numeric policy facts
 included — therefore appears character-for-character in a cited passage, so
 the spec's traceability requirement (R2) holds by construction. That is also
 why nothing here translates: a translated amount is an unsourced amount, so a
-passage in another language is quoted in its own language and labelled with
+passage in another language is quoted in its own language and labeled with
 it.
 
 A refusal (spec R3) is a first-class outcome, not an error: it says plainly

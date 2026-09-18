@@ -160,7 +160,7 @@ class TestCli(CliHarness):
 
     def test_11_serve_binds_to_this_machine_only_by_default(self):
         # A demo server that listens on every interface by default is a demo
-        # server someone accidentally exposes. The behaviour of the server
+        # server someone accidentally exposes. The behavior of the server
         # itself is covered in tests/test_ui.py.
         args = build_parser().parse_args(["serve"])
         self.assertEqual(args.host, "127.0.0.1")
@@ -170,7 +170,7 @@ class TestCli(CliHarness):
         # was `assertIs(x if not hasattr(x, "__wrapped__") else x.__wrapped__, x)`,
         # which is `assertIs(f, f)` for any unwrapped function and false for
         # any wrapped one: there is no input under which it carries
-        # information. Explicit host still wins, which is the behaviour a
+        # information. Explicit host still wins, which is the behavior a
         # default is only meaningful against.
         self.assertEqual(build_parser().parse_args(["serve", "--host", "0.0.0.0"]).host,
                          "0.0.0.0")

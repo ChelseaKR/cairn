@@ -11,8 +11,8 @@ So each bullet is anchored to a fact a test can check, and the anchors are
 required to match the list exactly in both directions:
 
 - add an open item without a check and this fails;
-- fix something and leave it listed, and the behavioural check fails;
-- delete an item whose behaviour has not changed, and the anchor is orphaned.
+- fix something and leave it listed, and the behavioral check fails;
+- delete an item whose behavior has not changed, and the anchor is orphaned.
 
 One of the six cannot be checked that way, and that is stated rather than
 faked: whether a person has sat down with a screen reader is not a property
@@ -106,7 +106,7 @@ class TestTheListIsTheChecks(unittest.TestCase):
         self.assertIn("Not a wish list", open_section())
 
 
-class TestTheBehaviourEachItemDescribes(unittest.TestCase):
+class TestTheBehaviorEachItemDescribes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.index = build_index(DEMO)
@@ -159,7 +159,7 @@ class TestTheBehaviourEachItemDescribes(unittest.TestCase):
         # no item reached the path and was the anchor for an open item saying
         # so. The coverage exists now, and coverage that arrived once can
         # leave again: delete `ck-027` and every suite goes back to reporting
-        # a system whose cross-language behaviour no audit has ever seen, with
+        # a system whose cross-language behavior no audit has ever seen, with
         # nothing but a slightly smaller `n` to say so.
         #
         # Asked of the committed question set through the real engine rather

@@ -1,9 +1,9 @@
 # Contributing to Cairn
 
-Cairn is a reference implementation of one behaviour: answer only from the
+Cairn is a reference implementation of one behavior: answer only from the
 corpus you were given, quote it rather than paraphrase it, and refuse plainly
 when nothing clears the threshold. A change that makes the code nicer but the
-behaviour less checkable is not an improvement here.
+behavior less checkable is not an improvement here.
 
 ## The two gates, and which one is which
 

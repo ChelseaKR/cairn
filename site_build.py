@@ -89,7 +89,7 @@ CARD_ALT = (
 )
 
 # The evidence shown, in the order it is shown. The refusal leads: it is the
-# behaviour the project is named for, and a demonstration that opens with a
+# behavior the project is named for, and a demonstration that opens with a
 # successful answer is a demonstration of something every assistant can do.
 REFUSALS = ("ck-017", "ck-024")
 CROSS_LANGUAGE = "ck-027"
@@ -504,7 +504,7 @@ def render(ga4_id: str | None = GA4_MEASUREMENT_ID) -> str:
   not re-run, not re-typed, and checked against those files by the test suite.</p>
 
   <h2>It refuses</h2>
-  <p>The interesting behaviour of a grounded assistant is the one it declines to
+  <p>The interesting behavior of a grounded assistant is the one it declines to
   perform. Neither question below is covered by the corpus, so neither gets an
   answer, and the refusal points at a person instead of guessing.</p>
 {refusals}
@@ -531,7 +531,7 @@ def render(ga4_id: str | None = GA4_MEASUREMENT_ID) -> str:
 <footer>
   <p><strong>The corpus is invented.</strong> Every document Cairn answers from here is
   synthetic demonstration content, and the contact number in the refusals is fictional.
-  This is a demonstration of correct behaviour, not a public service.</p>
+  This is a demonstration of correct behavior, not a public service.</p>
   <p>This page is a committed file, built by
   <a href="{REPO}/blob/main/site_build.py"><code>site_build.py</code></a> and held
   against the evidence by
@@ -584,8 +584,8 @@ def privacy_body(ga4_id: str | None) -> str:
   each page.</p>
 
   <h2>Advertising features are off</h2>
-  <p>Google signals and ad personalisation are both turned off, and the
-  advertising storage, ad user data and ad personalisation consent signals are
+  <p>Google signals and ad personalization are both turned off, and the
+  advertising storage, ad user data and ad personalization consent signals are
   denied everywhere. Google keeps the event data for
   {esc(GA4_DATA_RETENTION)}. See
   <a href="https://policies.google.com/privacy">Google's privacy policy</a>.</p>

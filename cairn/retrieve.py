@@ -14,7 +14,7 @@ candidate list is exactly what was considered — an explain-mode trace that
 hid a filter would be a lie.
 
 A jurisdiction restriction is exact: a pass scoped to ``us-ca`` scores the
-passages labelled ``us-ca`` and nothing else. Widening outward through
+passages labeled ``us-ca`` and nothing else. Widening outward through
 ``us-ca-sonoma``, ``us-ca``, ``us`` is one pass per layer and belongs to
 :mod:`cairn.engine`, which has to disclose the widening it did; a retriever
 that quietly searched a whole subtree would leave nothing to disclose. A
@@ -42,6 +42,7 @@ sets.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass
 
 from cairn.embed import cosine as dense_cosine
@@ -81,7 +82,7 @@ class RetrievalTrace:
     # covers other places, and a passage in no layer is a corpus document
     # nobody has said where to apply — an authoring gap, not a coverage one.
     # Reported rather than folded in, so it cannot be read as either.
-    unlabelled: int = 0
+    unlabeled: int = 0
     # Term evidence, partitioning the question's distinct terms three ways.
     query_terms: tuple[str, ...] = ()  # every distinct term the question tokenized to
     unmatched: tuple[str, ...] = ()  # terms absent from every passage searched
@@ -110,6 +111,16 @@ class RetrievalTrace:
     # resolution happens (`Config.threshold_for`), never re-derived by a
     # renderer, so the report cannot disagree with the run.
     threshold_key: str = "retrieval.threshold"
+
+    @property
+    def unlabelled(self) -> int:
+        """Deprecated British-spelling alias of ``unlabeled``."""
+        warnings.warn(
+            "RetrievalTrace.unlabelled is deprecated; use unlabeled",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.unlabeled
 
     @property
     def accepted(self) -> tuple[Candidate, ...]:
@@ -271,7 +282,7 @@ def retrieve(
     matched_anywhere: set[str] = set()
     langs_scored: set[str] = set()
     excluded = 0
-    unlabelled = 0
+    unlabeled = 0
     scoped = 0
     for passage in index.passages:
         if lang is not None and passage.lang != lang:
@@ -280,7 +291,7 @@ def retrieve(
         if jurisdiction is not None and passage.jurisdiction != jurisdiction:
             excluded += 1
             if passage.jurisdiction is None:
-                unlabelled += 1
+                unlabeled += 1
             continue
         scoped += 1
         if not query_counts:
@@ -341,7 +352,7 @@ def retrieve(
         jurisdiction=jurisdiction,
         scoped=scoped,
         excluded=excluded,
-        unlabelled=unlabelled,
+        unlabeled=unlabeled,
         query_terms=tuple(sorted(query_counts)),
         unmatched=unmatched,
         ignored=ignored,

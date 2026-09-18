@@ -234,7 +234,7 @@ def init(directory: str | Path, corpus: str | Path, *, name: str | None = None) 
     Refuses before writing anything if a single file it would write is already
     there. Partial output is worse than none: a half-scaffolded directory
     looks finished, and the file it did not overwrite is the one an operator
-    had already customised.
+    had already customized.
     """
     target = Path(directory)
     corpus_dir = Path(corpus)
@@ -256,7 +256,7 @@ def init(directory: str | Path, corpus: str | Path, *, name: str | None = None) 
         raise ScaffoldError(
             f"{target} already holds {', '.join(existing)}. Nothing was "
             f"written: a half-scaffolded directory looks finished, and the "
-            f"file left alone is the one somebody had already customised. "
+            f"file left alone is the one somebody had already customized. "
             f"Scaffold somewhere else, or move these aside first."
         )
 

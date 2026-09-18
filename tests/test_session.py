@@ -149,7 +149,7 @@ class TestHistoryOnTheWire(unittest.TestCase):
 class TestTheEscalationProbe(unittest.TestCase):
     """Rules 4 and 5, against the probe that put them there (issue #64).
 
-    This class asserted the wrong behaviour on purpose until 2026-09-01, in
+    This class asserted the wrong behavior on purpose until 2026-09-01, in
     the way `ck-015` and `ck-022` still do. It does not any more, because the
     thing it was recording is fixed.
 
@@ -177,7 +177,7 @@ class TestTheEscalationProbe(unittest.TestCase):
       turn two has now refused and refusal is monotonic.
 
     `test_the_press_is_refused_even_when_nothing_carries_a_figure` is the
-    half that generalises past this probe, and
+    half that generalizes past this probe, and
     `TestTheHoleThatIsLeft` in `tests/test_session_retry_bar.py` is the half
     that does not.
     """
@@ -232,7 +232,7 @@ class TestTheEscalationProbe(unittest.TestCase):
         """The disclosure and the refusal cannot disagree either.
 
         While the probe was answered, the answer at least said which earlier
-        question it had been read against -- a disclosure, not a defence. Now
+        question it had been read against -- a disclosure, not a defense. Now
         that there is no borrowed retrieval, there is nothing to disclose,
         and the notice naming the opener must not appear on a refusal that
         borrowed nothing.

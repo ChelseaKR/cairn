@@ -1,13 +1,13 @@
 {
   "algorithm": "sha256",
-  "bundle_sha256": "e016df307ea9a77f480ffcd759bcb24a6a3ef7f825ef82f26620b34be8131055",
+  "bundle_sha256": "53ee93193b7cf6d57f4bee9b49b06979dd4197dea79bee47447bb5df8e9f22cf",
   "files": {
-    "DATASET.md": "52de776821eb489b625986ffbfaf789e82123a3c4c03a2ab5c1d94e3ae914fda",
-    "interface.html": "bc71f9fb3b841bcb3736796737c890e6c3643f169e4efc413c325c6cd7d92367",
+    "DATASET.md": "84e138d6d4c606d83bef19fbd5497116eef4f1951a9ac59d8e4ef6d99e3eb927",
+    "interface.html": "eac98513c86d3c86922f9feaa901938b337386bd9a6d02850d6563bc7a6458a0",
     "items.jsonl": "910d628e23aee74ecc54954237cc626ff901b5ebcfcd9f20f9db7904075c1504",
     "manifest.json": "9e3db1ffcd8eab7b32c7f67a7f30cd73e52f143729baf429dced252883be19f8",
     "responses.jsonl": "5015c98cdbd498889ba8057083107c83cea7af97eb1a15545fc020612ab8bd1d",
-    "sources.jsonl": "e852c20d18ba37b1f5960a522ec330053eeb1dc7a1d15f13a9c1a0256b79fedb"
+    "sources.jsonl": "aebbc72c0b7c9241a1ab47951e374227faa32dd060f2938f0ff2d5b8a0d1d4c0"
   },
   "format": "plumbline-checksums",
   "format_version": 1

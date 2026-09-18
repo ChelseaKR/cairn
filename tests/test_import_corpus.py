@@ -257,7 +257,7 @@ class TestDuplicatedTitle(unittest.TestCase):
     """`docs/pilot-usagov.md`, Finding 1, made mechanical: a first paragraph
     that restates the title is dropped, because it was measured to out-score
     the real answering passage. Only the first paragraph, only an exact
-    normalised match — anything looser is a judgement the reviewer keeps."""
+    normalized match — anything looser is a judgment the reviewer keeps."""
 
     def test_exact_restatement_is_dropped(self):
         kept, dropped = import_corpus.drop_duplicated_title(

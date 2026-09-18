@@ -19,7 +19,7 @@ When a language restriction is in play the report shows every retrieval
 attempt, including the widened cross-language one, so the operator sees the
 filter that was applied rather than a candidate list that quietly omits most
 of the corpus. A jurisdiction restriction is shown the same way: every rung
-of the widening ladder is a labelled attempt, so "answered from the state
+of the widening ladder is a labeled attempt, so "answered from the state
 page" and "the county page lost on score" are two different pictures rather
 than one candidate list with no layer on it.
 
@@ -138,9 +138,9 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
             # different filter -- so an empty *layer* was reported as "the
             # corpus holds nothing at all in 'en'" for a corpus with plenty
             # of English in it, which is a coverage gap that does not exist.
-            unlabelled = (
-                f" {trace.unlabelled} of them declare no jurisdiction at all."
-                if trace.unlabelled
+            unlabeled = (
+                f" {trace.unlabeled} of them declare no jurisdiction at all."
+                if trace.unlabeled
                 else ""
             )
             return StageVerdict(
@@ -148,9 +148,9 @@ def _retrieval_verdict(trace: RetrievalTrace) -> StageVerdict:
                 ok=False,
                 code="no-passages-in-jurisdiction",
                 detail=(
-                    f"No passage in this corpus is labelled "
+                    f"No passage in this corpus is labeled "
                     f"{trace.jurisdiction!r}; all {trace.excluded} were excluded "
-                    f"before scoring.{unlabelled} This layer is empty, which is "
+                    f"before scoring.{unlabeled} This layer is empty, which is "
                     f"not the same as the corpus being silent on the subject: a "
                     f"wider layer may still answer it."
                 ),
@@ -424,10 +424,10 @@ def _attempt_lines(
             f"Attempt {number} ({scope}): {trace.scoped} passages scored, "
             f"{trace.excluded} excluded, {len(trace.candidates)} candidates"
         )
-        if trace.unlabelled:
+        if trace.unlabeled:
             # Said out loud rather than folded into `excluded`: a passage in
             # no layer is an authoring gap, and one in another layer is not.
-            header += f" ({trace.unlabelled} declaring no jurisdiction)"
+            header += f" ({trace.unlabeled} declaring no jurisdiction)"
         lines.append(header)
         lines.extend(_term_lines(trace))
         lines.extend(_candidate_rows(trace, readability_overrides))
@@ -545,7 +545,8 @@ def trace_payload(
         # not layered, which is the shape every existing consumer already
         # reads for a field it has not heard of.
         "jurisdiction": trace.jurisdiction,
-        "unlabelled": trace.unlabelled,
+        # Published JSON key; British spelling kept so existing consumers do not break.
+        "unlabelled": trace.unlabeled,
         # So a JSON consumer can tell a skipped retrieval stage from an empty
         # one without re-deriving it from the emptiness of every other field.
         "attempted": trace.attempted,

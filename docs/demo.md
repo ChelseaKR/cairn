@@ -15,7 +15,7 @@ you are looking at rather than claiming every line on it is checked.
 One more ```text fence sits in section 1, for a different reason: producing
 that output means editing a corpus document, and a page executed against the
 shipped corpus must not. It is a recording rather than an illustration — it
-says how it was captured — and the behaviour it shows has its own tests.
+says how it was captured — and the behavior it shows has its own tests.
 
 Requires Python 3.11 or newer. Nothing else.
 
@@ -29,7 +29,7 @@ $ cd cairn
 ```console
 $ python3 -m cairn index
 Indexed 44 passages from 11 documents (11 marked synthetic) and 1 structured table in 4 languages [ar, en, es, fr] -> .cairn/index.json
-Corpus fingerprint: 02a35a0907d9 (corpus/demo)
+Corpus fingerprint: 3542716e91f5 (corpus/demo)
 ```
 
 The count of synthetic documents is not decoration. Every file in the bundled
@@ -278,7 +278,7 @@ What to try, and what should happen:
 | Switch the language to العربية | The whole page mirrors — the send button moves to the other side — and the chrome is retranslated |
 | Ask an English-only question in Arabic | An Arabic notice, then the English source marked `lang="en" dir="ltr"` so a screen reader reads it in an English voice |
 | Turn off JavaScript and ask again | It still answers. The form posts to the server, which renders the page |
-| Switch your system to dark mode | A dark presentation whose every colour pair passes AA |
+| Switch your system to dark mode | A dark presentation whose every color pair passes AA |
 
 The disclosure at the top of the page is permanent. There is no dismiss
 control, because a disclosure you can dismiss is a disclosure most people
@@ -297,10 +297,10 @@ in [`plumbline.pin`](../plumbline.pin).
 ```text
 $ python3 -m cairn record            # re-record the evidence from this engine
 Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
-Bundle sha256: e016df307ea9a77f480ffcd759bcb24a6a3ef7f825ef82f26620b34be8131055
+Bundle sha256: 53ee93193b7cf6d57f4bee9b49b06979dd4197dea79bee47447bb5df8e9f22cf
 
 $ ./plumbline-gate.sh                # resolve the pinned auditor and grade it
-GATE: PASS — target cairn-demo, dataset e016df307ea9, run ...
+GATE: PASS — target cairn-demo, dataset 53ee93193b7c, run ...
 all 14 suites passed:
   ...
   passage_attribution    score 0.9444  floor 0.90  PASS  n=18  ci ...  mde ...  4 unverifiable

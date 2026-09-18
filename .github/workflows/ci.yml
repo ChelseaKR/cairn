@@ -15,7 +15,7 @@
 #              demo question too — an editable install (what `core` tests)
 #              proves nothing about whether the distributed artifact is
 #              complete on its own.
-#   interface  the accessibility behaviours that need a real browser.
+#   interface  the accessibility behaviors that need a real browser.
 #   audit      the merge gate. Resolves the pinned auditor, grades the
 #              recorded evidence, and then holds the result against the
 #              committed baseline — because a floor is a minimum and a score
@@ -68,7 +68,7 @@
 # ---------------------------------------------------------------------------
 # Why every gate invocation says `env -u PLUMBLINE_SRC`
 # ---------------------------------------------------------------------------
-# The runner honours `PLUMBLINE_SRC` as a develop-the-harness escape hatch: set
+# The runner honors `PLUMBLINE_SRC` as a develop-the-harness escape hatch: set
 # it and resolution is skipped entirely, the pin is not consulted, and the run
 # is graded by whatever is in that directory. It warns loudly on stderr and
 # then does it anyway — which is the right call for the harness's own
@@ -269,6 +269,7 @@ jobs:
           }
 
   interface:
+    # Required-check context in the live ruleset; British spelling kept until the ruleset is renamed.
     name: interface (accessibility behaviours in Chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -303,7 +304,7 @@ jobs:
       - name: Index
         run: python3 -m cairn index
 
-      - name: Run the behaviour checks
+      - name: Run the behavior checks
         working-directory: tests/browser
         run: npm run check
 
@@ -341,7 +342,7 @@ jobs:
       - name: The committed evidence matches what the engine produces now
         run: |
           # `cairn record` is deterministic. If this diff is non-empty the
-          # engine's behaviour changed without the bundle being updated, and
+          # engine's behavior changed without the bundle being updated, and
           # the audit below would be grading yesterday's answers.
           git diff --exit-code -- plumbline/bundle
 
@@ -475,7 +476,7 @@ jobs:
 
       # The gate cannot fetch its own harness, by design (gauntlet-gate.sh's
       # own header explains why: no path that resolves *something* if the
-      # pin cannot be honoured). So CI is the place the checkout at the
+      # pin cannot be honored). So CI is the place the checkout at the
       # exact pinned commit is made: cloned fresh, checked out to
       # gauntlet.pin's commit, and verified by the gate itself before any
       # suite runs. A moving ref here would grade this repository with a

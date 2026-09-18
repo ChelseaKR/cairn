@@ -1,9 +1,9 @@
-"""The interface's colour pairs, read from the stylesheet itself.
+"""The interface's color pairs, read from the stylesheet itself.
 
 One list, two consumers: the test suite computes WCAG ratios from it, and the
 interface snapshot in an evidence bundle declares it so an auditor can compute
 the same ratios independently. Neither is allowed to have its own idea of what
-colours the page uses, and neither takes a claim of conformance on trust.
+colors the page uses, and neither takes a claim of conformance on trust.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ PAIRS: tuple[tuple[str, str, str, str], ...] = (
 
 
 def palette(scheme: str = "light", css: str | None = None) -> dict[str, str]:
-    """Resolved custom properties for one colour scheme."""
+    """Resolved custom properties for one color scheme."""
     css = css if css is not None else STYLESHEET.read_text(encoding="utf-8")
     tokens = dict(_TOKEN.findall(css.split("@media")[0]))
     if scheme == "dark":
@@ -47,7 +47,7 @@ def palette(scheme: str = "light", css: str | None = None) -> dict[str, str]:
 
 
 def declarations(scheme: str = "light", css: str | None = None) -> list[dict[str, str]]:
-    """The colour pairs, resolved, in the shape an auditor can check."""
+    """The color pairs, resolved, in the shape an auditor can check."""
     tokens = palette(scheme, css)
     return [
         {

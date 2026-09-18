@@ -34,18 +34,20 @@ Cairn's own voice about the answer directly below it, carried in
 answer. That naming is load-bearing rather than decorative. Three separate
 defects have been a machine-readable disclosure that no human-readable
 sentence repeated, so ``tests/test_disclosure.py`` enumerates the
-``_notice`` keys out of this catalogue and requires each one to have a
+``_notice`` keys out of this catalog and requires each one to have a
 scenario proving it reaches a reader on every surface. Adding a fourth
 without one fails that test rather than shipping quiet.
 """
 
 from __future__ import annotations
 
+import warnings
+
 # Reference language: the set of keys every other language must match, and the
-# fallback for a code with no catalogue of its own.
+# fallback for a code with no catalog of its own.
 DEFAULT_LANG = "en"
 
-CATALOGUE: dict[str, dict[str, str]] = {
+CATALOG: dict[str, dict[str, str]] = {
     "en": {
         # --- engine voice ---
         "refusal": (
@@ -442,17 +444,32 @@ CATALOGUE: dict[str, dict[str, str]] = {
 }
 
 
-def catalogue_for(lang: str) -> dict[str, str]:
+def catalog_for(lang: str) -> dict[str, str]:
     """The strings for ``lang``, falling back to the reference language for a
-    code with no catalogue (a corpus language is not necessarily an interface
+    code with no catalog (a corpus language is not necessarily an interface
     language)."""
-    return CATALOGUE.get(lang, CATALOGUE[DEFAULT_LANG])
+    return CATALOG.get(lang, CATALOG[DEFAULT_LANG])
 
 
 def text(key: str, lang: str, **fields: object) -> str:
     """One system string, formatted. Raises on an unknown key rather than
     serving an empty box to a user."""
-    catalogue = catalogue_for(lang)
-    if key not in catalogue:
-        raise KeyError(f"no message {key!r} in the {lang!r} catalogue")
-    return catalogue[key].format(**fields) if fields else catalogue[key]
+    catalog = catalog_for(lang)
+    if key not in catalog:
+        raise KeyError(f"no message {key!r} in the {lang!r} catalog")
+    return catalog[key].format(**fields) if fields else catalog[key]
+
+
+# British-spelled names the released package exported. Kept as deprecated
+# aliases so code importing them keeps working; reading one warns.
+_DEPRECATED_ALIASES = {"CATALOGUE": "CATALOG", "catalogue_for": "catalog_for"}
+
+
+def __getattr__(name: str) -> object:
+    if name in _DEPRECATED_ALIASES:
+        new = _DEPRECATED_ALIASES[name]
+        warnings.warn(
+            f"cairn.messages.{name} is deprecated; use {new}", DeprecationWarning, stacklevel=2
+        )
+        return globals()[new]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

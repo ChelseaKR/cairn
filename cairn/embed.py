@@ -101,7 +101,7 @@ def features(text: str) -> dict[int, float]:
         return {}
     # Sublinear damping of the signed sums, then L2 normalize: a gram repeated
     # many times must not own the vector's direction outright. A slot whose
-    # signs cancelled to exactly zero carries no evidence and is dropped.
+    # signs canceled to exactly zero carries no evidence and is dropped.
     vector = {
         slot: math.copysign(1.0 + math.log(abs(count)), count)
         for slot, count in counts.items()

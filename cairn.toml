@@ -112,8 +112,8 @@ ar = "مكتب المساعدة المجتمعية في مقاطعة هاربر 
 # A language with no formula reports `n/a`, never a number: the coefficients
 # below were fitted on the language they are listed under and mean nothing
 # outside it, so running one over Arabic would produce a grade with the right
-# shape and no referent. Declaring one here is an operator's judgement that a
-# formula is close enough, and the grade is then labelled with the formula it
+# shape and no referent. Declaring one here is an operator's judgment that a
+# formula is close enough, and the grade is then labeled with the formula it
 # came from. An unimplemented name is refused when the config is built.
 # [lint.readability]
 # fr = "flesch_kincaid_grade"

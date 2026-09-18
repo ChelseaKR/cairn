@@ -11,7 +11,7 @@
     "",
     "Replace this whole file with the audit JSON the gate writes. Do not edit",
     "the numbers in a real one to make a red gate green: that is the one",
-    "manoeuvre the interlock exists to make impossible, and it is why the",
+    "maneuver the interlock exists to make impossible, and it is why the",
     "baseline is committed and reviewed like any other diff."
   ],
   "format": "plumbline-baseline",
