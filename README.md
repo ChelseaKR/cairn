@@ -659,7 +659,7 @@ denied in the EEA, the UK and Switzerland, where Google receives cookieless
 pings instead. [`tests/test_site_analytics.py`](tests/test_site_analytics.py)
 runs the committed loader in Node against each of those cases, and deletes
 each guard in turn to prove the test notices. The Cairn package itself
-collects nothing: this is about the web page only.
+has no telemetry: this is about the web page only.
 
 ## Citing this
 

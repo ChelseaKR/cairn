@@ -555,9 +555,9 @@ def privacy_body(ga4_id: str | None) -> str:
         'github-general-privacy-statement">GitHub General Privacy Statement</a>.</p>\n'
     )
     tool = (
-        "  <p>This page is about this website only. The Cairn software itself sends "
-        "nothing anywhere: it answers from a local corpus with no network at answer "
-        "time.</p>\n"
+        "  <p>This page is about this website only. The Cairn software itself has no "
+        "telemetry: it reports nothing about its use to anyone, and it answers from a "
+        "local corpus with no network at answer time.</p>\n"
     )
     if measurement_id(ga4_id) is None:
         return (
