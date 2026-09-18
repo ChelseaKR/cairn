@@ -19,6 +19,70 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://chelseakr.github.io/cairn/og-card.png">
 <meta name="twitter:image:alt" content="Cairn — recorded evidence. Recorded answers, refusals and audit scores from Cairn, a grounded-or-silent reference assistant for public agencies.">
+<script>
+(function () {
+  var w = window, n = navigator, d = document, KEY = "cairn:analytics-opt-out", OFF = "ga-disable-G-BJR1YH7N91";
+  var store = null;
+  try { store = w.localStorage; store.getItem(KEY); } catch (e) { store = null; }
+  function optedOut() {
+    try { return !!store && store.getItem(KEY) === "1"; } catch (e) { return false; }
+  }
+  var dnt = n.doNotTrack || w.doNotTrack || n.msDoNotTrack;
+  var signal = n.globalPrivacyControl === true || dnt === "1" || dnt === "yes";
+  d.addEventListener("DOMContentLoaded", function () {
+    var box = d.querySelector("[data-analytics-choice]");
+    if (!box) return;
+    var button = box.querySelector("button"), status = box.querySelector("[role=status]");
+    function render(message) {
+      button.textContent = optedOut() ? "Opt back in" : "Opt out of analytics";
+      button.hidden = signal || !store;
+      status.textContent = message;
+      box.hidden = false;
+    }
+    button.addEventListener("click", function () {
+      try {
+        if (optedOut()) {
+          store.removeItem(KEY);
+          w[OFF] = false;
+          render("Opted back in. Analytics resumes from the next page you open.");
+        } else {
+          store.setItem(KEY, "1");
+          w[OFF] = true;
+          render("Opted out. From the next page you open, this site will not load Google Analytics in this browser.");
+        }
+      } catch (e) {
+        store = null;
+        render("This browser is blocking site storage, so an opt-out cannot be remembered here. Global Privacy Control or Do Not Track keeps analytics off.");
+      }
+    });
+    render(signal ? "Analytics is off: your browser sends Global Privacy Control or Do Not Track." : !store ? "This browser is blocking site storage, so an opt-out cannot be remembered here. Global Privacy Control or Do Not Track keeps analytics off."
+      : optedOut() ? "You have opted out: this site does not load Google Analytics in this browser." : "");
+  });
+  if (w.location.hostname !== "chelseakr.github.io") return;
+  if (w.location.pathname.indexOf("/cairn/") !== 0) return;
+  if (n.globalPrivacyControl === true) return;
+  if (dnt === "1" || dnt === "yes") return;
+  if (optedOut()) return;
+  w.dataLayer = w.dataLayer || [];
+  function gtag() { w.dataLayer.push(arguments); }
+  gtag("consent", "default", {
+    ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied",
+    analytics_storage: "denied", region: ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO", "GB", "CH"]
+  });
+  gtag("consent", "default", {
+    ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied",
+    analytics_storage: "granted"
+  });
+  gtag("js", new Date());
+  gtag("config", "G-BJR1YH7N91", {
+    allow_google_signals: false, allow_ad_personalization_signals: false
+  });
+  var s = d.createElement("script");
+  s.async = true;
+  s.src = "https://www.googletagmanager.com/gtag/js?id=G-BJR1YH7N91";
+  d.head.appendChild(s);
+})();
+</script>
 <style>
     :root {
       color-scheme: light dark;
@@ -91,6 +155,13 @@
     code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .9em; }
     footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule);
              font-size: .87rem; color: var(--muted); }
+    li { margin: .4rem 0; }
+    /* The footer's analytics opt-out changes a setting rather than going
+       anywhere, so it is a button, drawn like the links around it. */
+    .link-button {
+      font: inherit; color: var(--accent); background: none; border: 0; padding: 0;
+      text-decoration: underline; cursor: pointer;
+    }
 </style>
 </head>
 <body>
@@ -285,6 +356,8 @@ buses and the harbor ferry.
   which parses this HTML and compares what it finds to the JSONL. If they ever
   disagree, the build fails rather than the page drifting.
   Source: <a href="https://github.com/ChelseaKR/cairn">github.com/ChelseaKR/cairn</a>.</p>
+  <p class="privacy-note">This site counts visits with Google Analytics 4, advertising features off, and does not load it when your browser sends Global Privacy Control or Do Not Track. <a href="privacy.html">Privacy</a>.
+  <span data-analytics-choice hidden><button type="button" class="link-button">Opt out of analytics</button> <span role="status"></span></span></p>
 </footer>
 </body>
 </html>

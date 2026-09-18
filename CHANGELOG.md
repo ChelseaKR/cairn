@@ -22,6 +22,20 @@ becomes a version section like any other.
 
 #### Added
 
+- **Google Analytics 4 on the published site, and a privacy page.** Owner
+  decision 2026-09-17: GA4 on every public site, with the privacy copy changed
+  to match. `site_build.py` puts one guarded loader in the head of
+  `site/index.html` and of a new `site/privacy.html`, both committed and both
+  held to `--check`. The ID lives in `GA4_MEASUREMENT_ID` (`G-BJR1YH7N91`);
+  `""` removes all of it. The loader does nothing off `chelseakr.github.io`
+  under `/cairn/`, under Global Privacy Control or Do Not Track, or after the
+  footer's "Opt out of analytics" (localStorage `cairn:analytics-opt-out`).
+  Google signals and ad personalisation are off; Consent Mode v2 denies the
+  advertising signals everywhere and analytics storage in the EEA, UK and
+  Switzerland. The README's "no analytics anywhere" line now says the page is
+  the one exception. `tests/test_site_analytics.py` executes the loader in
+  Node and removes each guard as a negative control.
+
 - **`cairn init`: a deployment scaffolded with both audit interlocks in it.**
   An agency adopting Cairn installed the package and got the engine. It did
   not get the part of this project that is not a demo — two independent
