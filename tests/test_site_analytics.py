@@ -187,7 +187,11 @@ class TestTheBuild(unittest.TestCase):
             for empty in ("", "   ", None):
                 with self.subTest(page=render.__name__, id=empty):
                     page = render(empty)
-                    self.assertNotIn("<script", page)
+                    # No code at all. The evidence page's application/ld+json
+                    # graph is inert data and is not analytics, so it is the
+                    # one <script> an ID-less build may still carry.
+                    data_blocks = page.count('<script type="application/ld+json">')
+                    self.assertEqual(page.count("<script") - data_blocks, 0)
                     self.assertNotIn("google", page.lower().replace("google analytics", ""))
                     self.assertNotIn("googletagmanager", page)
                     self.assertNotIn("Opt out of analytics", page)
@@ -220,7 +224,12 @@ class TestTheBuild(unittest.TestCase):
             with self.subTest(page=page.name):
                 source = page.read_text(encoding="utf-8")
                 head, body = source.split("</head>", 1)
-                self.assertEqual(source.count("<script"), 1)
+                # The evidence page also carries its schema.org graph as an
+                # inert application/ld+json data block, which runs nothing and
+                # which tests/test_site.py holds; every other <script> is code,
+                # and the loader is the only code allowed.
+                data_blocks = source.count('<script type="application/ld+json">')
+                self.assertEqual(source.count("<script") - data_blocks, 1)
                 self.assertNotIn("<script", body)
                 self.assertNotIn("src=", loader(page).replace("s.src =", ""))
                 script = loader(page)

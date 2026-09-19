@@ -41,12 +41,15 @@ import html
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 BUNDLE = ROOT / "plumbline" / "bundle"
 BASELINE = ROOT / "plumbline" / "baseline.json"
 OUT = ROOT / "site" / "index.html"
+CARD = ROOT / "site" / "og-card.png"
+PROJECT = ROOT / "pyproject.toml"
 PRIVACY_OUT = ROOT / "site" / "privacy.html"
 
 REPO = "https://github.com/ChelseaKR/cairn"
@@ -87,6 +90,16 @@ CARD_URL = SITE_URL + "og-card.png"
 CARD_ALT = (
     "Cairn — recorded evidence. " + PAGE_DESCRIPTION.rstrip(".") + "."
 )
+
+# The name of the site as a thing, as opposed to the title of this one page.
+# Named once because it is now stated in three places that a reader or a
+# machine can compare: `og:site_name`, and the two structured-data nodes below.
+SITE_NAME = "Cairn"
+
+# The language the page is written in. Named once for the same reason: it is
+# stated in `<html lang>` and again in the structured data, and a page that
+# declares two different languages about itself has told a crawler nothing.
+PAGE_LANG = "en"
 
 # The evidence shown, in the order it is shown. The refusal leads: it is the
 # behavior the project is named for, and a demonstration that opens with a
@@ -362,6 +375,136 @@ def suite_rows(baseline: dict) -> str:
     return "\n".join(rows)
 
 
+
+def png_dimensions(path: Path) -> tuple[int, int]:
+    """The card's width and height, read out of the PNG's own IHDR chunk.
+
+    The head states the card's size so a preview consumer can reserve space
+    before the image arrives. Those two numbers used to be typed into the
+    template, which made them a claim *about* a file rather than a reading
+    *of* it: re-render the card at another size and the page would go on
+    announcing the old one. `tests/test_site.py` did catch that, but caught it
+    as a failing test asking a human to retype a number -- and a number a
+    human maintains by hand next to a file that already knows it is the shape
+    this repository keeps taking out. Reading the file is the same check with
+    nothing left to keep in sync.
+
+    IHDR is the first chunk of every PNG and its width and height are
+    big-endian 32-bit fields at fixed offsets 16 and 20.
+    """
+    header = path.read_bytes()[:24]
+    if header[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"{path} is not a PNG, so the head cannot state its size")
+    return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
+
+
+def project_metadata() -> dict:
+    """The `[project]` table of `pyproject.toml`.
+
+    The packaging metadata is where this project already says what it is and
+    where it lives, for the benefit of the PyPI page. Restating any of it here
+    would be a second copy nobody diffs against the first, so the structured
+    data reads it instead.
+    """
+    return tomllib.loads(PROJECT.read_text(encoding="utf-8"))["project"]
+
+
+def structured_data(card_width: int, card_height: int) -> str:
+    """A schema.org description of what this page is and what it is about.
+
+    Every value is read back out of the same constants and files that render
+    the visible head, so the machine-readable claim and the human-readable one
+    cannot disagree: the node's `name` is the `<title>`, its `description` is
+    the `<meta name=description>`, its `url` is the canonical, and the image's
+    dimensions are the ones read off the committed PNG.
+
+    What is deliberately absent is as much the point as what is here. There is
+    no `Dataset` node and no DCAT vocabulary. A dataset descriptor exists to be
+    harvested -- it asks dataset search engines and open-data catalogs to list
+    the thing it describes, and a catalog listing is hard to withdraw once
+    taken. Whether this portfolio wants to invite that is an open question with
+    an owner's name on it, and it is not answered by adding the markup quietly.
+    Saying "this page is about a piece of software" answers nothing of the sort
+    and needs no such decision, so that is all this says.
+
+    No `softwareVersion` either, though `pyproject.toml` has one. `site/index.html`
+    is a committed artifact checked for staleness, so binding it to the package
+    version would make every release a version bump *and* a page regeneration,
+    with a red build in between. That is a real cost for a field no reader of
+    this page is looking for.
+    """
+    project = project_metadata()
+    urls = project["urls"]
+    page = SITE_URL
+    website_id = page + "#website"
+    image_id = CARD_URL
+    software_id = urls["Repository"] + "#software"
+
+    payload = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": website_id,
+                "url": page,
+                "name": SITE_NAME,
+                "inLanguage": PAGE_LANG,
+            },
+            {
+                "@type": "WebPage",
+                "@id": page + "#webpage",
+                "url": page,
+                "name": PAGE_TITLE,
+                "description": PAGE_DESCRIPTION,
+                "inLanguage": PAGE_LANG,
+                "isPartOf": {"@id": website_id},
+                "primaryImageOfPage": {"@id": image_id},
+                "about": {"@id": software_id},
+            },
+            {
+                "@type": "ImageObject",
+                "@id": image_id,
+                "url": CARD_URL,
+                "width": card_width,
+                "height": card_height,
+                "caption": CARD_ALT,
+            },
+            {
+                "@type": "SoftwareApplication",
+                "@id": software_id,
+                "name": SITE_NAME,
+                "alternateName": project["name"],
+                "description": project["description"],
+                "url": page,
+                "sameAs": urls["Repository"],
+                "inLanguage": PAGE_LANG,
+            },
+        ],
+    }
+    return block_body(payload)
+
+
+def block_body(payload: object) -> str:
+    """Serialize `payload` as an element body that cannot end its own element.
+
+    `</script` inside a JSON string ends the element as far as an HTML parser
+    is concerned, whatever JSON thinks. Escaping the three characters that can
+    start markup keeps the block inert without changing what it decodes to,
+    which is what every consumer of this actually reads.
+
+    Split out of the caller so a test can hand it a value that needs escaping.
+    Nothing in this page's title, description or packaging metadata contains
+    any of the three today, so deleting the escaping below changes no byte of
+    the real output and no other check here would notice.
+    """
+    return (
+        json.dumps(payload, ensure_ascii=False, indent=2)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
 STYLE = """
     :root {
       color-scheme: light dark;
@@ -470,8 +613,11 @@ def render(ga4_id: str | None = GA4_MEASUREMENT_ID) -> str:
     )
     cross = exchange(items[CROSS_LANGUAGE], responses[CROSS_LANGUAGE], note=cross_note)
 
+    card_width, card_height = png_dimensions(CARD)
+    ld_json = structured_data(card_width, card_height)
+
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{PAGE_LANG}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -479,18 +625,21 @@ def render(ga4_id: str | None = GA4_MEASUREMENT_ID) -> str:
 <meta name="description" content="{esc(PAGE_DESCRIPTION)}">
 <link rel="canonical" href="{esc(SITE_URL)}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Cairn">
+<meta property="og:site_name" content="{esc(SITE_NAME)}">
 <meta property="og:url" content="{esc(SITE_URL)}">
 <meta property="og:title" content="{esc(PAGE_TITLE)}">
 <meta property="og:description" content="{esc(PAGE_DESCRIPTION)}">
 <meta property="og:image" content="{esc(CARD_URL)}">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:width" content="{card_width}">
+<meta property="og:image:height" content="{card_height}">
 <meta property="og:image:alt" content="{esc(CARD_ALT)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="{esc(CARD_URL)}">
 <meta name="twitter:image:alt" content="{esc(CARD_ALT)}">
+<script type="application/ld+json">
+{ld_json}
+</script>
 {ga4_snippet(ga4_id)}<style>{STYLE}</style>
 </head>
 <body>
