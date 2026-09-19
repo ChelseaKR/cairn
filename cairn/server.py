@@ -35,7 +35,7 @@ from cairn.engine import AskResult, EngineError, ask
 from cairn.explain import refusal_reason
 from cairn.followup import FollowupStore
 from cairn.index import Index
-from cairn.messages import CATALOGUE
+from cairn.messages import CATALOG
 from cairn.messages import text as message
 from cairn.network import RateLimiter, check_token, cors_headers, frame_ancestors
 from cairn.refusal_stats import RefusalCounter
@@ -64,11 +64,11 @@ def _submitted_jurisdiction(raw: Any) -> str | None:
     configuration says".
 
     Deliberately *not* the `_resolve_lang` shape. That one falls back to the
-    configured default for an unrecognised value, which is right for a
+    configured default for an unrecognized value, which is right for a
     language — the page can only be rendered in one it has strings for, so
     silently serving the default is the only thing it could do. A
     jurisdiction is a claim about which county's rules apply, and quietly
-    substituting a different county for an unrecognised one is the failure
+    substituting a different county for an unrecognized one is the failure
     this whole feature exists to prevent. An unusable value is passed
     through to the engine, which refuses it and says why; the 400 that
     produces reaches the client in its own content type.
@@ -294,7 +294,7 @@ class CairnHandler(BaseHTTPRequestHandler):
         elif route.path == "/strings.json":
             # Only the interface languages: the selector offers exactly
             # what the page can be retranslated into.
-            self._json({code: CATALOGUE[code] for code in SELECTABLE})
+            self._json({code: CATALOG[code] for code in SELECTABLE})
         else:
             self._html("<h1>404</h1>", status=404)
 

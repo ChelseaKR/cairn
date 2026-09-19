@@ -7,7 +7,7 @@ The first plan was to ask eight to twelve people; that needs eight to twelve
 people. This script draws from two public sources instead, and says what
 each one is and is not.
 
-**MS MARCO queries** (`--msmarco`): about a million real, anonymised Bing
+**MS MARCO queries** (`--msmarco`): about a million real, anonymized Bing
 search queries released by Microsoft for non-commercial research. Filtered
 by the vocabulary of the pilot's programs, they are the closest thing there
 is to a person typing a question into a box: "how long does it take to get
@@ -300,7 +300,7 @@ HEADER = """# Candidate questions for the real-corpus pilot — NOT an evidence 
 # Sources and their terms are in collect_queries.py's docstring. In short:
 # `search-query` items are MS MARCO queries (Microsoft; non-commercial
 # research), nationwide and from 2016–2018; `stackexchange` items are
-# CC BY-SA 4.0 and carry the URL and asker the licence requires.
+# CC BY-SA 4.0 and carry the URL and asker the license requires.
 """
 
 

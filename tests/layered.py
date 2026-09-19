@@ -3,7 +3,7 @@
 Three layers of invented benefit rules for an invented state and county —
 federal (``us``), state (``us-ca``) and county (``us-ca-sonoma``) — plus one
 sibling county (``us-ca-siskiyou``) whose only job is to be the wrong answer,
-and one unlabelled document whose only job is to be a document that never
+and one unlabeled document whose only job is to be a document that never
 said where it applies.
 
 Written as text rather than as constructed :class:`~cairn.index.Index`
@@ -102,10 +102,10 @@ DOCUMENTS: tuple[tuple[str, str | None, str, str, str, str], ...] = (
         "estatal de apelación se realiza por teléfono.",
     ),
     (
-        "unlabelled-transport.en.md",
+        "unlabeled-transport.en.md",
         None,
         "en",
-        "unlabelled-transport-en",
+        "unlabeled-transport-en",
         "Transport reimbursement for a hearing",
         "Transport reimbursement for attending a hearing is paid at the "
         "published mileage rate. Transport reimbursement is claimed on the "

@@ -16,7 +16,7 @@ mean nothing outside them. Running the English one over Arabic would produce a
 grade with the right shape and no referent, which is the failure this project
 refuses everywhere else: an absence rendered as a value. An operator who
 decides a formula is close enough for another language may say so in
-``[lint.readability]``, and then the number is theirs and is labelled with the
+``[lint.readability]``, and then the number is theirs and is labeled with the
 formula it came from.
 
 What this cannot do, stated plainly because a grade invites more confidence
@@ -29,7 +29,7 @@ than it earns:
   which is the standard heuristic and is wrong on a long tail of words. Both
   are deterministic, dictionary-free, and stated here rather than in a
   footnote.
-* **A grade is not a judgement.** A low grade over a passage that answers the
+* **A grade is not a judgment.** A low grade over a passage that answers the
   wrong question is not a good passage. Readability is a corpus fact an
   operator can act on by asking the agency for a plain-language page; it is
   not a score of the answer.
@@ -50,7 +50,7 @@ from cairn.text import SENTENCE_END
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", re.UNICODE)
 
 _EN_VOWELS = "aeiouy"
-# Spanish vowels: the five, their accented forms, and u-diaeresis. ``y`` is
+# Spanish vowels: the five, their accented forms, and u-dieresis. ``y`` is
 # deliberately absent. In Spanish it is a vowel only standing alone ("y") or
 # closing a word ("muy", "ley"); anywhere else it is a consonant, and counting
 # it as a vowel merges the syllable it opens into the one before

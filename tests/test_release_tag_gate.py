@@ -19,7 +19,7 @@ the positive case proves the script accepts a signature from whichever key the
 allowed-signers file names, and inside the temporary repository that file names
 a throwaway key.
 
-Git configuration is neutralised deliberately. Writing this on a machine with
+Git configuration is neutralized deliberately. Writing this on a machine with
 `tag.gpgSign = true` in `~/.gitconfig` silently signed the tag that exists to
 be unsigned, and "an unsigned tag is rejected" passed while testing nothing of
 the kind.

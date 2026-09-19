@@ -154,7 +154,7 @@ two tools. The tree was returned to a consistent state rather than left
 half-applied, the full change was drafted here, and the decision went to the
 repository owner. They confirmed it directly, and the same edit was then
 permitted. The refusal cost one round trip and was right both times -- it is
-what turned a relayed claim into an authorised one.
+what turned a relayed claim into an authorized one.
 
 The four parts, as applied:
 
@@ -283,7 +283,7 @@ rule that does exist, from the other side, so the code was right and the prose
 was wrong in two places.
 
 Resolved as option 2 of the issue: the dead list goes, and both docstrings now
-say the rule that runs. Widening the rule to all bindings is a behaviour
+say the rule that runs. Widening the rule to all bindings is a behavior
 change (it would decline more questions) and is noted in the docstring as
 needing its own measurement rather than folded in here.
 
@@ -293,7 +293,7 @@ needing its own measurement rather than folded in here.
   a mutating method. Before the fix, one finding across all first-party code:
   `cairn/tabular.py:234: parse_count_query() builds 'bindings' and never reads
   it`. After: zero.
-- **Behaviour pinned**: `tests/test_tabular.py::
+- **Behavior pinned**: `tests/test_tabular.py::
   TestTheAmbiguityRuleIsOverMeasureColumnsOnly`, four cases -- two labels plus
   one measure binds; two measures decline; two measures across two tables
   decline; labels alone decline. Reintroducing the docstring's rule
@@ -342,7 +342,7 @@ difference stands, after updating its tracking issue. A scheduled workflow
 that stays green while filing a report is the "warning in a log nobody opens"
 `ci.yml`'s own header refuses.
 
-It is a module, not more `jq`, so the judgement is testable offline: eleven
+It is a module, not more `jq`, so the judgment is testable offline: eleven
 cases in `tests/test_rulesets.py::TestTheEnforcedRulesetIsTheCommittedOne`,
 including the 2026-08-28 payload byte for byte.
 
@@ -435,7 +435,7 @@ winner the previous turn cited (both cases resolve to exactly their opener's
 passage, so it cannot tell them apart -- #64 predicted this; it is measured
 now).
 
-**No behaviour change was made.** A fix here is a change to which retries
+**No behavior change was made.** A fix here is a change to which retries
 `Session` accepts, and every candidate measured makes the system worse.
 
 ### P5 - closing (done)

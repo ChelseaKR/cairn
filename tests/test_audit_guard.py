@@ -584,7 +584,7 @@ class TestRunningIt(unittest.TestCase):
         # DESIGN.md says "a test pins that the guard never writes to the
         # baseline", in the paragraph arguing that both a fall and a rise stop
         # the build and hand a person the same decision. There was no such
-        # test. The behaviour was right — nothing in audit_guard.py opens the
+        # test. The behavior was right — nothing in audit_guard.py opens the
         # baseline for writing — and an unpinned claim about a gate is the
         # thing this repository says it does not accept from anybody else.
         for label, score in (("a fall", 0.5), ("a rise", 0.9)):

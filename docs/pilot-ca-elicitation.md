@@ -17,7 +17,7 @@ corpus — the moment they do, their vocabulary becomes the page's.
 
 Eight to twelve people. Not domain experts, not people who work in benefits
 administration, not people who have read this repository. A mix of
-Californians (so county questions can be labelled) and non-Californians
+Californians (so county questions can be labeled) and non-Californians
 (so the federal-only set has real phrasings too). Ask each where they live,
 to the county.
 

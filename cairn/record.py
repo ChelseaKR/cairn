@@ -158,7 +158,7 @@ def _json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def interface_snapshot(page: str | None = None) -> str:
-    """The real page, plus the colour pairs it uses, for an auditor to check.
+    """The real page, plus the color pairs it uses, for an auditor to check.
 
     The declaration is generated from the stylesheet's own custom properties,
     in both presentations. It is not served to anyone: adding an auditor's
@@ -180,7 +180,7 @@ def interface_snapshot(page: str | None = None) -> str:
     note = (
         "<!--\n"
         "  Snapshot of the interface `cairn serve` renders, captured by\n"
-        "  `cairn record`. The colour block below is generated from the\n"
+        "  `cairn record`. The color block below is generated from the\n"
         "  stylesheet's own custom properties, in both the light and the dark\n"
         "  presentation, so an auditor computes the contrast ratios rather\n"
         "  than being told they pass. It is hashed with the rest of the\n"
@@ -253,7 +253,7 @@ trace that says so.
 | | marked inline |
 | `sources.jsonl` | Every passage in the corpus, so a citation to something |
 | | that does not exist is detectable |
-| `interface.html` | A snapshot of the served page, with its colour pairs |
+| `interface.html` | A snapshot of the served page, with its color pairs |
 | | declared so they can be checked rather than believed |
 | `checksums.json` | SHA-256 per file, and for the bundle |
 
@@ -291,7 +291,7 @@ def _answering_layer(result: Any) -> str | None:
     """The jurisdiction every quoted source came from, or `None`.
 
     `None` covers three genuinely different things — a refusal, a corpus
-    with no jurisdiction labels, and an answer quoted from an unlabelled
+    with no jurisdiction labels, and an answer quoted from an unlabeled
     document — and they are collapsed on purpose, because the caller does
     the same thing with all three: write no group rather than write one that
     is not a jurisdiction. Writing `"none"` or `""` would put a label in the

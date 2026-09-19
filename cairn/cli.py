@@ -642,7 +642,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "answer as this jurisdiction would be answered: prefer the pages "
-            "labelled with it, then widen one layer at a time (us-ca-sonoma, "
+            "labeled with it, then widen one layer at a time (us-ca-sonoma, "
             "us-ca, us) and say so in the answer. Overrides `[jurisdiction] "
             "default`. Refused if no document in the corpus declares one."
         ),
@@ -800,7 +800,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "answer as this jurisdiction would be answered: prefer the pages "
-            "labelled with it, then widen one layer at a time (us-ca-sonoma, "
+            "labeled with it, then widen one layer at a time (us-ca-sonoma, "
             "us-ca, us) and say so in the answer. Overrides `[jurisdiction] "
             "default`. Refused if no document in the corpus declares one."
         ),

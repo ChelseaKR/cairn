@@ -88,7 +88,7 @@ def cors_headers(origin: str | None, allowed_origins: tuple[str, ...]) -> dict[s
     get none.
 
     An empty `allowed_origins` — the default — always returns `{}`, which is
-    exactly today's behaviour: no `Access-Control-*` headers at all, so a
+    exactly today's behavior: no `Access-Control-*` headers at all, so a
     browser refuses a cross-origin `fetch()` the way it always has. A match
     echoes back the *specific requesting origin*, never a `*` wildcard: a
     wildcard cannot be combined with a request that carries an `Authorization`
@@ -106,7 +106,7 @@ def cors_headers(origin: str | None, allowed_origins: tuple[str, ...]) -> dict[s
 def frame_ancestors(allowed_origins: tuple[str, ...]) -> str:
     """The CSP `frame-ancestors` directive value for `--allow-embed`.
 
-    `'none'` — today's behaviour, and the CSP's own default before this
+    `'none'` — today's behavior, and the CSP's own default before this
     existed — unless an operator has explicitly named origins allowed to put
     this page in an `<iframe>`. No wildcard here either, for the same reason
     as `cors_headers`: this is a list of the specific sites trusted to embed

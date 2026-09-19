@@ -541,7 +541,7 @@ class TestReadabilityBesideTheScore(ExplainHarness):
     holding.
 
     The load-bearing half is the absent case. A language with no formula in
-    force must print a reason and must serialise as null, never as a grade of
+    force must print a reason and must serialize as null, never as a grade of
     zero, which is a reading level a passage could plausibly have.
     """
 
@@ -592,7 +592,7 @@ class TestReadabilityBesideTheScore(ExplainHarness):
 
     def test_an_operator_override_changes_the_formula_that_is_applied(self):
         """`[lint.readability.<lang>]` is the operator's declaration that a
-        formula is close enough for a language. Explain mode honours it, and
+        formula is close enough for a language. Explain mode honors it, and
         labels the number with the formula it came from, so the number is
         attributable rather than anonymous."""
         result, diag = self.ask(ARABIC_Q)
@@ -616,7 +616,7 @@ class TestReadabilityBesideTheScore(ExplainHarness):
     def test_the_measurement_is_of_the_passage_text_not_the_excerpt(self):
         """The excerpt is truncated for display at 88 characters. Measuring it
         instead of the passage would report the reading level of a display
-        artefact, and would move whenever `EXCERPT_CHARS` moved."""
+        artifact, and would move whenever `EXCERPT_CHARS` moved."""
         result, _ = self.ask(GROUNDED_Q)
         for candidate, rendered in zip(
             result.answer.trace.candidates,

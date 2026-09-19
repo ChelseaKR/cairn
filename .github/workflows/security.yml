@@ -20,7 +20,7 @@
 # moved and a green run today that quietly means something else tomorrow is not
 # a record of anything. The one scanner that is a downloaded binary rather than
 # an action is pinned to an exact release and checked against the checksum file
-# published beside it, which is the same argument in the form that artefact
+# published beside it, which is the same argument in the form that artifact
 # allows.
 
 name: security

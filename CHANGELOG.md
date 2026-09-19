@@ -22,6 +22,20 @@ becomes a version section like any other.
 
 #### Added
 
+- **Google Analytics 4 on the published site, and a privacy page.** Owner
+  decision 2026-09-17: GA4 on every public site, with the privacy copy changed
+  to match. `site_build.py` puts one guarded loader in the head of
+  `site/index.html` and of a new `site/privacy.html`, both committed and both
+  held to `--check`. The ID lives in `GA4_MEASUREMENT_ID` (`G-BJR1YH7N91`);
+  `""` removes all of it. The loader does nothing off `chelseakr.github.io`
+  under `/cairn/`, under Global Privacy Control or Do Not Track, or after the
+  footer's "Opt out of analytics" (localStorage `cairn:analytics-opt-out`).
+  Google signals and ad personalization are off; Consent Mode v2 denies the
+  advertising signals everywhere and analytics storage in the EEA, UK and
+  Switzerland. The README's "no analytics anywhere" line now says the page is
+  the one exception. `tests/test_site_analytics.py` executes the loader in
+  Node and removes each guard as a negative control.
+
 - **`cairn init`: a deployment scaffolded with both audit interlocks in it.**
   An agency adopting Cairn installed the package and got the engine. It did
   not get the part of this project that is not a demo — two independent
@@ -39,7 +53,7 @@ becomes a version section like any other.
   placeholder, a CI workflow and a README naming every step left to a person.
   Offline, deterministic, and it refuses to overwrite: one existing file is
   enough to stop it, because a half-scaffolded directory looks finished and
-  the file it left alone is the one somebody had already customised.
+  the file it left alone is the one somebody had already customized.
 
   **Three of the files it writes are unfinished on purpose, and each refuses
   rather than guesses.** `[refusal] contact` is blank and `cairn serve` will
@@ -117,7 +131,7 @@ becomes a version section like any other.
   disclosure.** A corpus assembled for a county deployment is federal pages
   plus state pages plus that county's own, and the engine did not know it. A
   Sonoma resident asking about office hours could be answered from a Siskiyou
-  page with nothing said; `sweep.py` labelled it `jurisdiction-mismatch`
+  page with nothing said; `sweep.py` labeled it `jurisdiction-mismatch`
   afterwards, from a `layers.json` the engine never reads.
 
   Documents may now declare `jurisdiction:` in front matter — hyphen-separated
@@ -144,7 +158,7 @@ becomes a version section like any other.
   and a count over a statewide table handed to a county resident with nothing
   said is the same defect one path over. And a jurisdiction asked of a corpus
   whose documents declare none is refused rather than ignored — ignoring it
-  answers from unlabelled pages and presents the result as the layer that was
+  answers from unlabeled pages and presents the result as the layer that was
   asked for.
 
   `record` writes the answering layer into each item's `group` so the pinned
@@ -154,11 +168,11 @@ becomes a version section like any other.
   derives which layers are shared instead of naming `federal` and `california`
   by hand. `assemble_corpus.py` stamps the code from an optional
   `[jurisdictions]` table in `pilot.toml`, which is all-or-nothing: a partly
-  labelled pilot would assemble a corpus whose unlabelled pages no county
+  labeled pilot would assemble a corpus whose unlabeled pages no county
   question can reach.
 
   Nothing changes for a corpus that does not use the field. The index omits
-  the key rather than serialising `null`, so such an index is byte-identical;
+  the key rather than serializing `null`, so such an index is byte-identical;
   the demo corpus's `items.jsonl`, `responses.jsonl` and `sources.jsonl` are
   unchanged by this release.
 
@@ -181,12 +195,12 @@ becomes a version section like any other.
   `readability grade 8.2 (flesch_kincaid_grade); 26 word(s), 3 sentence(s),
   mean sentence length 8.7`, and `--explain --json` carries the same figures
   per candidate under `readability`. A language with no formula in force
-  prints `n/a (no formula in force for ar)` and serialises `grade: null`,
+  prints `n/a (no formula in force for ar)` and serializes `grade: null`,
   never `0`, because zero is a reading level a passage could plausibly have
   and an unmeasured passage must not be mistaken for an easy one. `grade` and
   `reason` are exclusive, so a consumer never has to guess whether a missing
   grade means unmeasurable or unmeasured. The `[lint.readability]` override
-  applies here too and the number is labelled with the formula that produced
+  applies here too and the number is labeled with the formula that produced
   it.
 
   Measured on the passage text rather than the truncated excerpt beside it, so
@@ -219,7 +233,7 @@ becomes a version section like any other.
   evidence that a deployment has drifted.
 
   The configuration digest covers every `Config` field except the two that are
-  locations rather than behaviour, and it is a deny-list on purpose: a knob
+  locations rather than behavior, and it is a deny-list on purpose: a knob
   added later is inside the digest until somebody deliberately excludes it. A
   test perturbs every non-location field and fails if any of them leaves the
   digest unmoved, so a field silently outside it cannot go unnoticed.
@@ -230,7 +244,7 @@ becomes a version section like any other.
 
 - The release workflow refuses to publish from a tag the maintainer did not
   sign. Until now nothing checked: a published Release, or a
-  `workflow_dispatch` from any ref, built a wheel and an image, labelled them
+  `workflow_dispatch` from any ref, built a wheel and an image, labeled them
   with this project's name, and pushed them to PyPI and GHCR. The signature is
   now checked against `.github/allowed_signers`, a public key committed in
   this repository, before either job starts, and both jobs check out the
@@ -509,7 +523,7 @@ becomes a version section like any other.
   and the JSON API answered the same question in English, silently, under a
   cross-language notice explaining that the French source was "in another
   language". Every other layer knew better: `LANGUAGES` had the entry,
-  `messages.py` had the catalogue, `available_languages()` offered it.
+  `messages.py` had the catalog, `available_languages()` offered it.
   `SELECTABLE` is derived from `LANGUAGES` now and `tests/test_ui.py` holds
   them equal. Found by `tests/test_live.py` the moment there was French
   content for the served engine to get wrong.
@@ -533,8 +547,8 @@ becomes a version section like any other.
   mutation rather than re-read: restoring the pre-fix `cairn/followup.py`
   under the three new tests left every test in `tests/test_followup.py`
   green, because the whole fix was a docstring and two examples. "The bytes" was not the bytes — the
-  test parsed the written line and re-serialised it with its own
-  `sort_keys=True`, normalising away the key order that was the very drift
+  test parsed the written line and re-serialized it with its own
+  `sort_keys=True`, normalizing away the key order that was the very drift
   being fixed, so `record()` could have stopped sorting, made
   `docs/followup.md` false, and passed. "Asserted absent by name" used
   `assertNotIn` against a dict, which is exact key membership, so
@@ -564,7 +578,7 @@ becomes a version section like any other.
   `_retry_with_context` got exactly the two helpers #43 named, with the
   ranking's every constant, factor, tie-break and guard condition
   byte-identical and every measurement comment moved with the code it
-  explains. No behaviour change: `audit_guard.py`'s terminal report, the HTML
+  explains. No behavior change: `audit_guard.py`'s terminal report, the HTML
   extractor over all 132 pages in `source_pages/`, and 480 multi-turn session
   sequences across three languages were each run through both the old and new
   code and compared byte-for-byte.
@@ -574,7 +588,7 @@ becomes a version section like any other.
   `harness_defaults`, `regression_findings` and `render_terminal`,
   `cairn/lint.py`'s `lint_corpus`, `cairn/tabular.py`'s `parse_count_query`,
   and `import_corpus.py`'s `scaffold_one`. Each by extracting a cohesive
-  block into a named helper, with no behaviour change anywhere: same output,
+  block into a named helper, with no behavior change anywhere: same output,
   same order, same return values. `audit_guard.py`'s terminal report was
   checked byte-for-byte against a real gate report either side of the change
   rather than trusted to the tests alone. Five are left, and they are a
@@ -594,7 +608,7 @@ becomes a version section like any other.
   reported 44 findings, and the findings are now zero (issues #34, #35, #36,
   #37 - a missing return type, a bare `dict` needing type arguments, one
   import taken through a module that does not re-export it, all mechanical
-  and none of them a behaviour change). Reaching zero was never the
+  and none of them a behavior change). Reaching zero was never the
   deliverable: a tree that reports zero with the check switched off reports
   one on the next pull request and nothing says so. No per-module override
   exists and `tests/test_code_quality.py` holds that, because a strict gate
@@ -628,7 +642,7 @@ becomes a version section like any other.
   handled and would not catch a field handled wrongly. It also asserts the
   premise the merge's own comment states and nothing checked: that every part
   scans the same index, so `scoped` and `excluded` are one part's and not the
-  sum. No behaviour change.
+  sum. No behavior change.
 
   Two fields of its own were named and never read. `lexical` and `dense` were
   listed with the treatment "from the part that won" and no assertion touched
@@ -664,7 +678,7 @@ becomes a version section like any other.
   sources of questions nobody wrote for Cairn — MS MARCO's real search
   queries (non-commercial research), filtered to the pilot's programs and
   drawn with a seed, and Stack Exchange questions (CC BY-SA, attributed).
-  `corpus/pilot-ca/candidates.toml` holds 564 of them, unlabelled, which
+  `corpus/pilot-ca/candidates.toml` holds 564 of them, unlabeled, which
   `cairn record` refuses until a person labels them. This replaces the
   elicitation form as the primary source, because the form needs people to
   send it to; `docs/pilot-ca.md` says what the replacement costs.
@@ -834,7 +848,7 @@ retrieval — with a measurement rather than a guess.
   `<title>` lives inside `<head>`, which the extractor also uses to suppress
   body text — now regression-tested.
 - French (`fr`) as a fourth interface language: a full `LANGUAGES` entry
-  and `messages.py` catalogue, left-to-right, passing every message-catalogue
+  and `messages.py` catalog, left-to-right, passing every message-catalog
   test (key parity, no untranslated copies, matching placeholders). Shipped
   deliberately with **no French corpus content** — the same "translated
   interface outruns translated documents" reality already demonstrated for
@@ -878,7 +892,7 @@ retrieval — with a measurement rather than a guess.
   carry), for a grounded answer only. No JavaScript required — the no-JS
   page renders it directly (`cairn/ui/page.py`, `_copy_export`) and the
   client script mirrors it exactly for the accumulating-transcript path
-  (`cairn/ui/static/app.js`, `addTurn`). Labelled with `aria-label` rather
+  (`cairn/ui/static/app.js`, `addTurn`). Labeled with `aria-label` rather
   than `<label for>` so no `id` is minted that could collide once a second
   turn joins the transcript. Deliberately the smallest of the interactive-UI
   ideas considered: no live-region interaction, no focus movement, no
@@ -956,7 +970,7 @@ retrieval — with a measurement rather than a guess.
 - `cairn serve --auth-token`/`CAIRN_AUTH_TOKEN` and `--rate-limit`: opt-in
   bearer-token auth (constant-time comparison) and a per-client-address
   request-rate limit, both off by default so the server's existing
-  loopback-only, no-auth behaviour is unchanged unless an operator asks for
+  loopback-only, no-auth behavior is unchanged unless an operator asks for
   more. New `cairn/network.py` holds both primitives; `cairn/server.py`
   gates every route — GET, HEAD, and POST — through one check, auth before
   rate limit, so an unauthenticated client is never told it would also have
@@ -975,7 +989,7 @@ retrieval — with a measurement rather than a guess.
   response headers (letting a named origin's own script call the JSON API
   directly), neither implying the other. Both are exact-origin allow-lists
   with no wildcard, repeatable, and off by default, so the server's existing
-  `frame-ancestors 'none'`/no-CORS-headers behaviour is unchanged unless an
+  `frame-ancestors 'none'`/no-CORS-headers behavior is unchanged unless an
   operator asks for more. New `frame_ancestors`/`cors_headers` in
   `cairn/network.py`; `cairn/server.py` answers the CORS preflight
   (`OPTIONS`) in its own handler, deliberately not gated by `--auth-token`
@@ -1025,7 +1039,7 @@ retrieval — with a measurement rather than a guess.
   region is not reliably announced by assistive technology, unlike a
   plain paragraph in normal document order).
   **Regenerated the evidence bundle** (`cairn record`) and `site/index.html`
-  (`site_build.py`) to match: the new message-catalogue keys this feature
+  (`site_build.py`) to match: the new message-catalog keys this feature
   adds (`followup_heading` and friends) are embedded in every served page
   via `_embedded_strings`, which changes `interface.html`'s bytes even
   with `--followup-store` off. `items.jsonl`, `responses.jsonl`,
@@ -1183,7 +1197,7 @@ retrieval — with a measurement rather than a guess.
   trusted publishing (`id-token: write`, no API token stored as a secret;
   a step checks the release tag against `cairn.__version__` before building
   anything, so a mistagged release fails loudly rather than publishing
-  mislabelled), and `container` builds and pushes `ghcr.io/chelseakr/cairn`
+  mislabeled), and `container` builds and pushes `ghcr.io/chelseakr/cairn`
   to GHCR using the repository's own `GITHUB_TOKEN`. Neither has ever run
   for real — no release has been cut — but both are exercised continuously
   by two new `ci.yml` jobs, `image` and `package`, which build the same
@@ -1301,7 +1315,7 @@ than left to be discovered — see "What is still open" in
 [DESIGN.md](DESIGN.md), where each entry is anchored to a test that fails if
 the entry stops being accurate in either direction.
 
-**The behaviour.** Answers are extractive: a grounded answer is a corpus
+**The behavior.** Answers are extractive: a grounded answer is a corpus
 passage quoted verbatim with an inline citation, so every fact in it, numbers
 included, appears character-for-character in a cited source. When no passage
 clears the relevance threshold, Cairn refuses, cites nothing, points to a human

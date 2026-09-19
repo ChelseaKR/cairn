@@ -298,7 +298,7 @@ class TestThePageNamesItsOwnAddress(PageHarness):
         self.assertEqual(title.group(1), og_title.group(1))
 
     def test_the_share_card_names_an_image(self):
-        # Without `og:image` a shared link renders as a grey box with no
+        # Without `og:image` a shared link renders as a gray box with no
         # picture, which is not a broken page and so never shows up in any
         # check that loads the page. The tag is the only place the absence is
         # visible from inside a checkout.
@@ -434,9 +434,22 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
     the answer is cannot catch a generator that fabricates.
     """
 
+    # Which published pages carry the graph, decided by name rather than by
+    # whatever is under `site/` (owner decision 2026-09-18). The evidence page
+    # is the page that says what this project is, so it is the one that says
+    # it to a crawler. `privacy.html` says what the site collects about a
+    # visitor, which is not a claim about the project, so it carries no graph.
+    # Every page under `site/` has to be in exactly one of the two, so a page
+    # added later is a decision somebody makes rather than one no test reads.
+    GRAPH_PAGES = (PAGE,)
+    WITHOUT_A_GRAPH = {
+        PAGE.parent / "privacy.html": "says what the site collects, not what it is",
+    }
+
     @classmethod
     def setUpClass(cls):
         cls.pages = sorted(PAGE.parent.rglob("*.html"))
+        cls.graph_pages = [page for page in cls.pages if page in cls.GRAPH_PAGES]
         cls.parsed: dict[Path, Head] = {}
         for page in cls.pages:
             head = Head()
@@ -466,10 +479,30 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
         # repository's own audit notes call a gate that cannot fail.
         self.assertNotEqual(self.pages, [], "site/ holds no HTML to examine")
 
-    def test_every_published_page_carries_a_node(self):
+    def test_every_published_page_is_classified(self):
+        # Every page either carries the graph or is named, with its reason, as
+        # carrying none. A page in neither list is a page this class would
+        # otherwise skip without saying so.
+        self.assertEqual(
+            set(self.pages),
+            set(self.GRAPH_PAGES) | set(self.WITHOUT_A_GRAPH),
+            "a page under site/ is neither described nor exempted by name",
+        )
+        self.assertFalse(set(self.GRAPH_PAGES) & set(self.WITHOUT_A_GRAPH))
+
+    def test_a_page_without_a_graph_carries_none(self):
+        # The exemption is a statement too. A graph that appeared on an
+        # exempted page would be published and checked by nothing here.
+        for page in self.WITHOUT_A_GRAPH:
+            with self.subTest(page=page.name):
+                self.assertIn(page, self.pages, f"{page.name} is not published")
+                self.assertEqual(self.parsed[page].ld_blocks, [])
+
+    def test_every_graph_page_carries_a_node(self):
         # The point of the gate: a page that should describe itself and does
         # not is the defect, and an absent node is invisible in a browser.
-        for page in self.pages:
+        self.assertNotEqual(self.graph_pages, [], "no page carries a graph")
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 self.assertNotEqual(
                     self.parsed[page].ld_blocks,
@@ -478,12 +511,12 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
                 )
 
     def test_every_block_is_valid_json_in_the_schema_org_vocabulary(self):
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 self.graph(page)
 
     def test_the_graph_describes_the_page_the_site_and_the_software(self):
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 types = {node["@type"] for node in self.graph(page).values()}
                 self.assertEqual(
@@ -495,7 +528,7 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
         # `"about": {"@id": ...}` naming a node that is not in the graph is a
         # reference to nothing, and consumers drop it silently rather than
         # complaining. It reads as a described page and is an empty one.
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 nodes = self.graph(page)
                 for node in nodes.values():
@@ -508,7 +541,7 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
                             )
 
     def test_no_property_is_empty(self):
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 for node in self.graph(page).values():
                     for key, value in node.items():
@@ -517,7 +550,7 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
                         )
 
     def test_the_page_node_repeats_the_pages_own_head(self):
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 head = self.parsed[page]
                 webpage = next(
@@ -529,7 +562,7 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
                 self.assertEqual(webpage["inLanguage"], head.lang)
 
     def test_the_site_node_repeats_the_pages_own_site_name(self):
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 head = self.parsed[page]
                 website = next(
@@ -539,7 +572,7 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
                 self.assertEqual(website["inLanguage"], head.lang)
 
     def test_the_image_node_repeats_the_card_the_head_names(self):
-        for page in self.pages:
+        for page in self.graph_pages:
             with self.subTest(page=page.name):
                 head = self.parsed[page]
                 image = next(
@@ -628,8 +661,9 @@ class TestThePageSaysWhatItIsAbout(unittest.TestCase):
                 raw = "".join(self.parsed[page].ld_blocks)
                 for word in ("dcat:", "dct:", "void:", "distribution"):
                     self.assertNotIn(word, raw, f"{word} is harvest vocabulary")
-                for node in self.graph(page).values():
-                    self.assertNotIn(node["@type"], forbidden)
+                if page in self.graph_pages:
+                    for node in self.graph(page).values():
+                        self.assertNotIn(node["@type"], forbidden)
 
 
 class TestTheDeployedPageIsTheCommittedPage(unittest.TestCase):

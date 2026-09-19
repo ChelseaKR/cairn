@@ -152,7 +152,7 @@ class CalibrationReport:
         return CalibrationReport(threshold=self.threshold, results=results)
 
     def by_label(self, key: str) -> dict[str, CalibrationReport]:
-        """Sub-reports grouped by a probe label, for labelled probes only.
+        """Sub-reports grouped by a probe label, for labeled probes only.
 
         A probe that does not carry the label is left out rather than
         collected under a placeholder: "the probes that did not say" is not a
@@ -298,10 +298,10 @@ def _slice_lines(report: CalibrationReport, key: str, heading: str) -> list[str]
             f"  {value:<16} n={len(group.results):<3} {_band_line(group)}  "
             f"[gated by {gate}]"
         )
-    unlabelled = sum(1 for r in report.results if getattr(r, key) is None)
-    if unlabelled:
+    unlabeled = sum(1 for r in report.results if getattr(r, key) is None)
+    if unlabeled:
         lines.append(
-            f"  ({unlabelled} probe(s) carry no {key}, and are in none of the "
+            f"  ({unlabeled} probe(s) carry no {key}, and are in none of the "
             f"bands above)"
         )
     return lines

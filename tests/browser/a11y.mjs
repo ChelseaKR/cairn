@@ -1,4 +1,4 @@
-/* Accessibility behaviours, driven against real Chromium.
+/* Accessibility behaviors, driven against real Chromium.
  *
  * tests/test_ui.py already checks everything the markup and stylesheet can
  * promise on their own. This file checks the promises that only a running
@@ -29,7 +29,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
-/* The rule set is a judgement, so it is pinned like one.
+/* The rule set is a judgment, so it is pinned like one.
  *
  * package.json names an exact axe-core version and package-lock.json is
  * committed, which fixes what `npm ci` installs. This reads the pin back and
@@ -46,7 +46,7 @@ const PINNED_AXE = JSON.parse(
 
 /* Every check this file is expected to run. A dropped check does not fail:
  * `ok` is never reached, so `checks` is smaller and the final line reads
- * "31/31 behaviour checks passed" in exactly the green the full run prints.
+ * "31/31 behavior checks passed" in exactly the green the full run prints.
  * The count is the only thing that can tell those apart, so it is pinned, and
  * moving it is a reviewed diff like any other bar in this repository.
  */
@@ -121,7 +121,7 @@ async function focusRing(page) {
     return {
       width: parseFloat(style.outlineWidth) || 0,
       style: style.outlineStyle,
-      colour: style.outlineColor
+      color: style.outlineColor
     };
   });
 }
@@ -180,9 +180,9 @@ async function checkRuleSetVersion(page) {
  * This used to live inside checkKeyboardPath, which runs once, in a light
  * context — while the comment at the top of this file said focus visibility
  * was checked "in both presentations". `--focus` does have a dark override
- * (tests/test_ui.py requires every colour a contrast pair uses to be
+ * (tests/test_ui.py requires every color a contrast pair uses to be
  * re-themed), so this is a claim being made true rather than a bug being
- * caught. A ring drawn in a colour nobody re-themed is exactly the shape of
+ * caught. A ring drawn in a color nobody re-themed is exactly the shape of
  * defect that check found in the palette, one layer up.
  */
 async function checkFocusVisibility(page, base, scheme) {
@@ -203,9 +203,9 @@ async function checkFocusVisibility(page, base, scheme) {
       JSON.stringify(ring)
     );
     ok(
-      ring !== null && ring.colour !== "rgba(0, 0, 0, 0)",
+      ring !== null && ring.color !== "rgba(0, 0, 0, 0)",
       `focus indicator is not transparent on "${where}" (${scheme})`,
-      ring && ring.colour
+      ring && ring.color
     );
   }
   // Without this the loop above is a check that passes by finding nothing:
@@ -435,7 +435,7 @@ async function checkVoiceWithoutTheFetch(page, base) {
   await page.waitForSelector(".turn-answered");
   ok(
     (await page.locator("#status").textContent()).trim().length > 0,
-    "an answer is still announced when the catalogue never arrived"
+    "an answer is still announced when the catalog never arrived"
   );
   ok(
     (await page.locator(".turn-answered .turn-label").first().textContent()).trim()
@@ -507,7 +507,7 @@ async function main() {
     proc.kill("SIGINT");
   }
 
-  console.log(`\n${checks - failures}/${checks} behaviour checks passed`);
+  console.log(`\n${checks - failures}/${checks} behavior checks passed`);
   if (failures) {
     console.log(`${failures} failed`);
     process.exit(1);

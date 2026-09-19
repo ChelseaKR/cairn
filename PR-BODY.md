@@ -95,7 +95,7 @@ at the point where each is set:
   `suite_defaults` at 12, `regression_findings` at 11 and `render_terminal` at
   11, and `cairn/server.py`'s `build_handler` at 26. Turning the rule on is a
   refactor. The alternative was four silent per-file ignores, which is the
-  manoeuvre the rest of this repository exists to make impossible.
+  maneuver the rest of this repository exists to make impossible.
 
 ## Not in this branch
 

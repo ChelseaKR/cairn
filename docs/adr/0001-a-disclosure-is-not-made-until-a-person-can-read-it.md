@@ -75,12 +75,12 @@ which are not words. A disclosure a reader cannot act on is decoration.
 - The parity test is a second place to edit when a disclosure is added. That is
   the intent: the edit is the moment the question "where does a person read
   this" gets asked.
-- The catalogue is the source of truth for what Cairn says, which makes the
+- The catalog is the source of truth for what Cairn says, which makes the
   `_notice` suffix load-bearing. A disclosure added under a name without it
   would not be caught. That is a convention held by review, like ADR
   numbering, and it is written in `cairn/messages.py` where the keys are.
 - Adding a message key changes the served page, because the page embeds the
-  catalogue, which changes the interface snapshot in the evidence bundle and
+  catalog, which changes the interface snapshot in the evidence bundle and
   therefore the bundle hash. This decision makes that a recurring cost.
   `tests/test_live.py` catches it every time, which is how the same
   consequence was caught when `table_count_notice` was added.

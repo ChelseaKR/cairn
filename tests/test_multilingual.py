@@ -22,7 +22,7 @@ from cairn.language import (
     endonym_of,
     isolate,
 )
-from cairn.messages import CATALOGUE, DEFAULT_LANG, text
+from cairn.messages import CATALOG, DEFAULT_LANG, text
 from cairn.text import dominant_script, normalize, tokenize
 
 DEMO = Path(__file__).resolve().parent.parent / "corpus" / "demo"
@@ -219,7 +219,7 @@ class TestCrossLanguageFallback(MultilingualHarness):
         self.assertGreater(result.attempts[0].trace.excluded, 0)
         self.assertIsNone(result.attempts[1].trace.lang)
 
-    def test_it_can_be_switched_off_in_favour_of_refusing(self):
+    def test_it_can_be_switched_off_in_favor_of_refusing(self):
         strict = Config(cross_language_fallback=False)
         result = self.ask(ENGLISH_ONLY_QUESTION, cfg=strict, lang="es")
         self.assertEqual(result.answer.kind, "refusal")
@@ -268,21 +268,21 @@ class TestLocalizedVoice(MultilingualHarness):
             self.assertEqual(source["dir"], "rtl")
 
 
-class TestMessageCatalogue(unittest.TestCase):
+class TestMessageCatalog(unittest.TestCase):
     def test_every_language_carries_every_key(self):
-        reference = set(CATALOGUE[DEFAULT_LANG])
-        for lang, catalogue in CATALOGUE.items():
+        reference = set(CATALOG[DEFAULT_LANG])
+        for lang, catalog in CATALOG.items():
             with self.subTest(lang=lang):
-                self.assertEqual(set(catalogue), reference, "no language may miss a string")
+                self.assertEqual(set(catalog), reference, "no language may miss a string")
 
     def test_no_translation_is_left_as_the_english_string(self):
-        for lang, catalogue in CATALOGUE.items():
+        for lang, catalog in CATALOG.items():
             if lang == DEFAULT_LANG:
                 continue
-            for key, value in catalogue.items():
+            for key, value in catalog.items():
                 with self.subTest(lang=lang, key=key):
                     self.assertNotEqual(
-                        value, CATALOGUE[DEFAULT_LANG][key], "untranslated string"
+                        value, CATALOG[DEFAULT_LANG][key], "untranslated string"
                     )
 
     def test_placeholders_match_across_languages(self):
@@ -291,13 +291,13 @@ class TestMessageCatalogue(unittest.TestCase):
         def fields(template):
             return {f for _, f, _, _ in string.Formatter().parse(template) if f}
 
-        for key, reference in CATALOGUE[DEFAULT_LANG].items():
-            for lang, catalogue in CATALOGUE.items():
+        for key, reference in CATALOG[DEFAULT_LANG].items():
+            for lang, catalog in CATALOG.items():
                 with self.subTest(lang=lang, key=key):
-                    self.assertEqual(fields(catalogue[key]), fields(reference))
+                    self.assertEqual(fields(catalog[key]), fields(reference))
 
     def test_arabic_strings_are_actually_arabic(self):
-        for key, value in CATALOGUE["ar"].items():
+        for key, value in CATALOG["ar"].items():
             with self.subTest(key=key):
                 self.assertEqual(dominant_script(value), "arabic", f"{key} is not Arabic")
 
@@ -320,11 +320,11 @@ class TestTheNoticeDescribesWhatIsActuallyQuoted(MultilingualHarness):
         # server's selector and the engine's explicit-language check — were
         # guarded, which is the same shape as the max_passages bug: the value
         # that skips both edges was the one nothing checked.
-        # `Config(default_lang="de")` produced a grounded answer labelled
+        # `Config(default_lang="de")` produced a grounded answer labeled
         # `lang: "de"` carrying an English cross-language notice, because the
-        # message catalogue falls back to English for a code it cannot speak.
+        # message catalog falls back to English for a code it cannot speak.
         # (French was this example too, once, before `LANGUAGES` grew a real
-        # `fr` catalogue — see `cairn/config.py`.)
+        # `fr` catalog — see `cairn/config.py`.)
         from cairn.config import ConfigError
 
         for code in ("de", "he", "xx", ""):

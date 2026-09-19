@@ -1,7 +1,7 @@
 /* Cairn chat interface.
  *
  * Two presentations, light and dark, chosen by the reader's system setting.
- * Every colour pair in both is checked against WCAG AA in the test suite, not
+ * Every color pair in both is checked against WCAG AA in the test suite, not
  * eyeballed: tests/test_ui.py computes the ratios from these very tokens.
  *
  * Every box uses logical properties (inline-start, padding-inline, text-align:

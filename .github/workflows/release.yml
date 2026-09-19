@@ -9,7 +9,7 @@
 # Nothing is built or uploaded until `verify-tag` says the tag naming this
 # release is one the maintainer signed. Until 2026-09-06 that check did not
 # exist here at all: whatever a Release event or a `workflow_dispatch`
-# pointed at got built, labelled with the repository's name, and pushed to
+# pointed at got built, labeled with the repository's name, and pushed to
 # two public registries. The signature is checked against
 # `.github/allowed_signers`, a file committed in this repository and read at
 # the ref being verified, so trusting it is the same trust decision as
@@ -114,8 +114,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      # A release tagged v0.2.0 that built and published a wheel labelled
-      # 0.3.0 would be a real, silent mislabelling — the tag names one
+      # A release tagged v0.2.0 that built and published a wheel labeled
+      # 0.3.0 would be a real, silent mislabeling — the tag names one
       # version, the artifact claims another. tests/test_cli.py already
       # holds cairn.__version__, pyproject.toml, and CITATION.cff to each
       # other; this is the fourth place that number has to agree, checked

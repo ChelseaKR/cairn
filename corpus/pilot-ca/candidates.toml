@@ -10,7 +10,7 @@
 # Sources and their terms are in collect_queries.py's docstring. In short:
 # `search-query` items are MS MARCO queries (Microsoft; non-commercial
 # research), nationwide and from 2016–2018; `stackexchange` items are
-# CC BY-SA 4.0 and carry the URL and asker the licence requires.
+# CC BY-SA 4.0 and carry the URL and asker the license requires.
 
 [[item]]
 id = "cand-001"

@@ -509,6 +509,43 @@ class TestTheEnforcedRulesetIsTheCommittedOne(unittest.TestCase):
             "comparison found",
         )
 
+    def test_the_comparison_step_can_be_given_a_credential_that_sees_bypass(self):
+        """The one field the comparison cannot do without has to be readable.
+
+        GitHub omits `bypass_actors` from a ruleset payload fetched by a caller
+        that may not administer the repository, so `github.token` produces
+        exit 4 -- "could not be judged" -- forever, which is what has made this
+        schedule red every week since 2026-08-31 (#112).
+
+        The remedy is a credential, so the step has to have somewhere to put
+        one. This holds two things at once: that the seam exists, and that it
+        defaults to `github.token` when the secret is unset -- an absent
+        credential must leave the job exactly as red as it is today, never
+        quietly judged. The issue-writing steps are deliberately NOT on the
+        seam: they need `issues: write`, which the workflow token has and a
+        read-scoped PAT does not.
+        """
+        workflow = (
+            ROOT / ".github" / "workflows" / "ruleset-check.yml"
+        ).read_text(encoding="utf-8")
+        comparison = workflow.split("Open or update the tracking issue", 1)[0]
+        self.assertIn(
+            "GH_TOKEN: ${{ secrets.RULESET_READ_TOKEN || github.token }}",
+            comparison,
+            "the comparison step must be able to take an admin-read credential",
+        )
+        self.assertIn(
+            "Administration: read",
+            comparison,
+            "the comment has to name the scope, or nobody can mint the token",
+        )
+        self.assertNotIn(
+            "Administration: write",
+            workflow,
+            "this job reports and never applies; write would let it lock the "
+            "owner out, which is the incident the bypass field guards against",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

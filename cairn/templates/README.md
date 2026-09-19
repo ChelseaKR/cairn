@@ -62,6 +62,6 @@ person, and each is here because no tool can do it for you.
 ## What this directory does not contain
 
 Your corpus, your questions, your reference answers, your contact, and the
-judgement about what score is good enough for the people you serve. Those are
+judgment about what score is good enough for the people you serve. Those are
 the parts that decide whether this deployment is honest, and none of them can
 be scaffolded.

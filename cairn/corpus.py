@@ -47,7 +47,7 @@ REQUIRED_KEYS = ("id", "title", "lang")
 # with a letter and holds letters, digits, dot, underscore, colon and hyphen.
 # Nothing enforced that, and the failure is silent in the worst direction — an
 # id like `2024-winter-credit` or an Arabic-script id produces markers no
-# consumer recognises as citations at all, so every genuinely grounded answer
+# consumer recognizes as citations at all, so every genuinely grounded answer
 # in the evidence reads as uncited and the audit reports a fabrication problem
 # that does not exist.
 #
@@ -163,11 +163,11 @@ def load_document(path: Path) -> Document:
             f"must start with a letter and hold only letters, digits, '.', '_', "
             f"':' and '-' — that is the grammar of the inline citation marker "
             f"every answer from this document will carry. An id outside it "
-            f"produces markers nothing recognises as citations, so grounded "
+            f"produces markers nothing recognizes as citations, so grounded "
             f"answers read as uncited."
         )
     title = meta["title"]
-    # Normalised here and nowhere else. Retrieval scopes a search by comparing
+    # Normalized here and nowhere else. Retrieval scopes a search by comparing
     # this string exactly (`passage.lang != lang`), while `direction_of`
     # already ignores subtags — so `lang: en-GB` was a language of its own for
     # scoping and plain English for layout, and an English question against an

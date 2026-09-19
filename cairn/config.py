@@ -154,7 +154,7 @@ class Config:
     # a language with no formula reports `n/a`, never a number computed by
     # coefficients fitted on a different language. An operator who decides
     # one is close enough for theirs says so here, and the grade is then
-    # labelled with the formula it came from.
+    # labeled with the formula it came from.
     readability_by_language: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -211,12 +211,12 @@ class Config:
         # against its own list and the engine checks an explicitly requested
         # language against the corpus, so both edges were guarded and the
         # value that skips both edges was not. `Config(default_lang="de")`
-        # produced a grounded answer labelled `lang: "de"` carrying an English
-        # cross-language notice, because `messages.catalogue_for` falls back
-        # to English for a code it has no catalogue for; with "he" it also
+        # produced a grounded answer labeled `lang: "de"` carrying an English
+        # cross-language notice, because `messages.catalog_for` falls back
+        # to English for a code it has no catalog for; with "he" it also
         # came out `dir="rtl"` with an English body. An operator serving
         # German would write exactly that line. (French was this example
-        # too, once — `LANGUAGES` has since grown a real `fr` catalogue, so
+        # too, once — `LANGUAGES` has since grown a real `fr` catalog, so
         # the bug it demonstrated stopped reproducing for that code.)
         if self.lint_max_grade is not None and self.lint_max_grade < 0.0:
             raise ConfigError(
@@ -332,7 +332,7 @@ def _contacts(refusal: dict[str, Any], defaults: dict[str, str]) -> dict[str, st
     """Per-language overrides, resolved the way every other key here resolves.
 
     A key absent from the file means "use the built-in default", and this one
-    did not honour that. Passing ``{}`` for an absent table overrode the
+    did not honor that. Passing ``{}`` for an absent table overrode the
     dataclass's own per-language defaults, so a `cairn.toml` that set only
     ``[corpus] path`` served an Arabic speaker a refusal that ended in the
     English contact line — while *no config file at all* served them the

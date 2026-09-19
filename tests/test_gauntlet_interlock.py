@@ -197,7 +197,7 @@ COMMIT_SENTINEL = SHA256_RE.search(PIN.read_text(encoding="utf-8")).group(1)
 @unittest.skipIf(
     sys.platform == "win32",
     "gauntlet-gate.sh is invoked as ./gauntlet-gate.sh, relying on the OS to "
-    "read its #!/bin/sh shebang and dispatch to sh — a POSIX exec behaviour "
+    "read its #!/bin/sh shebang and dispatch to sh — a POSIX exec behavior "
     "Windows does not have outside a shell. Same gap tests/test_interlock.py "
     "already states for plumbline-gate.sh, found here for gauntlet-gate.sh "
     "the same way: a real Windows CI run, not a guess.",

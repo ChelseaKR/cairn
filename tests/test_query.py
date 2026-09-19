@@ -264,7 +264,7 @@ class TestTheMergeHandlesEveryFieldItIsHandedOnPurpose(unittest.TestCase):
         "jurisdiction": "passed through unchanged",
         "scoped": "one part's, because every part scans the same index",
         "excluded": "one part's, for the same reason",
-        "unlabelled": "one part's, for the same reason",
+        "unlabeled": "one part's, for the same reason",
         "query_terms": "union across parts",
         "unmatched": "union across parts",
         "ignored": "union across parts",

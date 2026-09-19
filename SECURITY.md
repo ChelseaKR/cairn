@@ -15,7 +15,7 @@ Report privately through GitHub's
 on this repository's Security tab. Please do not open a public issue for a
 security problem.
 
-Expect an acknowledgement within seven days. This is unpaid work by one
+Expect an acknowledgment within seven days. This is unpaid work by one
 person, so please size your expectations accordingly, and please do not
 disclose publicly until there is a fix.
 

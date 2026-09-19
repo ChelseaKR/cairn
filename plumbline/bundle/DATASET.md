@@ -39,7 +39,7 @@ trace that says so.
 | | marked inline |
 | `sources.jsonl` | Every passage in the corpus, so a citation to something |
 | | that does not exist is detectable |
-| `interface.html` | A snapshot of the served page, with its colour pairs |
+| `interface.html` | A snapshot of the served page, with its color pairs |
 | | declared so they can be checked rather than believed |
 | `checksums.json` | SHA-256 per file, and for the bundle |
 

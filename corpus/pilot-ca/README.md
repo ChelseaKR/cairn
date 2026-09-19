@@ -14,9 +14,9 @@ corpus/pilot-ca/
                           (see Finding 0)
   layers/<layer>/*.md     the corpus, one directory per layer — reviewed
                           front-matter markdown, and tables/*.csv under it
-  candidates.toml         564 unlabelled candidate questions from public
+  candidates.toml         564 unlabeled candidate questions from public
                           sources (collect_queries.py); not evidence
-  questions.toml          the labelled question set (not yet written)
+  questions.toml          the labeled question set (not yet written)
   probes.toml             derived from questions.toml by probes_from_questions.py
   assembled/              derived, .gitignored: one corpus directory per county
 source_pages/<layer>/     derived, .gitignored: fetched HTML and manifest.json
@@ -87,7 +87,7 @@ questions until a person reads the corpus and labels them into
 
 ## Measuring
 
-Once `questions.toml` exists and is labelled:
+Once `questions.toml` exists and is labeled:
 
 ```text
 $ python3 probes_from_questions.py corpus/pilot-ca/questions.toml -o corpus/pilot-ca/probes.toml

@@ -63,8 +63,8 @@ contacted it, and until 2026-08-27 `cairn/followup.py`'s own docstring
 described a field that was never there.
 
 That sentence claimed the byte comparison from 2026-08-27 and did not have
-one. The test parsed the written line and re-serialised it with its own
-`sort_keys=True` before comparing, which normalises away key order — and key
+one. The test parsed the written line and re-serialized it with its own
+`sort_keys=True` before comparing, which normalizes away key order — and key
 order was the second half of the same day's fix, since this page had been
 publishing the keys in an order `record()` does not write. `record()` could
 have been changed to stop sorting, making the example above false, with every

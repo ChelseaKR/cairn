@@ -22,8 +22,8 @@ answers with citations, refusal as a first-class outcome, an operator
 explain mode that diagnoses a bad answer to the right stage, four languages
 including right-to-left, an accessible chat interface, and a fail-closed CI
 audit gate against a pinned external auditor — run against the committed
-evidence and, separately, against the running server. 1209 tests plus
-63 browser behaviour checks, standard library only, offline.
+evidence and, separately, against the running server. 1230 tests plus
+63 browser behavior checks, standard library only, offline.
 This is a demonstration of correct behavior, not a production service.
 
 ## One thing, before the feature list
@@ -71,7 +71,7 @@ directly:
 ```console
 $ python3 -m cairn index
 Indexed 44 passages from 11 documents (11 marked synthetic) and 1 structured table in 4 languages [ar, en, es, fr] -> .cairn/index.json
-Corpus fingerprint: 02a35a0907d9 (corpus/demo)
+Corpus fingerprint: 3542716e91f5 (corpus/demo)
 
 $ python3 -m cairn ask "How much unpaid rent does the housing relief grant cover?"
 ## How much the grant covers
@@ -158,7 +158,7 @@ ids, phone numbers — are wrapped in Unicode bidi isolates so a terminal or a
 browser does not reorder them.
 
 A fourth interface language, French (`fr`), ships too — a full `messages.py`
-catalogue and language-table entry, selectable with `--lang fr` or the web
+catalog and language-table entry, selectable with `--lang fr` or the web
 selector — with **no French corpus content bundled**. That is not an
 oversight; it is the same "translated interface outruns translated
 documents" reality the GoPass example below demonstrates for a single
@@ -206,7 +206,7 @@ in another language — is refused.
 
 That path is in the audited evidence now, as `ck-027`. It had never been:
 twenty-six recorded answers, none of them cross-language, so no audit report
-this repository has ever published said anything about the behaviour described
+this repository has ever published said anything about the behavior described
 above — which is how `Answer.cited_text` came to drop the notice for a whole
 milestone with every check green. The
 [write-up](DESIGN.md#the-cross-language-path-in-the-evidence) lists every score
@@ -341,7 +341,7 @@ applies here — so label all of a corpus or none of it. The structured-table
 count tool does not run while a jurisdiction is in force, since a CSV has no
 front matter to declare one in. And asking about a jurisdiction of a corpus
 whose documents declare none is an error rather than a no-op: ignoring it
-would answer from unlabelled pages and present the result as the layer you
+would answer from unlabeled pages and present the result as the layer you
 asked for.
 
 A corpus that does not use the field is unaffected in every respect,
@@ -377,10 +377,10 @@ policy of `default-src 'none'` so the browser enforces that rather than this
 README claiming it. It targets WCAG 2.2 AA as behavior, not as attributes: a
 skip link that lands in the question box, a transcript announced politely that
 never steals focus, a separate assertive channel that carries errors and
-nothing else, a labelled input with the Enter/Shift-Enter behavior written
+nothing else, a labeled input with the Enter/Shift-Enter behavior written
 under it, a permanent disclosure with no dismiss control, a language selector
 that mirrors the whole layout for Arabic, a visible focus ring at every stop in
-both presentations, and light and dark presentations whose every colour pair
+both presentations, and light and dark presentations whose every color pair
 passes AA. It answers
 without JavaScript, too — the form posts and the server renders.
 
@@ -420,7 +420,7 @@ light, dark, and right-to-left.
 
 ```console
 $ cd tests/browser && npm ci && npm run check
-63/63 behaviour checks passed
+63/63 behavior checks passed
 ```
 
 ## Configuration
@@ -468,10 +468,10 @@ a separate project, pinned to an exact commit in
 ```text
 $ python3 -m cairn record       # evidence, produced by the engine, not by hand
 Recorded 30 items (23 answers, 7 refusals) in 4 languages [ar, en, es, fr] -> plumbline/bundle
-Bundle sha256: e016df307ea9a77f480ffcd759bcb24a6a3ef7f825ef82f26620b34be8131055
+Bundle sha256: 53ee93193b7cf6d57f4bee9b49b06979dd4197dea79bee47447bb5df8e9f22cf
 
 $ ./plumbline-gate.sh           # the same command CI runs
-GATE: PASS — target cairn-demo, dataset e016df307ea9, run ...
+GATE: PASS — target cairn-demo, dataset 53ee93193b7c, run ...
 all 14 suites passed:
   ...
   multilingual           score 0.9667  floor 0.95  PASS  n=30  ci ...  mde ...
@@ -545,15 +545,15 @@ as nothing at all.
 An improvement nobody records is a bar nobody raised: the committed number
 stays low, and every point of the improvement can be given back later with the
 comparison calling it unchanged. So a rise stops the build exactly as a fall
-does — labelled `IMPROVEMENT` rather than `REGRESSION`, because they do not
+does — labeled `IMPROVEMENT` rather than `REGRESSION`, because they do not
 mean the same thing — and a person decides, in a commit, whether the better
 number becomes the new bar. Nothing here ratchets by itself in either
 direction, and a test pins that the guard never writes to the baseline.
 
 **A suite that was not scored, and now is.** `multilingual` checks that a
 response came back in the language it was asked in. It sat disabled because
-the harness pinned at the time recognised English and Spanish only, while a
-third of Cairn's evidence is Arabic — and it called an unrecognised language a
+the harness pinned at the time recognized English and Spanish only, while a
+third of Cairn's evidence is Arabic — and it called an unrecognized language a
 configuration error rather than scoring evidence it could not read, which is
 right. Dropping the Arabic to make the suite runnable would have hidden the
 language the interface exists to prove it supports. Cairn consumes Plumbline
@@ -579,7 +579,7 @@ and the corpus can say that, and `cairn record` refuses a question set where
 an answer item does not. The suite scores 0.9444 over 18 items and fails
 `ck-022` by name — and is more precise than the write-up was, reporting it as
 a *retrieval* failure, because the right passage never cleared the threshold
-for composition to choose it. The behaviour has not changed; it is scored now
+for composition to choose it. The behavior has not changed; it is scored now
 instead of only documented.
 
 ## Grading the server, not a recording of it
@@ -641,6 +641,26 @@ something friendlier than Cairn said. The deploy workflow uploads the file and
 refuses to publish if the first check fails; both checks also run offline in
 `core`, so a drift fails the pull request before it can reach a deploy.
 
+**The site runs Google Analytics 4** (owner decision 2026-09-17: GA4 on every
+public site). The evidence page and [`site/privacy.html`](site/privacy.html),
+which is built and checked the same way and linked from both footers, carry
+one inline loader. The measurement ID is `site_build.py`'s
+`GA4_MEASUREMENT_ID`; setting it to `""` removes the loader, the footer's
+opt-out control and every reference to Google from both pages. The loader
+loads nothing unless the page is served from `chelseakr.github.io` under
+`/cairn/`, so a local copy never reports to the property. It also loads
+nothing when the browser sends Global Privacy Control or Do Not Track, or
+after the visitor uses the footer's "Opt out of analytics" button, which is
+remembered in this browser's local storage under `cairn:analytics-opt-out`
+(a key that names this project, because every `chelseakr.github.io` site
+shares one origin). Google signals and ad personalization are off, the
+advertising consent signals are denied everywhere, and analytics cookies are
+denied in the EEA, the UK and Switzerland, where Google receives cookieless
+pings instead. [`tests/test_site_analytics.py`](tests/test_site_analytics.py)
+runs the committed loader in Node against each of those cases, and deletes
+each guard in turn to prove the test notices. The Cairn package itself
+has no telemetry: this is about the web page only.
+
 ## Citing this
 
 [`CITATION.cff`](CITATION.cff), which GitHub renders as a "Cite this
@@ -660,19 +680,19 @@ page argues against.
 | Standard | State | Evidence |
 |---|---|---|
 | Responsible-Tech Framework | Applies — the harm this project is built against is a confident wrong answer to somebody asking a public agency a question that matters to them. The design answer is refusal: no passage over the threshold means no answer, and the refusal is countable in the JSON output rather than being a phrase in a log. | [DESIGN.md](DESIGN.md) "Core stance" and "What is still open", where every open item is anchored to a test that fails if the item stops being accurate in either direction. |
-| Code Quality | Applies — both limits are enforced by the gate now, and the story of how they got there is in `pyproject.toml` at the point of configuration. `make verify` is the local gate: `uv lock --check`, ruff, **mypy in `--strict` mode**, and the suite under coverage with an 85% branch floor against 92% measured. Strict mode reported 44 findings until 2026-08-27; the findings were closed (issues #34-#37, all mechanical) rather than the level claimed, and the check was switched on, because a tree that reports zero with the check off reports one on the next pull request and nothing says so. **The complexity limit of 10 is enforced:** `C90` is in ruff's `select` and nothing is over it. It was not enforced for most of this repository's history, and the count published while it was not was eight while ruff reported twelve — the pilot tooling added four and nothing recompiled a hand-kept list. Twelve refactors closed it in one day (#38, #39, #42, #43 and seven with no issue of their own), every one an extraction rather than a collapse and none a behaviour change; `audit_guard.py`'s terminal report, the HTML extractor over all 132 pages in `source_pages/`, and 480 multi-turn session sequences were each compared byte-for-byte against the pre-refactor code. | `Makefile`, `pyproject.toml`, `tests/test_code_quality.py`, `uv.lock`, `.python-version` |
+| Code Quality | Applies — both limits are enforced by the gate now, and the story of how they got there is in `pyproject.toml` at the point of configuration. `make verify` is the local gate: `uv lock --check`, ruff, **mypy in `--strict` mode**, and the suite under coverage with an 85% branch floor against 92% measured. Strict mode reported 44 findings until 2026-08-27; the findings were closed (issues #34-#37, all mechanical) rather than the level claimed, and the check was switched on, because a tree that reports zero with the check off reports one on the next pull request and nothing says so. **The complexity limit of 10 is enforced:** `C90` is in ruff's `select` and nothing is over it. It was not enforced for most of this repository's history, and the count published while it was not was eight while ruff reported twelve — the pilot tooling added four and nothing recompiled a hand-kept list. Twelve refactors closed it in one day (#38, #39, #42, #43 and seven with no issue of their own), every one an extraction rather than a collapse and none a behavior change; `audit_guard.py`'s terminal report, the HTML extractor over all 132 pages in `source_pages/`, and 480 multi-turn session sequences were each compared byte-for-byte against the pre-refactor code. | `Makefile`, `pyproject.toml`, `tests/test_code_quality.py`, `uv.lock`, `.python-version` |
 | Security & Supply-Chain | Applies | [SECURITY.md](SECURITY.md) names the private channel and three project-specific vulnerability classes, including an ungrounded grounded answer. `.github/workflows/security.yml` runs gitleaks over the full history, Semgrep, and `pip-audit`, automatically and on a schedule, with no path that turns a skip into a green check. Every `uses:` is pinned to a commit SHA with a version comment, and `.github/dependabot.yml` raises the pins weekly with a cooldown. The runtime has no third-party dependencies at all. |
 | CI/CD | Applies. Seven jobs: `core` (install, lint, test, and a fail-closed drill proving the gate exits non-zero when the harness is unreachable, matrixed across Python versions on Linux), `image` and `package` (build the container image and the sdist/wheel `release.yml` publishes, and run each against the demo corpus, on every change rather than first at release time), `interface`, `audit`, `live`, and `gauntlet` (a second, independent adversarial-suite interlock — `ChelseaKR/gauntlet`, pinned the same way Plumbline is, grading prompt-injection, refusal and grounding cases `audit`'s own suites do not). A separate nightly workflow, `os-canary.yml`, re-runs the install/lint/test/demo/independence steps on Windows and macOS — the stdlib-only claim is a claim about the package, not about Ubuntu — on a schedule rather than on every push, because macOS costs 10x runner minutes and Windows 2x and neither belongs on per-push CI. Every workflow declares a top-level least-privilege `permissions:` block. **The `audit` job is marked required in branch protection** — the committed ruleset (`.github/rulesets/main.json`) was applied 2026-08-22 and verified two ways: a real pull request (#22) needed all nine required checks green to merge, and a throwaway pull request with one of them deliberately broken was refused a merge outright by GitHub, not just left red (`.github/rulesets/README.md` has both). `ruleset-check.yml` re-checks weekly that an active ruleset still exists on the live repository and opens a tracking issue if it is ever silently removed. **Published to both PyPI and GHCR** — `v0.2.0`'s GitHub Release triggered `release.yml` for the first time; `pip install cairn-assistant` and `docker pull ghcr.io/chelseakr/cairn` both resolve to something real. See [`docs/release.md`](docs/release.md) for how the one-time PyPI trusted-publisher setup was done, and the real bug its first run found. | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/workflows/ruleset-check.yml`, `.github/rulesets/main.json`, `Dockerfile`, `tests/test_container.py`, `tests/test_rulesets.py` (which fails if the ruleset stops naming the jobs it protects) |
 | Release & Versioning | Applies — the version in `CITATION.cff`, `pyproject.toml`, `cairn.__version__` and [CHANGELOG.md](CHANGELOG.md) is held together by a test, currently 0.3.0. Three tagged releases exist: `v0.1.0` (2026-08-16), `v0.2.0` (2026-08-22) and `v0.3.0` (2026-08-23) — tagging and pushing tags is the maintainer's own action, not an agent's, per this repository's working rule; see [`docs/release.md`](docs/release.md). `release.yml` published `v0.2.0`'s GitHub Release to both PyPI (trusted publishing, no stored token) and GHCR — the first real run of the publish half found and fixed a real bug in the workflow itself (an action pinned to a tag object's SHA rather than the commit it points to; `docs/release.md` has the story), re-run after the fix, and confirmed live on both registries rather than trusted from a green check alone. It ran again for `v0.3.0` and succeeded first time; `cairn-assistant` 0.3.0 is the current PyPI version and `v0.3.0` is a current GHCR tag alongside `v0.2.0`, both checked against the registries rather than inferred from a green run. Release tags are signed and the signature is enforced: `verify-tag` runs [`.github/verify-release-tag.sh`](.github/verify-release-tag.sh) before any publishing job, and refuses a lightweight tag, an unsigned one, or one signed by a key outside [`.github/allowed_signers`](.github/allowed_signers). **The one exemption is history, named literally:** `v0.2.0` was cut before signing was a rule and is the sole entry in the workflow's `GRANDFATHERED_TAGS`; `v0.1.0` and `v0.3.0` are signed and verify today. The list may name only literal `vX.Y.Z` tags, so it cannot be widened into a pattern that would exempt the future. | [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [`docs/release.md`](docs/release.md), `tests/test_cli.py` |
-| Observability | Applies — this is a local tool with no service to instrument, so the observable surface is the evidence rather than telemetry. `cairn record` writes what the real engine answered, `--explain` attributes a bad answer to the stage that caused it, and the audit report and committed baseline make a score change visible in a diff. Nothing phones home and there is no analytics anywhere. | `plumbline/bundle`, `plumbline/baseline.json`, `audit_guard.py`, [`site/index.html`](site/index.html) |
+| Observability | Applies — this is a local tool with no service to instrument, so the observable surface is the evidence rather than telemetry. `cairn record` writes what the real engine answered, `--explain` attributes a bad answer to the stage that caused it, and the audit report and committed baseline make a score change visible in a diff. The tool phones nothing home and has no analytics. The published evidence page is the one exception in this repository: it runs Google Analytics 4, guarded and disclosed as described in [The evidence page](#the-evidence-page). | `plumbline/bundle`, `plumbline/baseline.json`, `audit_guard.py`, [`site/index.html`](site/index.html) |
 | Performance | Applies — the served page is one small static document with no external resource of any kind, and retrieval is lexical over a local index with no model call in the path. `tests/test_performance.py`, gated in `make verify`, budgets both: page weight exactly (deterministic — no timing, so the budget is tight against the ~21KB measured baseline) and demo-corpus query latency deliberately loosely (two orders of magnitude above the ~3.3ms measured, wide enough that CI runner noise cannot trip it while a real algorithmic regression still would). `benchmark_index.py` separately measures where query latency stops being "milliseconds" at larger-than-demo corpus scale — unbudgeted and not gated, because an absolute number at scale does not survive running somewhere else (see DESIGN.md, "Measured, not only asserted"). | `tests/test_performance.py`, `benchmark_index.py`, `cairn.toml` bounding the retrieval work itself. |
-| Accessibility | Applies — WCAG 2.2 AA as behaviour rather than attributes, checked in two layers: `tests/test_ui.py` for markup, semantics, and computed contrast offline, and `tests/browser/` for what only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. **No person has driven this page with a screen reader**, that session has not happened, and no automated check here stands in for it. | `tests/test_ui.py`, `tests/browser/`, `cairn/ui/contrast.py` |
-| Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French shipped with no bundled corpus content for five days, deliberately and written down as a gap, and closed it on 2026-08-27 with one document and one audit item — which found that the served interface could not answer in French at all, because `SELECTABLE` was a hand-written tuple that never gained `fr` and `_resolve_lang` reads it to decide whether a requested language is real. Corpus coverage stays deliberately uneven: French has the grocery allowance and nothing else. See "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalogue plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
+| Accessibility | Applies — WCAG 2.2 AA as behavior rather than attributes, checked in two layers: `tests/test_ui.py` for markup, semantics, and computed contrast offline, and `tests/browser/` for what only a browser can confirm, including axe-core's WCAG 2.2 AA rule set in light, dark, and right-to-left. **No person has driven this page with a screen reader**, that session has not happened, and no automated check here stands in for it. | `tests/test_ui.py`, `tests/browser/`, `cairn/ui/contrast.py` |
+| Internationalization | Applies — four interface languages ship (`en`, `es`, `ar`, `fr`), one of them right to left, with script-aware tokenizing, bidi isolation, and a language selector that mirrors the whole layout. French shipped with no bundled corpus content for five days, deliberately and written down as a gap, and closed it on 2026-08-27 with one document and one audit item — which found that the served interface could not answer in French at all, because `SELECTABLE` was a hand-written tuple that never gained `fr` and `_resolve_lang` reads it to decide whether a requested language is real. Corpus coverage stays deliberately uneven: French has the grocery allowance and nothing else. See "Four languages" above and [`docs/I18N.md`](docs/I18N.md), which declares the scope beyond these four: a corpus document may be in any language with no code change, an interface language is a `messages.py` catalog plus three tests, and a right-to-left code beyond the interface set is one table entry — each tier's flip condition stated, not left implicit. | `cairn/language.py`, `cairn/messages.py`, `docs/I18N.md`, `tests/test_multilingual.py` |
 | AI Evaluation | N/A — there is no model. Retrieval is deterministic lexical scoring over a corpus the operator supplies, and answers are passages quoted verbatim rather than generated, so there is no prompt, no sampling, and nothing to evaluate as a model. | The runtime has zero dependencies, which makes the no-model claim mechanically checkable; `tests/test_answering.py` holds every answer to its source text. |
 | Documentation | Applies — and the pages are tested, which is the part that matters. `tests/test_docs.py` executes every command block in [docs/demo.md](docs/demo.md) and holds its output byte for byte, and executes the README's blocks under a looser rule that still forbids showing a word the command never printed. | This README, [DESIGN.md](DESIGN.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [CITATION.cff](CITATION.cff), [WORKLOG.md](WORKLOG.md), [docs/I18N.md](docs/I18N.md), [docs/authoring.md](docs/authoring.md), [docs/onboarding.md](docs/onboarding.md), [docs/deployment.md](docs/deployment.md), [docs/embedding.md](docs/embedding.md), [docs/refusal-analytics.md](docs/refusal-analytics.md), [docs/followup.md](docs/followup.md), [docs/compliance.md](docs/compliance.md), [docs/screen-reader-test-script.md](docs/screen-reader-test-script.md), [docs/release.md](docs/release.md), [docs/pilot-usagov.md](docs/pilot-usagov.md), [docs/pilot-ca.md](docs/pilot-ca.md), [docs/pilot-ca-elicitation.md](docs/pilot-ca-elicitation.md), and the ADR log at [docs/adr/](docs/adr/). |
 | Quality & Metrics | Applies — the floors are measured rather than aspirational, and a floor that differs from the auditor's own default must carry a written reason that `audit_guard.py` enforces against the pinned harness's source. The guard also catches what a floor cannot: a score that moved without breaching one, in either direction. | `plumbline/target.toml`, `audit_guard.py`, `tests/test_audit_guard.py`, and the 85% branch-coverage floor in `pyproject.toml`. |
-| AI Development Measurement | Applies — no AI-development baseline is recorded in this repository, and no activity counter is tracked or gated. The gates that exist are outcome-side: `make verify` locally, and an external auditor grading recorded behaviour at merge. | `Makefile`, `.github/workflows/ci.yml` |
-| Incident Response | Applies — private reporting with a seven-day acknowledgement expectation, and a scope section that names what is and is not a report for a tool with no deployment. No incident has been recorded, so there is no `docs/incidents/` directory yet. | [SECURITY.md](SECURITY.md), [docs/compliance.md](docs/compliance.md) |
+| AI Development Measurement | Applies — no AI-development baseline is recorded in this repository, and no activity counter is tracked or gated. The gates that exist are outcome-side: `make verify` locally, and an external auditor grading recorded behavior at merge. | `Makefile`, `.github/workflows/ci.yml` |
+| Incident Response | Applies — private reporting with a seven-day acknowledgment expectation, and a scope section that names what is and is not a report for a tool with no deployment. No incident has been recorded, so there is no `docs/incidents/` directory yet. | [SECURITY.md](SECURITY.md), [docs/compliance.md](docs/compliance.md) |
 | Data Governance | Applies — the corpus belongs to the operator and never leaves their machine: there is no upload, no telemetry, no external resource on the served page, and a `default-src 'none'` policy so the browser enforces that rather than this README claiming it. The corpus shipped here is synthetic and the README says so where it is used. Two opt-in server features hold real data past that default — `--refusal-stats` (aggregate counts only) and `--followup-store` (real contact information, by explicit consent) — and neither has a built-in retention period; [`docs/compliance.md`](docs/compliance.md) states that plainly for a records-retention review. | "The demo corpus is synthetic" above, `corpus/`, `cairn/server.py`, [docs/compliance.md](docs/compliance.md) |
 
 ## License

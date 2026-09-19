@@ -58,7 +58,7 @@ class TestCorpusLoading(unittest.TestCase):
         # Every answer from a document carries its id inside an inline
         # citation marker, and the interchange grammar for one is narrower
         # than "any string": it starts with a letter. `2024-winter-credit`
-        # emits `[2024-winter-credit.2]`, which nothing recognises as a
+        # emits `[2024-winter-credit.2]`, which nothing recognizes as a
         # citation — so grounded, correctly cited answers grade as uncited and
         # the audit reports a fabrication problem that does not exist. `#` is
         # refused for a second reason: it is the ordinal separator, so the
@@ -76,7 +76,7 @@ class TestCorpusLoading(unittest.TestCase):
         # Retrieval scopes a search by comparing this string exactly, while
         # `direction_of` has always ignored subtags — so `lang: en-GB` was
         # English for layout and a language of its own for retrieval, and an
-        # English question answered from that document came back labelled
+        # English question answered from that document came back labeled
         # cross-language: "the only source I have for this is written in
         # another language (en-GB)".
         for declared in ("en-GB", "EN", "en"):
@@ -133,7 +133,7 @@ class TestIndexing(unittest.TestCase):
         # passage is scored on raw overlap with no stopword suppression at
         # all — "the" counts as much as the program's name — and it clears a
         # threshold calibrated against weighted scores. A hand-edited or
-        # truncated index would have produced ungrounded answers labelled
+        # truncated index would have produced ungrounded answers labeled
         # grounded, silently. `build_index` cannot make one, which is why the
         # check belongs in the type that `read_index` also builds.
         from cairn.index import IndexError_

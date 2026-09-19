@@ -98,7 +98,7 @@ def split_intents(
     ignored: set[str] = set()
     query_terms: set[str] = set()
     for trace in traces:
-        # scoped/excluded/unlabelled reflect the corpus and the lang and
+        # scoped/excluded/unlabeled reflect the corpus and the lang and
         # jurisdiction restrictions alone (see retrieve()): every part scans
         # the same index under the same restrictions, so these are identical
         # across traces, not additive. Summing them inflated each roughly
@@ -136,7 +136,7 @@ def split_intents(
         jurisdiction=jurisdiction,
         scoped=traces[0].scoped,
         excluded=traces[0].excluded,
-        unlabelled=traces[0].unlabelled,
+        unlabeled=traces[0].unlabeled,
         query_terms=tuple(sorted(query_terms)),
         unmatched=tuple(sorted(unmatched)),
         ignored=tuple(sorted(ignored)),

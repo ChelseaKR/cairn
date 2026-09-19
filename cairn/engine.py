@@ -96,7 +96,8 @@ class Attempt:
             "lang": self.trace.lang,
             "jurisdiction": self.trace.jurisdiction,
             "excluded": self.trace.excluded,
-            "unlabelled": self.trace.unlabelled,
+            # Published JSON key; British spelling kept so existing consumers do not break.
+            "unlabelled": self.trace.unlabeled,
             "grounded": self.trace.grounded,
         }
 
@@ -308,8 +309,8 @@ def resolve_jurisdiction(
 
     A well-formed code against a corpus carrying no jurisdictions at all is
     also refused, and that is the less obvious half. Ignoring it would answer
-    the question from unlabelled pages and present the result as the layer
-    that was asked for — a request silently not honoured, which is this
+    the question from unlabeled pages and present the result as the layer
+    that was asked for — a request silently not honored, which is this
     project's dominant defect class wearing a config key. A *specific* layer
     with no pages of its own is a different thing entirely and is not refused:
     a county whose own material is not published yet is the ordinary case, and
@@ -500,7 +501,7 @@ def ask(
     rtl = direction_of(response_lang) == "rtl"
 
     # The count tool is skipped entirely while a jurisdiction is in force;
-    # see this module's docstring for why an unlabelled table may not answer
+    # see this module's docstring for why an unlabeled table may not answer
     # a question asked about a particular place.
     if cfg.tables_enabled and index.tables and asked_jurisdiction is None:
         table_result = _answer_from_tables(

@@ -11,7 +11,7 @@
 # wrote the suite and who know what its metric means. Cairn is entitled to
 # disagree with any of them, and does, six times. What it is not entitled to
 # do is disagree silently: a floor moved without a reason is indistinguishable
-# from a floor moved to make a red gate green, which is the one manoeuvre this
+# from a floor moved to make a red gate green, which is the one maneuver this
 # whole repository exists to make impossible.
 #
 # So: any suite whose `floor` differs from the pinned harness's own default
@@ -122,9 +122,9 @@ floor = 1.0
 # Enabled 2026-08-15, after the pinned harness gained Arabic.
 #
 # This suite checks that a response came back in the language it was asked in.
-# It sat disabled for one milestone because the harness recognised English and
+# It sat disabled for one milestone because the harness recognized English and
 # Spanish only, while a third of Cairn's evidence is Arabic, and it treats an
-# unrecognised language as a configuration error rather than scoring evidence
+# unrecognized language as a configuration error rather than scoring evidence
 # it cannot read — correctly, because scoring unreadable evidence is scoring
 # nothing and calling it a pass. Dropping the Arabic to make the suite runnable
 # would have hidden the language the interface exists to prove it supports.

@@ -439,11 +439,11 @@ def extract_text(text: str) -> list[str]:
     return [" ".join(b.split()) for b in blocks if b.strip()]
 
 
-def _normalise_heading(text: str) -> str:
+def _normalize_heading(text: str) -> str:
     """Case-folded, whitespace-collapsed, trailing punctuation dropped — the
     comparison under which a page's own H1 and its `<title>` are "the same
     line" even when one carries a trailing period or a site-name suffix is
-    *not* stripped (that is a judgement, and judgements stay with the
+    *not* stripped (that is a judgment, and judgments stay with the
     reviewer)."""
     return " ".join(text.casefold().split()).rstrip(" .:!?")
 
@@ -455,21 +455,21 @@ def drop_duplicated_title(paragraphs: list[str], title: str) -> tuple[list[str],
     own heading as the first line of body text, so the scaffold's first
     passage was the title repeated — short, generic, lexically present in
     almost any question about the page, and exactly the shape TF-IDF cosine's
-    length normalisation rewards. It out-scored the real answering passage on
+    length normalization rewards. It out-scored the real answering passage on
     a real question. The title is not lost by dropping it: the front-matter
     `title:` field is already weighted into every passage's score.
 
     The pilot recorded this as review guidance. It is mechanical — there is
-    no judgement in "this paragraph is the title" — so guidance that every
+    no judgment in "this paragraph is the title" — so guidance that every
     importer has to remember is the wrong place for it. Any block that is
-    exactly the title (normalised) is dropped, not only the first: a page
+    exactly the title (normalized) is dropped, not only the first: a page
     with no `<main>` puts its breadcrumbs first and its restated title
     third, and sonomacounty.gov answered a question with that third block.
     A block that *contains* the title inside a real sentence is content and
     stays. Returns the kept blocks and whether anything was dropped.
     """
-    wanted = _normalise_heading(title)
-    kept = [block for block in paragraphs if _normalise_heading(block) != wanted]
+    wanted = _normalize_heading(title)
+    kept = [block for block in paragraphs if _normalize_heading(block) != wanted]
     return kept, len(kept) != len(paragraphs)
 
 

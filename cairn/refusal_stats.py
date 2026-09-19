@@ -62,7 +62,7 @@ _REASON_LEGEND = {
         "not a ranking problem."
     ),
     "no-passages-in-jurisdiction": (
-        "no document is labelled with the jurisdiction this question was "
+        "no document is labeled with the jurisdiction this question was "
         "asked about — the layer is empty, which is an authoring gap in that "
         "layer rather than a gap in the corpus as a whole."
     ),

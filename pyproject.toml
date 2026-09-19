@@ -98,7 +98,7 @@ select = ["E", "F", "W", "I", "B", "UP", "C90"]
 # rather than joining a list.
 #
 # What it took: twelve refactors, every one an extraction rather than a
-# collapse, and none of them a behaviour change. `audit_guard.py`'s terminal
+# collapse, and none of them a behavior change. `audit_guard.py`'s terminal
 # report, the `_ParagraphExtractor` over all 132 pages in `source_pages/`, and
 # 480 multi-turn session sequences were each compared byte-for-byte against
 # the pre-refactor code. See docs/roadmap.md phases 3 and 4.

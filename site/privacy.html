@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cairn — privacy</title>
+<meta name="description" content="What this site collects about visitors, and how to opt out.">
+<link rel="canonical" href="https://chelseakr.github.io/cairn/privacy.html">
+<script>
+(function () {
+  var w = window, n = navigator, d = document, KEY = "cairn:analytics-opt-out", OFF = "ga-disable-G-BJR1YH7N91";
+  var store = null;
+  try { store = w.localStorage; store.getItem(KEY); } catch (e) { store = null; }
+  function optedOut() {
+    try { return !!store && store.getItem(KEY) === "1"; } catch (e) { return false; }
+  }
+  var dnt = n.doNotTrack || w.doNotTrack || n.msDoNotTrack;
+  var signal = n.globalPrivacyControl === true || dnt === "1" || dnt === "yes";
+  d.addEventListener("DOMContentLoaded", function () {
+    var box = d.querySelector("[data-analytics-choice]");
+    if (!box) return;
+    var button = box.querySelector("button"), status = box.querySelector("[role=status]");
+    function render(message) {
+      button.textContent = optedOut() ? "Opt back in" : "Opt out of analytics";
+      button.hidden = signal || !store;
+      status.textContent = message;
+      box.hidden = false;
+    }
+    button.addEventListener("click", function () {
+      try {
+        if (optedOut()) {
+          store.removeItem(KEY);
+          w[OFF] = false;
+          render("Opted back in. Analytics resumes from the next page you open.");
+        } else {
+          store.setItem(KEY, "1");
+          w[OFF] = true;
+          render("Opted out. From the next page you open, this site will not load Google Analytics in this browser.");
+        }
+      } catch (e) {
+        store = null;
+        render("This browser is blocking site storage, so an opt-out cannot be remembered here. Global Privacy Control or Do Not Track keeps analytics off.");
+      }
+    });
+    render(signal ? "Analytics is off: your browser sends Global Privacy Control or Do Not Track." : !store ? "This browser is blocking site storage, so an opt-out cannot be remembered here. Global Privacy Control or Do Not Track keeps analytics off."
+      : optedOut() ? "You have opted out: this site does not load Google Analytics in this browser." : "");
+  });
+  if (w.location.hostname !== "chelseakr.github.io") return;
+  if (w.location.pathname.indexOf("/cairn/") !== 0) return;
+  if (n.globalPrivacyControl === true) return;
+  if (dnt === "1" || dnt === "yes") return;
+  if (optedOut()) return;
+  w.dataLayer = w.dataLayer || [];
+  function gtag() { w.dataLayer.push(arguments); }
+  gtag("consent", "default", {
+    ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied",
+    analytics_storage: "denied", region: ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO", "GB", "CH"]
+  });
+  gtag("consent", "default", {
+    ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied",
+    analytics_storage: "granted"
+  });
+  gtag("js", new Date());
+  gtag("config", "G-BJR1YH7N91", {
+    allow_google_signals: false, allow_ad_personalization_signals: false
+  });
+  var s = d.createElement("script");
+  s.async = true;
+  s.src = "https://www.googletagmanager.com/gtag/js?id=G-BJR1YH7N91";
+  d.head.appendChild(s);
+})();
+</script>
+<style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --fg: #16191d;
+      --muted: #4d545c;
+      --rule: #c9ced4;
+      --panel: #f4f6f8;
+      --accent: #1f4f8f;
+      --warn: #8a3a12;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14171a;
+        --fg: #e9ecef;
+        --muted: #aeb6bf;
+        --rule: #3a4149;
+        --panel: #1d2126;
+        --accent: #8fb8ee;
+        --warn: #f0a878;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0 auto; padding: 2rem 1.25rem 4rem; max-width: 46rem;
+      background: var(--bg); color: var(--fg);
+      font: 1rem/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    h1 { font-size: 1.75rem; line-height: 1.25; margin: 0 0 .25rem; }
+    h2 { font-size: 1.2rem; margin: 2.75rem 0 .5rem; }
+    h3 {
+      font-size: .8rem; font-weight: 600; margin: 0 0 .75rem;
+      display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline;
+    }
+    a { color: var(--accent); }
+    .tagline { color: var(--muted); margin: 0 0 1.5rem; }
+    .exchange {
+      border: 1px solid var(--rule); border-radius: 8px;
+      padding: 1rem 1.15rem; margin: 1rem 0; background: var(--panel);
+    }
+    .item-id { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; }
+    .behavior, .lang-tag {
+      font-weight: 400; color: var(--muted);
+      border: 1px solid var(--rule); border-radius: 999px; padding: .05rem .5rem;
+    }
+    .label {
+      font-size: .75rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); margin: .9rem 0 .3rem;
+    }
+    blockquote.prompt {
+      margin: 0; padding: 0 0 0 .85rem; border-inline-start: 3px solid var(--accent);
+      font-size: 1.05rem;
+    }
+    pre.response {
+      margin: 0; padding: .75rem .85rem; overflow-x: auto;
+      background: var(--bg); border: 1px solid var(--rule); border-radius: 6px;
+      font: .9rem/1.55 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .sources { font-size: .85rem; color: var(--muted); margin: .75rem 0 0; }
+    .no-sources { color: var(--warn); }
+    .aside {
+      font-size: .92rem; margin: .9rem 0 0; padding-top: .8rem;
+      border-top: 1px dashed var(--rule); color: var(--muted);
+    }
+    table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+    caption { text-align: start; color: var(--muted); padding-bottom: .5rem; }
+    th, td { text-align: start; padding: .3rem .55rem; border-bottom: 1px solid var(--rule); }
+    td { font-variant-numeric: tabular-nums; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .9em; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+             font-size: .87rem; color: var(--muted); }
+    li { margin: .4rem 0; }
+    /* The footer's analytics opt-out changes a setting rather than going
+       anywhere, so it is a button, drawn like the links around it. */
+    .link-button {
+      font: inherit; color: var(--accent); background: none; border: 0; padding: 0;
+      text-decoration: underline; cursor: pointer;
+    }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy</h1>
+  <p>This site, the evidence page and this page, counts visits with Google
+  Analytics 4, a service of Google LLC in the United States. Nothing else on it
+  tracks you.</p>
+  <p>This page is about this website only. The Cairn software itself has no telemetry: it reports nothing about its use to anyone, and it answers from a local corpus with no network at answer time.</p>
+
+  <h2>What Google Analytics records</h2>
+  <p>For each page you open: the page address and the page you came from, the
+  time, your browser, device and screen size, your language, and a rough
+  location that Google works out from your IP address. Google Analytics 4 does
+  not store the IP address itself. By default it also records scrolling and
+  clicks on links that leave this site.</p>
+
+  <h2>Cookies</h2>
+  <p>Outside the places listed below, Google Analytics sets two cookies on
+  chelseakr.github.io, named <code>_ga</code> and <code>_ga_</code> followed by
+  an ID. They let it tell a returning browser from a new one, and last up to two
+  years. In the European Economic Area, the United Kingdom and Switzerland it
+  sets no analytics cookies. There, Google still receives a cookieless ping for
+  each page.</p>
+
+  <h2>Advertising features are off</h2>
+  <p>Google signals and ad personalization are both turned off, and the
+  advertising storage, ad user data and ad personalization consent signals are
+  denied everywhere. Google keeps the event data for
+  14 months. See
+  <a href="https://policies.google.com/privacy">Google's privacy policy</a>.</p>
+
+  <h2 id="opt-out">Opting out</h2>
+  <ul>
+    <li><strong>On this device:</strong> use &ldquo;Opt out of analytics&rdquo;
+    at the bottom of any page. It stores <code>cairn:analytics-opt-out</code> in
+    this browser's local storage and sends it nowhere. From then on this site
+    does not load Google Analytics in this browser. The same button then reads
+    &ldquo;Opt back in&rdquo;, which removes the setting.</li>
+    <li><strong>In any browser:</strong> turn on Global Privacy Control or Do Not
+    Track. This site then never loads Google Analytics at all.</li>
+    <li>Or install
+    <a href="https://tools.google.com/dlpage/gaoptout">Google's Analytics opt-out
+    browser add-on</a>.</li>
+  </ul>
+  <h2>Hosting</h2>
+  <p>GitHub Pages serves this site. Like any web host, GitHub receives each request, including your IP address; see the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub General Privacy Statement</a>.</p>
+  <p><a href="./">Back to the evidence page</a>.</p>
+</main>
+<footer>
+  <p class="privacy-note">This site counts visits with Google Analytics 4, advertising features off, and does not load it when your browser sends Global Privacy Control or Do Not Track. <a href="privacy.html">Privacy</a>.
+  <span data-analytics-choice hidden><button type="button" class="link-button">Opt out of analytics</button> <span role="status"></span></span></p>
+</footer>
+</body>
+</html>

@@ -251,7 +251,7 @@ class TestAJurisdictionOverrideIsResolvedPerRung(unittest.TestCase):
         self.assertEqual(keys["us"], "retrieval.threshold")
 
     def test_a_layer_ceiling_pushes_the_answer_outward(self):
-        """The behavioural consequence: a layer whose threshold nothing can
+        """The behavioral consequence: a layer whose threshold nothing can
         clear is a layer the ladder walks past, under the ordinary notice."""
         plain = ask(HOURS, self.index, Config(), jurisdiction=SONOMA)
         self.assertEqual(plain.source_jurisdictions, (SONOMA,))

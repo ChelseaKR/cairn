@@ -134,8 +134,8 @@ def _jurisdictions(
     byte. Present is all-or-nothing: every layer this pilot can assemble must
     have a code.
 
-    Partial labelling is refused rather than allowed through, and this is the
-    decision worth stating. An unlabelled document is out of scope for every
+    Partial labeling is refused rather than allowed through, and this is the
+    decision worth stating. An unlabeled document is out of scope for every
     layer (`cairn.retrieve`), so a `[jurisdictions]` table that named the
     county layers and forgot the federal one would assemble a corpus in which
     the federal pages are unreachable from any question asked about a county
@@ -152,8 +152,8 @@ def _jurisdictions(
     if missing:
         raise AssembleError(
             f"{path}: [jurisdictions] names no code for {', '.join(missing)}. "
-            f"An unlabelled layer is out of scope for every jurisdiction, so a "
-            f"partly labelled pilot assembles a corpus whose unlabelled pages no "
+            f"An unlabeled layer is out of scope for every jurisdiction, so a "
+            f"partly labeled pilot assembles a corpus whose unlabeled pages no "
             f"question asked about a jurisdiction can reach."
         )
     unknown = [layer for layer in table if layer not in layers]
@@ -304,7 +304,7 @@ def _copy_document(source: Path, destination: Path, code: str | None) -> None:
     """Copy one document, stamping `jurisdiction:` into its front matter.
 
     Copied byte for byte when the pilot declares no code for this layer, so
-    an unlabelled pilot's assembled corpus is unchanged.
+    an unlabeled pilot's assembled corpus is unchanged.
 
     A document that already declares its own jurisdiction keeps it, and is
     not overwritten by the layer's. The front matter is the author's

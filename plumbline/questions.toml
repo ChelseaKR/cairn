@@ -355,7 +355,7 @@ translation = { of = "ck-025", review = "unreviewed" }
 # cross-language fallback exactly zero times, so `notice` was null in every
 # response in the bundle and no audit report had ever seen the shape of a
 # cross-language answer. That is a hole in the evidence in the same way a
-# disabled suite is a hole in the coverage: the behaviour the README spends
+# disabled suite is a hole in the coverage: the behavior the README spends
 # three paragraphs on was documented, tested in `tests/test_multilingual.py`,
 # and never once audited. `Answer.cited_text` dropping the notice was a live
 # defect for a full milestone and no run of the gate could have found it.
@@ -371,7 +371,7 @@ translation = { of = "ck-025", review = "unreviewed" }
 # expected answer is not in the item's own language. Cairn does not translate
 # a source: a translated policy statement is an unsourced policy statement.
 # So the correct answer to this Arabic question contains English words, and
-# writing an Arabic reference here would score the correct behaviour as a
+# writing an Arabic reference here would score the correct behavior as a
 # failure.
 #
 # This item is authored directly in Arabic rather than translated from an
@@ -407,7 +407,7 @@ answering_sources = ["transit-pass-en.1"]
 # took groundedness and citation_accuracy below their floors, which is the
 # gate biting precisely as designed ("room for exactly one"). The item was
 # removed rather than the floors lowered; weakening two safety floors to
-# admit one item is the manoeuvre this repository exists to refuse.
+# admit one item is the maneuver this repository exists to refuse.
 #
 # Where the tool path is covered instead:
 #   - tests/test_tabular.py pins loader, parser, zero-match refusal, and the
@@ -449,7 +449,7 @@ fact_id = "fact-utility-credit"
 # The French item, and why it is exactly one, and exactly this one.
 #
 # `fr` was an interface language with no corpus behind it: full `LANGUAGES`
-# entry, full message catalogue, every interface test passing, and nothing in
+# entry, full message catalog, every interface test passing, and nothing in
 # the recorded bundle for `multilingual` to score. docs/I18N.md named that as
 # the one flip condition French had not met, and said so rather than leaving
 # it implicit.
